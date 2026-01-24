@@ -235,20 +235,26 @@ Examples:
             config=config,
         )
 
-        # Handle compact output
+        # Handle compact output - transform the full output to compact format
         if args.compact:
-            # Re-run with compact output
-            source = args.source.read_text(encoding="utf-8", errors="replace")
-            source = normalize_source(source)
-            parser_obj = CobolParser(use_generated=False)
-            parse_tree = parser_obj.parse(source)
-            builder = ASTBuilder()
-            program = builder.build(parse_tree)
-            analyzer = ImpactAnalyzer(program)
-            analyzer.analyze()
-            output = {"sections_and_paragraphs": analyzer.generate_compact_output()}
-            if "program_name" in output:
-                output["program_name"] = program.name
+            # Convert full output to compact by deduplicating variables per section
+            compact_sections = {}
+            for name, modifications in output.get("sections_and_paragraphs", {}).items():
+                var_to_records = {}
+                for mod in modifications:
+                    var = mod.get("variable", "")
+                    records = mod.get("affected_records", [])
+                    if var not in var_to_records:
+                        var_to_records[var] = set()
+                    var_to_records[var].update(records)
+                compact_sections[name] = [
+                    {"variable": var, "affected_records": sorted(list(recs))}
+                    for var, recs in var_to_records.items()
+                ]
+            output = {
+                "program_name": output.get("program_name", "UNKNOWN"),
+                "sections_and_paragraphs": compact_sections,
+            }
 
         # Handle summary only
         if args.summary_only:

@@ -1,174 +1,632 @@
 {
+  "analysis_date": "2026-01-24T12:37:43.368904",
+  "program_name": "TRANPROC",
   "sections_and_paragraphs": {
     "1000-INIT": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "RPT-PAGE-NUM"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "MOVE"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "RPT-LINE-NUM"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "RPT-RECORD-COUNT"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "RPT-ERROR-COUNT"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "OPEN"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "INPUT"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "TRANSACTION-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "I-O"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "OUTPUT"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "REPORT-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "PERFORM"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
         "variable": "WS-TOTALS"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
         "variable": "INITIALIZE"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
         "variable": "WS-COUNTS"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "INITIALIZE"
       },
       {
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
         "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "RPT-PAGE-NUM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "RPT-LINE-NUM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "RPT-RECORD-COUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "RPT-ERROR-COUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "INPUT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TRANSACTION-FILE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "I-O"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "OUTPUT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "REPORT-FILE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "PERFORM"
       }
     ],
     "1000-INITIALIZATION": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "RPT-PAGE-NUM"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "MOVE"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "RPT-LINE-NUM"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "RPT-RECORD-COUNT"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "RPT-ERROR-COUNT"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "OPEN"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "INPUT"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "TRANSACTION-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "I-O"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "OUTPUT"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "REPORT-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 5,
+        "modification_type": "MOVE",
         "variable": "PERFORM"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
         "variable": "WS-TOTALS"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
         "variable": "INITIALIZE"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
         "variable": "WS-COUNTS"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "INITIALIZE"
       },
       {
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
         "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "RPT-PAGE-NUM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "RPT-LINE-NUM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "RPT-RECORD-COUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "RPT-ERROR-COUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "INPUT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "TRANSACTION-FILE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "I-O"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "OUTPUT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "REPORT-FILE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "INITIALIZE",
+        "variable": "PERFORM"
       },
       {
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "READ",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 3,
+        "modification_type": "SET",
         "variable": "WS-EOF"
       }
     ],
@@ -177,56 +635,84 @@
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "READ",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 3,
+        "modification_type": "SET",
         "variable": "WS-EOF"
       }
     ],
     "2000-PROCESS": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "RPT-RECORD-COUNT"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 13,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 14,
+        "modification_type": "ADD",
         "variable": "RPT-ERROR-COUNT"
       }
     ],
     "2000-PROCESS-TRANSACTIONS": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "RPT-RECORD-COUNT"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 13,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 14,
+        "modification_type": "ADD",
         "variable": "RPT-ERROR-COUNT"
       },
       {
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "READ",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 3,
+        "modification_type": "SET",
         "variable": "WS-EOF"
       }
     ],
@@ -235,185 +721,451 @@
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "READ",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 3,
+        "modification_type": "SET",
         "variable": "WS-EOF"
       }
     ],
     "3000-PAYMENT": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUST-ID"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "READ"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "INTO"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "WS-PAYMENT-COUNT"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 12,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 5,
+        "modification_type": "READ",
+        "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 7,
+        "modification_type": "SET",
         "variable": "CUSTOMER-FOUND"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 11,
+        "modification_type": "SET",
         "variable": "CUSTOMER-NOT-FOUND"
       }
     ],
     "3000-PROCESS-PAYMENT": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUST-ID"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "READ"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "INTO"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "WS-PAYMENT-COUNT"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 12,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 5,
+        "modification_type": "READ",
+        "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 7,
+        "modification_type": "SET",
         "variable": "CUSTOMER-FOUND"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 11,
+        "modification_type": "SET",
         "variable": "CUSTOMER-NOT-FOUND"
       },
       {
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-FIELDS"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "MOVE"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "PAY-REFERENCE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
       },
       {
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "CUST-BALANCE"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "TRAN-AMOUNT"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "CUST-LAST-PAYMENT"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "TRAN-DATE"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "CUST-PAYMENT-DATE"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "TRAN-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "TO"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "WS-TOTAL-PAYMENTS"
       },
       {
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 6,
+        "modification_type": "COMPUTE",
         "variable": "WS-NEW-BALANCE"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "line_number": 14,
+        "modification_type": "ADD",
+        "variable": "WS-TOTAL-PAYMENTS"
       }
     ],
     "3100-APPLY-PAYMENT": [
@@ -421,232 +1173,645 @@
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-FIELDS"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "MOVE"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "PAY-REFERENCE"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "CUST-BALANCE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "TRAN-AMOUNT"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "CUST-LAST-PAYMENT"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "TRAN-DATE"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "CUST-PAYMENT-DATE"
       },
       {
         "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "TRAN-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "TO"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 9,
+        "modification_type": "MOVE",
         "variable": "WS-TOTAL-PAYMENTS"
       },
       {
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 6,
+        "modification_type": "COMPUTE",
         "variable": "WS-NEW-BALANCE"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "line_number": 14,
+        "modification_type": "ADD",
+        "variable": "WS-TOTAL-PAYMENTS"
       }
     ],
     "4000-PROCESS-PURCHASE": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUST-ID"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "READ"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "INTO"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "WS-PURCHASE-COUNT"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 12,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 5,
+        "modification_type": "READ",
+        "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 7,
+        "modification_type": "SET",
         "variable": "CUSTOMER-FOUND"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 11,
+        "modification_type": "SET",
         "variable": "CUSTOMER-NOT-FOUND"
       },
       {
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-CALC-TOTAL"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "ADD"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "PUR-TAX-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
       },
       {
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "PUR-SHIP-COST"
       },
       {
         "affected_records": [],
-        "variable": "SUBTRACT"
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "SUBTRACT"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "PUR-DISCOUNT"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-TOTAL-PURCHASES"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 4,
+        "modification_type": "ADD",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 6,
+        "modification_type": "ADD",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "line_number": 10,
+        "modification_type": "ADD",
+        "variable": "WS-TOTAL-PURCHASES"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 8,
+        "modification_type": "SUBTRACT",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "CUST-BALANCE"
       }
     ],
     "4000-PURCHASE": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUST-ID"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "READ"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "INTO"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "WS-PURCHASE-COUNT"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 12,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 5,
+        "modification_type": "READ",
+        "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 7,
+        "modification_type": "SET",
         "variable": "CUSTOMER-FOUND"
       },
       {
         "affected_records": [
           "WS-FLAGS"
         ],
+        "line_number": 11,
+        "modification_type": "SET",
         "variable": "CUSTOMER-NOT-FOUND"
       }
     ],
@@ -655,385 +1820,946 @@
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-CALC-TOTAL"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "ADD"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "PUR-TAX-AMOUNT"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "PUR-SHIP-COST"
       },
       {
         "affected_records": [],
-        "variable": "SUBTRACT"
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "SUBTRACT"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "PUR-DISCOUNT"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-TOTAL-PURCHASES"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 4,
+        "modification_type": "ADD",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 6,
+        "modification_type": "ADD",
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "line_number": 10,
+        "modification_type": "ADD",
+        "variable": "WS-TOTAL-PURCHASES"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "line_number": 8,
+        "modification_type": "SUBTRACT",
+        "variable": "WS-CALC-TOTAL"
       }
     ],
     "4200-UPDATE-BALANCE": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "CUST-BALANCE"
       }
     ],
     "5000-PROCESS-REFUND": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUST-ID"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "READ"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "INTO"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "WS-REFUND-COUNT"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 9,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 5,
+        "modification_type": "READ",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "RPT-RECORD-COUNT"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "MOVE"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "REF-REASON-CODE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
       },
       {
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-FIELDS"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "SUBTRACT"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "TRAN-AMOUNT"
       },
       {
         "affected_records": [],
-        "variable": "FROM"
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "CUST-BALANCE"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TRAN-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-TOTAL-REFUNDS"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "REWRITE"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "line_number": 8,
+        "modification_type": "ADD",
+        "variable": "WS-TOTAL-REFUNDS"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 6,
+        "modification_type": "SUBTRACT",
+        "variable": "CUST-BALANCE"
       }
     ],
     "5000-REFUND": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUST-ID"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "READ"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "INTO"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "WS-REFUND-COUNT"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 9,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 5,
+        "modification_type": "READ",
+        "variable": "WS-WORK-CUSTOMER"
       }
     ],
     "5100-APPLY-REFUND": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "RPT-RECORD-COUNT"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "MOVE"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "REF-REASON-CODE"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
         "affected_records": [
           "WS-WORK-TRANSACTION"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
         "affected_records": [
           "WS-WORK-FIELDS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-FIELDS"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "SUBTRACT"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "TRAN-AMOUNT"
       },
       {
         "affected_records": [],
-        "variable": "FROM"
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "CUST-BALANCE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "ADD"
       },
       {
         "affected_records": [
+          "PAYMENT-DETAIL",
+          "PURCHASE-DETAIL",
+          "REFUND-DETAIL",
+          "TRANSACTION-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TRAN-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "WS-TOTAL-REFUNDS"
       },
       {
         "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "REWRITE"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "line_number": 8,
+        "modification_type": "ADD",
+        "variable": "WS-TOTAL-REFUNDS"
+      },
+      {
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 6,
+        "modification_type": "SUBTRACT",
+        "variable": "CUST-BALANCE"
       }
     ],
     "6000-ADJUSTMENT": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUST-ID"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "READ"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "INTO"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "WS-ADJUSTMENT-COUNT"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 7,
+        "modification_type": "ADD",
         "variable": "CUST-BALANCE"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 9,
+        "modification_type": "ADD",
         "variable": "WS-TOTAL-ADJUSTMENTS"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 13,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 5,
+        "modification_type": "READ",
+        "variable": "WS-WORK-CUSTOMER"
       }
     ],
     "6000-PROCESS-ADJUSTMENT": [
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUST-ID"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "OF"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-RECORD"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "READ"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "CUSTOMER-FILE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "INTO"
       },
       {
         "affected_records": [
           "WS-WORK-CUSTOMER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-WORK-CUSTOMER"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "WS-ADJUSTMENT-COUNT"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "CUSTOMER-RECORD"
+        ],
+        "line_number": 7,
+        "modification_type": "ADD",
         "variable": "CUST-BALANCE"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 9,
+        "modification_type": "ADD",
         "variable": "WS-TOTAL-ADJUSTMENTS"
       },
       {
         "affected_records": [
           "WS-COUNTS"
         ],
+        "line_number": 13,
+        "modification_type": "ADD",
         "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "line_number": 5,
+        "modification_type": "READ",
+        "variable": "WS-WORK-CUSTOMER"
       }
     ],
     "8000-PRINT-TOTALS": [
@@ -1041,49 +2767,113 @@
         "affected_records": [
           "WS-REPORT-HEADER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-RPT-PAGE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WRITE"
       },
       {
         "affected_records": [
           "REPORT-LINE"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "REPORT-LINE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "FROM"
       },
       {
         "affected_records": [
           "WS-REPORT-HEADER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-REPORT-HEADER"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "MOVE"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-TOTAL-PAYMENTS"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-AMOUNT-FIELDS"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "RPT-AMT-NUMERIC"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-AMOUNT-FIELDS"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "RPT-AMT-NUMERIC"
+      },
+      {
+        "affected_records": [
+          "REPORT-AMOUNT-FIELDS"
+        ],
+        "line_number": 13,
+        "modification_type": "MOVE",
+        "variable": "RPT-AMT-NUMERIC"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "RPT-PAGE-NUM"
+      },
+      {
+        "affected_records": [
+          "REPORT-LINE"
+        ],
+        "line_number": 6,
+        "modification_type": "STRING",
+        "variable": "REPORT-LINE"
+      },
+      {
+        "affected_records": [
+          "REPORT-LINE"
+        ],
+        "line_number": 10,
+        "modification_type": "STRING",
+        "variable": "REPORT-LINE"
+      },
+      {
+        "affected_records": [
+          "REPORT-LINE"
+        ],
+        "line_number": 14,
+        "modification_type": "STRING",
+        "variable": "REPORT-LINE"
       }
     ],
     "8000-TOTALS": [
@@ -1091,50 +2881,126 @@
         "affected_records": [
           "WS-REPORT-HEADER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-RPT-PAGE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WRITE"
       },
       {
         "affected_records": [
           "REPORT-LINE"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "REPORT-LINE"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "FROM"
       },
       {
         "affected_records": [
           "WS-REPORT-HEADER"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-REPORT-HEADER"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "MOVE"
       },
       {
         "affected_records": [
           "WS-TOTALS"
         ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "WS-TOTAL-PAYMENTS"
       },
       {
         "affected_records": [],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "TO"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-AMOUNT-FIELDS"
+        ],
+        "line_number": 3,
+        "modification_type": "MOVE",
         "variable": "RPT-AMT-NUMERIC"
       },
       {
-        "affected_records": [],
+        "affected_records": [
+          "REPORT-AMOUNT-FIELDS"
+        ],
+        "line_number": 9,
+        "modification_type": "MOVE",
+        "variable": "RPT-AMT-NUMERIC"
+      },
+      {
+        "affected_records": [
+          "REPORT-AMOUNT-FIELDS"
+        ],
+        "line_number": 13,
+        "modification_type": "MOVE",
+        "variable": "RPT-AMT-NUMERIC"
+      },
+      {
+        "affected_records": [
+          "REPORT-COUNTERS"
+        ],
+        "line_number": 2,
+        "modification_type": "ADD",
         "variable": "RPT-PAGE-NUM"
+      },
+      {
+        "affected_records": [
+          "REPORT-LINE"
+        ],
+        "line_number": 6,
+        "modification_type": "STRING",
+        "variable": "REPORT-LINE"
+      },
+      {
+        "affected_records": [
+          "REPORT-LINE"
+        ],
+        "line_number": 10,
+        "modification_type": "STRING",
+        "variable": "REPORT-LINE"
+      },
+      {
+        "affected_records": [
+          "REPORT-LINE"
+        ],
+        "line_number": 14,
+        "modification_type": "STRING",
+        "variable": "REPORT-LINE"
       }
     ]
+  },
+  "summary": {
+    "records_with_redefines": [
+      "PURCHASE-DETAIL",
+      "REFUND-DETAIL",
+      "PAYMENT-DETAIL",
+      "TRANSACTION-RECORD"
+    ],
+    "total_modifications": 204,
+    "total_paragraphs": 22,
+    "total_sections": 9,
+    "unique_modified_variables": 58
   }
 }
