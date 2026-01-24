@@ -1,0 +1,1140 @@
+{
+  "sections_and_paragraphs": {
+    "1000-INIT": [
+      {
+        "affected_records": [],
+        "variable": "RPT-PAGE-NUM"
+      },
+      {
+        "affected_records": [],
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-LINE-NUM"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-RECORD-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-ERROR-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "variable": "INPUT"
+      },
+      {
+        "affected_records": [],
+        "variable": "TRANSACTION-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "I-O"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "OUTPUT"
+      },
+      {
+        "affected_records": [],
+        "variable": "REPORT-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTALS"
+      },
+      {
+        "affected_records": [],
+        "variable": "INITIALIZE"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-COUNTS"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-WORK-FIELDS"
+      }
+    ],
+    "1000-INITIALIZATION": [
+      {
+        "affected_records": [],
+        "variable": "RPT-PAGE-NUM"
+      },
+      {
+        "affected_records": [],
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-LINE-NUM"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-RECORD-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-ERROR-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "OPEN"
+      },
+      {
+        "affected_records": [],
+        "variable": "INPUT"
+      },
+      {
+        "affected_records": [],
+        "variable": "TRANSACTION-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "I-O"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "OUTPUT"
+      },
+      {
+        "affected_records": [],
+        "variable": "REPORT-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTALS"
+      },
+      {
+        "affected_records": [],
+        "variable": "INITIALIZE"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-COUNTS"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "WS-EOF"
+      }
+    ],
+    "1100-READ-FIRST-TRAN": [
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "WS-EOF"
+      }
+    ],
+    "2000-PROCESS": [
+      {
+        "affected_records": [],
+        "variable": "RPT-RECORD-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-ERROR-COUNT"
+      }
+    ],
+    "2000-PROCESS-TRANSACTIONS": [
+      {
+        "affected_records": [],
+        "variable": "RPT-RECORD-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "WS-EOF"
+      }
+    ],
+    "2100-READ-NEXT-TRAN": [
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "WS-EOF"
+      }
+    ],
+    "3000-PAYMENT": [
+      {
+        "affected_records": [],
+        "variable": "CUST-ID"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "variable": "READ"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "INTO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-PAYMENT-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "CUSTOMER-FOUND"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "CUSTOMER-NOT-FOUND"
+      }
+    ],
+    "3000-PROCESS-PAYMENT": [
+      {
+        "affected_records": [],
+        "variable": "CUST-ID"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "variable": "READ"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "INTO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-PAYMENT-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "CUSTOMER-FOUND"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "CUSTOMER-NOT-FOUND"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [],
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "variable": "PAY-REFERENCE"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-BALANCE"
+      },
+      {
+        "affected_records": [],
+        "variable": "TRAN-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-LAST-PAYMENT"
+      },
+      {
+        "affected_records": [],
+        "variable": "TRAN-DATE"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-PAYMENT-DATE"
+      },
+      {
+        "affected_records": [],
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-PAYMENTS"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-NEW-BALANCE"
+      }
+    ],
+    "3100-APPLY-PAYMENT": [
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [],
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "variable": "PAY-REFERENCE"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-BALANCE"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [],
+        "variable": "TRAN-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-LAST-PAYMENT"
+      },
+      {
+        "affected_records": [],
+        "variable": "TRAN-DATE"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-PAYMENT-DATE"
+      },
+      {
+        "affected_records": [],
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-PAYMENTS"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-NEW-BALANCE"
+      }
+    ],
+    "4000-PROCESS-PURCHASE": [
+      {
+        "affected_records": [],
+        "variable": "CUST-ID"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "variable": "READ"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "INTO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-PURCHASE-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "CUSTOMER-FOUND"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "CUSTOMER-NOT-FOUND"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [],
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [],
+        "variable": "PUR-TAX-AMOUNT"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [],
+        "variable": "PUR-SHIP-COST"
+      },
+      {
+        "affected_records": [],
+        "variable": "SUBTRACT"
+      },
+      {
+        "affected_records": [],
+        "variable": "PUR-DISCOUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-PURCHASES"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-BALANCE"
+      }
+    ],
+    "4000-PURCHASE": [
+      {
+        "affected_records": [],
+        "variable": "CUST-ID"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "variable": "READ"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "INTO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-PURCHASE-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "CUSTOMER-FOUND"
+      },
+      {
+        "affected_records": [
+          "WS-FLAGS"
+        ],
+        "variable": "CUSTOMER-NOT-FOUND"
+      }
+    ],
+    "4100-CALCULATE-PURCHASE": [
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-CALC-TOTAL"
+      },
+      {
+        "affected_records": [],
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [],
+        "variable": "PUR-TAX-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [],
+        "variable": "PUR-SHIP-COST"
+      },
+      {
+        "affected_records": [],
+        "variable": "SUBTRACT"
+      },
+      {
+        "affected_records": [],
+        "variable": "PUR-DISCOUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-PURCHASES"
+      }
+    ],
+    "4200-UPDATE-BALANCE": [
+      {
+        "affected_records": [],
+        "variable": "CUST-BALANCE"
+      }
+    ],
+    "5000-PROCESS-REFUND": [
+      {
+        "affected_records": [],
+        "variable": "CUST-ID"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "variable": "READ"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "INTO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-REFUND-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-RECORD-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "variable": "REF-REASON-CODE"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [],
+        "variable": "SUBTRACT"
+      },
+      {
+        "affected_records": [],
+        "variable": "TRAN-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-BALANCE"
+      },
+      {
+        "affected_records": [],
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-REFUNDS"
+      },
+      {
+        "affected_records": [],
+        "variable": "REWRITE"
+      }
+    ],
+    "5000-REFUND": [
+      {
+        "affected_records": [],
+        "variable": "CUST-ID"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "variable": "READ"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "INTO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-REFUND-COUNT"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      }
+    ],
+    "5100-APPLY-REFUND": [
+      {
+        "affected_records": [],
+        "variable": "RPT-RECORD-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "variable": "REF-REASON-CODE"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-TRANSACTION"
+        ],
+        "variable": "WS-WORK-TRANSACTION"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-FIELDS"
+        ],
+        "variable": "WS-WORK-FIELDS"
+      },
+      {
+        "affected_records": [],
+        "variable": "SUBTRACT"
+      },
+      {
+        "affected_records": [],
+        "variable": "TRAN-AMOUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-BALANCE"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [],
+        "variable": "ADD"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-REFUNDS"
+      },
+      {
+        "affected_records": [],
+        "variable": "REWRITE"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      }
+    ],
+    "6000-ADJUSTMENT": [
+      {
+        "affected_records": [],
+        "variable": "CUST-ID"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "variable": "READ"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "INTO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ADJUSTMENT-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-BALANCE"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-ADJUSTMENTS"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      }
+    ],
+    "6000-PROCESS-ADJUSTMENT": [
+      {
+        "affected_records": [],
+        "variable": "CUST-ID"
+      },
+      {
+        "affected_records": [],
+        "variable": "OF"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-RECORD"
+      },
+      {
+        "affected_records": [],
+        "variable": "READ"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUSTOMER-FILE"
+      },
+      {
+        "affected_records": [],
+        "variable": "INTO"
+      },
+      {
+        "affected_records": [
+          "WS-WORK-CUSTOMER"
+        ],
+        "variable": "WS-WORK-CUSTOMER"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ADJUSTMENT-COUNT"
+      },
+      {
+        "affected_records": [],
+        "variable": "CUST-BALANCE"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-ADJUSTMENTS"
+      },
+      {
+        "affected_records": [
+          "WS-COUNTS"
+        ],
+        "variable": "WS-ERROR-COUNT"
+      }
+    ],
+    "8000-PRINT-TOTALS": [
+      {
+        "affected_records": [
+          "WS-REPORT-HEADER"
+        ],
+        "variable": "WS-RPT-PAGE"
+      },
+      {
+        "affected_records": [],
+        "variable": "WRITE"
+      },
+      {
+        "affected_records": [
+          "REPORT-LINE"
+        ],
+        "variable": "REPORT-LINE"
+      },
+      {
+        "affected_records": [],
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "WS-REPORT-HEADER"
+        ],
+        "variable": "WS-REPORT-HEADER"
+      },
+      {
+        "affected_records": [],
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-PAYMENTS"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-AMT-NUMERIC"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-PAGE-NUM"
+      }
+    ],
+    "8000-TOTALS": [
+      {
+        "affected_records": [
+          "WS-REPORT-HEADER"
+        ],
+        "variable": "WS-RPT-PAGE"
+      },
+      {
+        "affected_records": [],
+        "variable": "WRITE"
+      },
+      {
+        "affected_records": [
+          "REPORT-LINE"
+        ],
+        "variable": "REPORT-LINE"
+      },
+      {
+        "affected_records": [],
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [
+          "WS-REPORT-HEADER"
+        ],
+        "variable": "WS-REPORT-HEADER"
+      },
+      {
+        "affected_records": [],
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-TOTALS"
+        ],
+        "variable": "WS-TOTAL-PAYMENTS"
+      },
+      {
+        "affected_records": [],
+        "variable": "TO"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-AMT-NUMERIC"
+      },
+      {
+        "affected_records": [],
+        "variable": "RPT-PAGE-NUM"
+      }
+    ]
+  }
+}

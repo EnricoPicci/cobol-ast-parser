@@ -1,0 +1,732 @@
+{
+  "analysis_date": "2026-01-24T12:25:27.576933",
+  "program_name": "DATEUTIL",
+  "sections_and_paragraphs": {
+    "1000-TEST": [
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-YYYYMMDD"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      }
+    ],
+    "1000-TEST-CONVERSIONS": [
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-YYYYMMDD"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      }
+    ],
+    "2000-CONVERT-TO-US-FORMAT": [
+      {
+        "affected_records": [
+          "WS-DATE-MMDDYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-US-MONTH"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-MMDDYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-US-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-YEAR"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-MMDDYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-US-YEAR"
+      }
+    ],
+    "2000-TO-US": [
+      {
+        "affected_records": [
+          "WS-DATE-MMDDYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-US-MONTH"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-MMDDYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-US-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-YEAR"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-MMDDYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-US-YEAR"
+      }
+    ],
+    "3000-CONVERT-TO-EU-FORMAT": [
+      {
+        "affected_records": [
+          "WS-DATE-DDMMYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-EU-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-MONTH"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-DDMMYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-EU-MONTH"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-YEAR"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-DDMMYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-EU-YEAR"
+      }
+    ],
+    "3000-TO-EU": [
+      {
+        "affected_records": [
+          "WS-DATE-DDMMYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-EU-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-MONTH"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-DDMMYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-EU-MONTH"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-YEAR"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-DDMMYYYY"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-EU-YEAR"
+      }
+    ],
+    "4000-CONVERT-TO-JULIAN": [
+      {
+        "affected_records": [
+          "WS-JULIAN-DATE"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-JULIAN-YEAR"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-DAYS"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "VARYING"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-MONTH-IDX"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "BY"
+      },
+      {
+        "affected_records": [
+          "WS-JULIAN-DATE"
+        ],
+        "line_number": 13,
+        "modification_type": "MOVE",
+        "variable": "WS-JULIAN-DAY"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 7,
+        "modification_type": "ADD",
+        "variable": "WS-WORK-DAYS"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 9,
+        "modification_type": "ADD",
+        "variable": "WS-WORK-DAYS"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 12,
+        "modification_type": "ADD",
+        "variable": "WS-WORK-DAYS"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "SET",
+        "variable": "NOT-LEAP-YEAR"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 9,
+        "modification_type": "SET",
+        "variable": "IS-LEAP-YEAR"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 14,
+        "modification_type": "SET",
+        "variable": "IS-LEAP-YEAR"
+      }
+    ],
+    "4000-TO-JULIAN": [
+      {
+        "affected_records": [
+          "WS-JULIAN-DATE"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-JULIAN-YEAR"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-WORK-DAYS"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "PERFORM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "VARYING"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-MONTH-IDX"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "FROM"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "BY"
+      },
+      {
+        "affected_records": [
+          "WS-JULIAN-DATE"
+        ],
+        "line_number": 13,
+        "modification_type": "MOVE",
+        "variable": "WS-JULIAN-DAY"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 7,
+        "modification_type": "ADD",
+        "variable": "WS-WORK-DAYS"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 9,
+        "modification_type": "ADD",
+        "variable": "WS-WORK-DAYS"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 12,
+        "modification_type": "ADD",
+        "variable": "WS-WORK-DAYS"
+      }
+    ],
+    "4100-CHECK-LEAP-YEAR": [
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "SET",
+        "variable": "NOT-LEAP-YEAR"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 9,
+        "modification_type": "SET",
+        "variable": "IS-LEAP-YEAR"
+      },
+      {
+        "affected_records": [
+          "WS-CALCULATION-FIELDS"
+        ],
+        "line_number": 14,
+        "modification_type": "SET",
+        "variable": "IS-LEAP-YEAR"
+      }
+    ],
+    "5000-FORMAT": [
+      {
+        "affected_records": [
+          "WS-FORMATTED-DATE"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-FMT-MONTH-NAME"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-FORMATTED-DATE"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-FMT-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-YEAR"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-FORMATTED-DATE"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-FMT-YEAR"
+      }
+    ],
+    "5000-FORMAT-LONG-DATE": [
+      {
+        "affected_records": [
+          "WS-FORMATTED-DATE"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-FMT-MONTH-NAME"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-FORMATTED-DATE"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-FMT-DAY"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "MOVE"
+      },
+      {
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-DATE-YEAR"
+      },
+      {
+        "affected_records": [],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "TO"
+      },
+      {
+        "affected_records": [
+          "WS-FORMATTED-DATE"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "WS-FMT-YEAR"
+      }
+    ]
+  },
+  "summary": {
+    "records_with_redefines": [
+      "WS-DAYS-IN-MONTH-TABLE",
+      "WS-MONTH-NAMES",
+      "WS-DAYS-TABLE",
+      "WS-MONTH-TABLE"
+    ],
+    "total_modifications": 49,
+    "total_paragraphs": 8,
+    "total_sections": 6,
+    "unique_modified_variables": 25
+  }
+}
