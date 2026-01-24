@@ -154,3 +154,176 @@ class TestSubordinateRedefines:
         relations = analyzer.get_all_relations()
         assert len(relations) == 1
         assert relations[0].level == 5  # Subordinate level
+
+    def test_ancestor_redefines(self, subordinate_redefines_program):
+        """Test getting REDEFINES in ancestor chain."""
+        analyzer = RedefinesAnalyzer(subordinate_redefines_program)
+        analyzer.analyze()
+
+        # WS-YEAR is under WS-DATE-FIELD, no direct REDEFINES in ancestors
+        ancestor_redefines = analyzer.get_ancestor_redefines("WS-YEAR")
+        assert len(ancestor_redefines) == 0
+
+        # WS-DATE-NUM itself has REDEFINES
+        ancestor_redefines = analyzer.get_ancestor_redefines("WS-DATE-NUM")
+        assert len(ancestor_redefines) == 1
+        assert ancestor_redefines[0].redefining_item == "WS-DATE-NUM"
+        assert ancestor_redefines[0].redefined_item == "WS-DATE-FIELD"
+
+    def test_overlapping_variables_from_redefines(self, subordinate_redefines_program):
+        """Test finding overlapping variables due to REDEFINES."""
+        analyzer = RedefinesAnalyzer(subordinate_redefines_program)
+        analyzer.analyze()
+
+        # WS-DATE-NUM overlaps with WS-DATE-FIELD and its children
+        overlapping = analyzer.get_overlapping_variables("WS-DATE-NUM")
+        overlapping_names = [v.name for v in overlapping]
+
+        assert "WS-DATE-FIELD" in overlapping_names
+        assert "WS-YEAR" in overlapping_names
+        assert "WS-MONTH" in overlapping_names
+        assert "WS-DAY" in overlapping_names
+
+    def test_overlapping_variables_from_subordinate(self, subordinate_redefines_program):
+        """Test finding overlapping from subordinate's perspective."""
+        analyzer = RedefinesAnalyzer(subordinate_redefines_program)
+        analyzer.analyze()
+
+        # WS-YEAR is in WS-DATE-FIELD which is redefined by WS-DATE-NUM
+        overlapping = analyzer.get_overlapping_variables("WS-YEAR")
+        overlapping_names = [v.name for v in overlapping]
+
+        # Should find WS-DATE-NUM as overlapping
+        assert "WS-DATE-NUM" in overlapping_names
+
+
+class TestNestedSubordinateRedefines:
+    """Tests for nested subordinate REDEFINES scenarios."""
+
+    @pytest.fixture
+    def nested_redefines_program(self):
+        """Create a program with nested subordinate REDEFINES."""
+        source = """
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. NESTED-REDEF.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+
+       01 MYLEVEL-01.
+          05 MYLEVEL-05.
+             10 MYVAR-10         PIC 9(5).
+             10 MYVAR-10B        PIC X(5).
+          05 MYLEVEL-05-REDEF REDEFINES MYLEVEL-05.
+             10 OTHER-VAR-10     PIC X(5).
+             10 OTHER-VAR-10B    PIC 9(5).
+
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           MOVE 12345 TO MYVAR-10.
+           STOP RUN.
+        """
+        parser = CobolParser(use_generated=False)
+        tree = parser.parse(source)
+        builder = ASTBuilder()
+        return builder.build(tree)
+
+    def test_nested_overlapping_variables(self, nested_redefines_program):
+        """Test the exact scenario from the user's request."""
+        analyzer = RedefinesAnalyzer(nested_redefines_program)
+        analyzer.analyze()
+
+        # When MYVAR-10 changes, we should find variables in MYLEVEL-05-REDEF
+        overlapping = analyzer.get_overlapping_variables("MYVAR-10")
+        overlapping_names = [v.name for v in overlapping]
+
+        # Should find variables from the REDEFINES structure
+        assert "OTHER-VAR-10" in overlapping_names or "OTHER-VAR-10B" in overlapping_names
+        assert "MYLEVEL-05-REDEF" in overlapping_names
+
+    def test_redefines_chain_info(self, nested_redefines_program):
+        """Test that REDEFINES chain information is provided."""
+        analyzer = RedefinesAnalyzer(nested_redefines_program)
+        analyzer.analyze()
+
+        overlapping = analyzer.get_overlapping_variables("MYVAR-10")
+
+        # Find one of the affected variables and check its info
+        for av in overlapping:
+            if av.name == "OTHER-VAR-10":
+                assert "MYLEVEL-05-REDEF" in av.redefines_chain
+                assert "MYLEVEL-05" in av.redefines_chain
+                assert av.redefines_level == 5
+                break
+
+    def test_all_affected_variables_method(self, nested_redefines_program):
+        """Test the combined affected records and variables method."""
+        analyzer = RedefinesAnalyzer(nested_redefines_program)
+        analyzer.analyze()
+
+        result = analyzer.get_all_affected_variables("MYVAR-10")
+
+        assert "MYLEVEL-01" in result["records"]
+        assert len(result["variables"]) > 0
+
+
+class TestMultipleRedefinesOfSameItem:
+    """Tests for multiple items redefining the same target."""
+
+    @pytest.fixture
+    def multi_redefines_program(self):
+        """Create a program where multiple items redefine the same target."""
+        source = """
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. MULTI-REDEF.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+
+       01 WS-DATA.
+          05 WS-ORIGINAL.
+             10 WS-PART1         PIC X(5).
+             10 WS-PART2         PIC X(5).
+          05 WS-REDEF-A REDEFINES WS-ORIGINAL.
+             10 WS-NUM-VIEW      PIC 9(10).
+          05 WS-REDEF-B REDEFINES WS-ORIGINAL.
+             10 WS-FULL-TEXT     PIC X(10).
+
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           STOP RUN.
+        """
+        parser = CobolParser(use_generated=False)
+        tree = parser.parse(source)
+        builder = ASTBuilder()
+        return builder.build(tree)
+
+    def test_multiple_redefines_overlapping(self, multi_redefines_program):
+        """Test overlapping when multiple items redefine same target."""
+        analyzer = RedefinesAnalyzer(multi_redefines_program)
+        analyzer.analyze()
+
+        # WS-PART1 should overlap with items from both WS-REDEF-A and WS-REDEF-B
+        overlapping = analyzer.get_overlapping_variables("WS-PART1")
+        overlapping_names = [v.name for v in overlapping]
+
+        # Should see items from both redefining structures
+        assert "WS-NUM-VIEW" in overlapping_names
+        assert "WS-FULL-TEXT" in overlapping_names
+        assert "WS-REDEF-A" in overlapping_names
+        assert "WS-REDEF-B" in overlapping_names
+
+    def test_all_related_items_found(self, multi_redefines_program):
+        """Test that all related items are found through REDEFINES chain."""
+        analyzer = RedefinesAnalyzer(multi_redefines_program)
+        analyzer.analyze()
+
+        # From WS-NUM-VIEW (in WS-REDEF-A), should find items in original and WS-REDEF-B
+        overlapping = analyzer.get_overlapping_variables("WS-NUM-VIEW")
+        overlapping_names = [v.name for v in overlapping]
+
+        assert "WS-ORIGINAL" in overlapping_names
+        assert "WS-PART1" in overlapping_names
+        assert "WS-PART2" in overlapping_names
+        assert "WS-REDEF-B" in overlapping_names
+        assert "WS-FULL-TEXT" in overlapping_names

@@ -6,8 +6,11 @@ in one record is modified, all records that REDEFINE or are
 REDEFINED by that record are potentially affected.
 """
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
+
+if TYPE_CHECKING:
+    from .data_analyzer import DataStructureAnalyzer
 
 try:
     import networkx as nx
@@ -27,6 +30,18 @@ class RedefinesRelation:
     level: int            # Level number (01 for record-level)
 
 
+@dataclass
+class AffectedVariable:
+    """Information about a variable affected by REDEFINES."""
+
+    name: str                    # Variable name
+    overlap_type: str            # "full", "partial", "contains", "contained_by"
+    redefines_chain: str         # Description of the REDEFINES relationship
+    redefines_level: int         # Level at which REDEFINES occurs
+    redefining_ancestor: str     # The ancestor item that has REDEFINES clause
+    redefined_ancestor: str      # The ancestor item being redefined
+
+
 class RedefinesAnalyzer:
     """Analyzes REDEFINES relationships in COBOL programs.
 
@@ -34,17 +49,21 @@ class RedefinesAnalyzer:
     that share memory through REDEFINES chains.
     """
 
-    def __init__(self, program: CobolProgram):
+    def __init__(self, program: CobolProgram, data_analyzer: Optional["DataStructureAnalyzer"] = None):
         """Initialize the analyzer.
 
         Args:
             program: Parsed COBOL program AST
+            data_analyzer: Optional DataStructureAnalyzer for memory calculations
         """
         self.program = program
+        self._data_analyzer = data_analyzer
         self._relations: List[RedefinesRelation] = []
         self._record_graph: Optional[object] = None  # networkx.Graph if available
         self._variable_to_records: Dict[str, Set[str]] = {}
         self._connected_components: List[Set[str]] = []
+        # New: map of item -> items that redefine the same memory region
+        self._subordinate_redefines_map: Dict[str, Set[str]] = {}
         self._analyzed = False
 
     def analyze(self) -> None:
@@ -56,7 +75,19 @@ class RedefinesAnalyzer:
         self._build_graph()
         self._find_connected_components()
         self._build_variable_to_records_mapping()
+        self._build_subordinate_redefines_map()
         self._analyzed = True
+
+    def set_data_analyzer(self, data_analyzer: "DataStructureAnalyzer") -> None:
+        """Set the data analyzer for memory calculations.
+
+        Args:
+            data_analyzer: DataStructureAnalyzer instance
+        """
+        self._data_analyzer = data_analyzer
+        # Rebuild subordinate map if already analyzed
+        if self._analyzed:
+            self._build_subordinate_redefines_map()
 
     def _extract_redefines_relations(self) -> None:
         """Extract all REDEFINES relationships from the program."""
@@ -181,6 +212,50 @@ class RedefinesAnalyzer:
             affected_records = self._find_affected_records_internal(record_name)
 
             self._variable_to_records[item_name] = affected_records
+
+    def _build_subordinate_redefines_map(self) -> None:
+        """Build mapping of variables to their REDEFINES-related siblings.
+
+        For each REDEFINES at subordinate levels, map the subordinates
+        of the redefining item to subordinates of the redefined item.
+        """
+        self._subordinate_redefines_map = {}
+
+        # Group REDEFINES relations by the redefined item
+        redefined_to_redefining: Dict[str, List[str]] = {}
+        for relation in self._relations:
+            if relation.redefined_item not in redefined_to_redefining:
+                redefined_to_redefining[relation.redefined_item] = []
+            redefined_to_redefining[relation.redefined_item].append(relation.redefining_item)
+
+        # For each group of items that REDEFINE each other
+        for redefined_item, redefining_items in redefined_to_redefining.items():
+            # Collect all items in this REDEFINES group (including the original)
+            all_in_group = [redefined_item] + redefining_items
+
+            # Get all subordinates of each item in the group
+            for item_name in all_in_group:
+                item = self.program.all_data_items.get(item_name.upper())
+                if not item:
+                    continue
+
+                subordinates = [item] + item.get_all_subordinates()
+                for sub in subordinates:
+                    sub_name = sub.name.upper()
+                    if sub_name not in self._subordinate_redefines_map:
+                        self._subordinate_redefines_map[sub_name] = set()
+
+                    # Add all subordinates from other items in the group
+                    for other_item_name in all_in_group:
+                        if other_item_name == item_name:
+                            continue
+                        other_item = self.program.all_data_items.get(other_item_name.upper())
+                        if not other_item:
+                            continue
+                        other_subs = [other_item] + other_item.get_all_subordinates()
+                        for other_sub in other_subs:
+                            if other_sub.name.upper() != sub_name:
+                                self._subordinate_redefines_map[sub_name].add(other_sub.name.upper())
 
     def _find_affected_records_internal(self, record_name: str) -> Set[str]:
         """Internal method to find affected records without triggering analyze().
@@ -360,4 +435,206 @@ class RedefinesAnalyzer:
             "largest_component_size": max(
                 (len(c) for c in self._connected_components), default=0
             ),
+        }
+
+    def get_ancestor_redefines(self, variable_name: str) -> List[RedefinesRelation]:
+        """Get all REDEFINES relationships in the variable's ancestor chain.
+
+        Walks up the hierarchy from the variable to Level 01 and collects
+        all REDEFINES relationships encountered.
+
+        Args:
+            variable_name: Name of the variable
+
+        Returns:
+            List of RedefinesRelation for ancestors with REDEFINES clauses
+        """
+        if not self._analyzed:
+            self.analyze()
+
+        item = self.program.all_data_items.get(variable_name.upper())
+        if not item:
+            return []
+
+        ancestor_redefines = []
+        current = item
+
+        while current is not None:
+            if current.redefines:
+                redefined = self.program.all_data_items.get(current.redefines.upper())
+                if redefined:
+                    ancestor_redefines.append(RedefinesRelation(
+                        redefining_item=current.name.upper(),
+                        redefined_item=current.redefines.upper(),
+                        level=current.level,
+                    ))
+            current = current.parent
+
+        return ancestor_redefines
+
+    def get_overlapping_variables(self, variable_name: str) -> List[AffectedVariable]:
+        """Get all variables that share memory with the given variable.
+
+        This finds variables that overlap due to REDEFINES at any level
+        in the hierarchy.
+
+        Args:
+            variable_name: Name of the variable
+
+        Returns:
+            List of AffectedVariable objects describing overlapping variables
+        """
+        if not self._analyzed:
+            self.analyze()
+
+        var_upper = variable_name.upper()
+        item = self.program.all_data_items.get(var_upper)
+        if not item:
+            return []
+
+        result: List[AffectedVariable] = []
+        seen_variables: Set[str] = set()
+
+        # Method 1: Check if this variable is directly in a REDEFINES group
+        if var_upper in self._subordinate_redefines_map:
+            for other_name in self._subordinate_redefines_map[var_upper]:
+                if other_name not in seen_variables:
+                    seen_variables.add(other_name)
+                    result.append(self._create_affected_variable(
+                        var_upper, other_name, "direct_redefines_group"
+                    ))
+
+        # Method 2: Walk up ancestors and find REDEFINES, then find overlapping descendants
+        ancestor_redefines = self.get_ancestor_redefines(variable_name)
+        for relation in ancestor_redefines:
+            # Get all items that REDEFINE the same item
+            items_redefining_same = self.get_items_redefining(relation.redefined_item)
+            # Include the redefined item itself
+            all_related_items = [relation.redefined_item] + items_redefining_same
+
+            for related_item_name in all_related_items:
+                if related_item_name == relation.redefining_item:
+                    continue  # Skip the item in our own ancestor chain
+
+                related_item = self.program.all_data_items.get(related_item_name.upper())
+                if not related_item:
+                    continue
+
+                # Get all subordinates of this related item
+                subordinates = [related_item] + related_item.get_all_subordinates()
+                for sub in subordinates:
+                    sub_name = sub.name.upper()
+                    if sub_name not in seen_variables and sub_name != var_upper:
+                        seen_variables.add(sub_name)
+                        result.append(AffectedVariable(
+                            name=sub_name,
+                            overlap_type="ancestor_redefines",
+                            redefines_chain=f"{relation.redefining_item} REDEFINES {relation.redefined_item}",
+                            redefines_level=relation.level,
+                            redefining_ancestor=relation.redefining_item,
+                            redefined_ancestor=relation.redefined_item,
+                        ))
+
+        return result
+
+    def _create_affected_variable(
+        self, source_var: str, target_var: str, overlap_type: str
+    ) -> AffectedVariable:
+        """Create an AffectedVariable object for a given relationship.
+
+        Args:
+            source_var: The source variable name
+            target_var: The target variable name
+            overlap_type: Type of overlap
+
+        Returns:
+            AffectedVariable object
+        """
+        # Find the REDEFINES relationship that connects these variables
+        source_item = self.program.all_data_items.get(source_var)
+        target_item = self.program.all_data_items.get(target_var)
+
+        if not source_item or not target_item:
+            return AffectedVariable(
+                name=target_var,
+                overlap_type=overlap_type,
+                redefines_chain="unknown",
+                redefines_level=0,
+                redefining_ancestor="",
+                redefined_ancestor="",
+            )
+
+        # Walk up both hierarchies to find the REDEFINES connection
+        source_ancestors = self._get_ancestor_chain(source_item)
+        target_ancestors = self._get_ancestor_chain(target_item)
+
+        # Find where the chains connect via REDEFINES
+        for s_ancestor in source_ancestors:
+            for t_ancestor in target_ancestors:
+                # Check if one redefines the other
+                if s_ancestor.redefines and s_ancestor.redefines.upper() == t_ancestor.name.upper():
+                    return AffectedVariable(
+                        name=target_var,
+                        overlap_type=overlap_type,
+                        redefines_chain=f"{s_ancestor.name} REDEFINES {t_ancestor.name}",
+                        redefines_level=s_ancestor.level,
+                        redefining_ancestor=s_ancestor.name,
+                        redefined_ancestor=t_ancestor.name,
+                    )
+                if t_ancestor.redefines and t_ancestor.redefines.upper() == s_ancestor.name.upper():
+                    return AffectedVariable(
+                        name=target_var,
+                        overlap_type=overlap_type,
+                        redefines_chain=f"{t_ancestor.name} REDEFINES {s_ancestor.name}",
+                        redefines_level=t_ancestor.level,
+                        redefining_ancestor=t_ancestor.name,
+                        redefined_ancestor=s_ancestor.name,
+                    )
+
+        # Fallback
+        return AffectedVariable(
+            name=target_var,
+            overlap_type=overlap_type,
+            redefines_chain="indirect",
+            redefines_level=0,
+            redefining_ancestor="",
+            redefined_ancestor="",
+        )
+
+    def _get_ancestor_chain(self, item: DataItem) -> List[DataItem]:
+        """Get the chain of ancestors from item to root.
+
+        Args:
+            item: Starting data item
+
+        Returns:
+            List of ancestors including the item itself
+        """
+        chain = [item]
+        current = item.parent
+        while current is not None:
+            chain.append(current)
+            current = current.parent
+        return chain
+
+    def get_all_affected_variables(self, variable_name: str) -> Dict[str, List[AffectedVariable]]:
+        """Get complete affected variable information.
+
+        Returns both record-level and variable-level affected items.
+
+        Args:
+            variable_name: Name of the variable
+
+        Returns:
+            Dictionary with 'records' and 'variables' keys
+        """
+        if not self._analyzed:
+            self.analyze()
+
+        affected_records = self.get_affected_records(variable_name)
+        affected_variables = self.get_overlapping_variables(variable_name)
+
+        return {
+            "records": list(affected_records),
+            "variables": affected_variables,
         }

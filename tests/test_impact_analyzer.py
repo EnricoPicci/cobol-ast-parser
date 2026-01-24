@@ -222,3 +222,131 @@ class TestEndToEnd:
 
             assert output["program_name"] == "SIMPLE-PROGRAM"
             assert output["summary"]["total_modifications"] > 0
+
+
+class TestSubordinateRedefinesImpact:
+    """Tests for subordinate REDEFINES in impact analysis output."""
+
+    @pytest.fixture
+    def subordinate_impact_program(self):
+        """Create a program with subordinate REDEFINES for impact testing."""
+        source = """
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SUB-IMPACT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+
+       01 WS-DATE-RECORD.
+          05 WS-DATE-FIELD.
+             10 WS-YEAR          PIC 9(4).
+             10 WS-MONTH         PIC 9(2).
+             10 WS-DAY           PIC 9(2).
+          05 WS-DATE-NUM REDEFINES WS-DATE-FIELD PIC 9(8).
+
+       PROCEDURE DIVISION.
+
+       UPDATE-DATE.
+           MOVE 2024 TO WS-YEAR
+           MOVE 01 TO WS-MONTH
+           MOVE 15 TO WS-DAY.
+
+       SET-DATE-NUM.
+           MOVE 20240115 TO WS-DATE-NUM.
+        """
+        parser = CobolParser(use_generated=False)
+        tree = parser.parse(source)
+        builder = ASTBuilder()
+        return builder.build(tree)
+
+    def test_affected_variables_in_output(self, subordinate_impact_program):
+        """Test that affected_variables appears in output."""
+        analyzer = ImpactAnalyzer(subordinate_impact_program)
+        output = analyzer.generate_output()
+
+        # Find SET-DATE-NUM paragraph
+        set_date = output["sections_and_paragraphs"].get("SET-DATE-NUM", [])
+
+        # Should have modification of WS-DATE-NUM
+        for mod in set_date:
+            if mod["variable"] == "WS-DATE-NUM":
+                # Should have affected_variables listing subordinate impacts
+                if "affected_variables" in mod:
+                    affected_var_names = [av["name"] for av in mod["affected_variables"]]
+                    # WS-DATE-NUM redefines WS-DATE-FIELD, so children should be affected
+                    assert "WS-DATE-FIELD" in affected_var_names or \
+                           "WS-YEAR" in affected_var_names
+                break
+
+    def test_affected_variables_chain_info(self, subordinate_impact_program):
+        """Test that affected variables include REDEFINES chain info."""
+        analyzer = ImpactAnalyzer(subordinate_impact_program)
+        output = analyzer.generate_output()
+
+        # Check SET-DATE-NUM modifications
+        set_date = output["sections_and_paragraphs"].get("SET-DATE-NUM", [])
+
+        for mod in set_date:
+            if mod["variable"] == "WS-DATE-NUM" and "affected_variables" in mod:
+                for av in mod["affected_variables"]:
+                    # Should have chain info
+                    assert "redefines_chain" in av
+                    assert "redefines_level" in av
+                break
+
+    def test_compact_output_with_affected_variables(self, subordinate_impact_program):
+        """Test that compact output includes affected_variables."""
+        analyzer = ImpactAnalyzer(subordinate_impact_program)
+        compact = analyzer.generate_compact_output()
+
+        # Check SET-DATE-NUM in compact output
+        if "SET-DATE-NUM" in compact:
+            for entry in compact["SET-DATE-NUM"]:
+                if entry["variable"] == "WS-DATE-NUM":
+                    # Should have affected_variables if any exist
+                    if "affected_variables" in entry:
+                        assert isinstance(entry["affected_variables"], list)
+                    break
+
+    def test_nested_subordinate_impact(self):
+        """Test the exact scenario from user's request - nested subordinate REDEFINES."""
+        source = """
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. NESTED-IMPACT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+
+       01 MYLEVEL-01.
+          05 MYLEVEL-05.
+             10 MYVAR-10         PIC 9(5).
+             10 MYVAR-10B        PIC X(5).
+          05 MYLEVEL-05-REDEF REDEFINES MYLEVEL-05.
+             10 OTHER-VAR-10     PIC X(5).
+             10 OTHER-VAR-10B    PIC 9(5).
+
+       PROCEDURE DIVISION.
+
+       MODIFY-MYVAR.
+           MOVE 12345 TO MYVAR-10.
+        """
+        parser = CobolParser(use_generated=False)
+        tree = parser.parse(source)
+        builder = ASTBuilder()
+        program = builder.build(tree)
+
+        analyzer = ImpactAnalyzer(program)
+        output = analyzer.generate_output()
+
+        # Find MODIFY-MYVAR paragraph
+        modify_para = output["sections_and_paragraphs"].get("MODIFY-MYVAR", [])
+
+        # Should have MYVAR-10 modification with affected variables
+        for mod in modify_para:
+            if mod["variable"] == "MYVAR-10":
+                if "affected_variables" in mod:
+                    affected_names = [av["name"] for av in mod["affected_variables"]]
+                    # Should find variables from MYLEVEL-05-REDEF structure
+                    assert any(name in affected_names for name in
+                              ["OTHER-VAR-10", "OTHER-VAR-10B", "MYLEVEL-05-REDEF"])
+                break

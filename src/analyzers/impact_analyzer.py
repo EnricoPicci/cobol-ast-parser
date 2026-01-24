@@ -11,7 +11,7 @@ from datetime import datetime
 
 from cobol_ast.nodes import CobolProgram, VariableModification
 from .data_analyzer import DataStructureAnalyzer
-from .redefines import RedefinesAnalyzer
+from .redefines import RedefinesAnalyzer, AffectedVariable
 from .procedure_analyzer import ProcedureAnalyzer
 
 
@@ -23,6 +23,7 @@ class VariableImpact:
     affected_records: List[str]
     modification_type: str
     line_number: int
+    affected_variables: List[AffectedVariable] = field(default_factory=list)
 
 
 @dataclass
@@ -74,6 +75,8 @@ class ImpactAnalyzer:
 
         # Run component analyses
         self.data_analyzer.analyze()
+        # Connect data analyzer to redefines analyzer for memory calculations
+        self.redefines_analyzer.set_data_analyzer(self.data_analyzer)
         self.redefines_analyzer.analyze()
         self.procedure_analyzer.analyze()
 
@@ -135,15 +138,21 @@ class ImpactAnalyzer:
                 # Get all affected records through REDEFINES
                 affected = self.redefines_analyzer.get_affected_records(record.name)
                 affected_list = sorted(list(affected))
+                # Get all affected variables through subordinate REDEFINES
+                affected_vars = self.redefines_analyzer.get_overlapping_variables(
+                    mod.variable_name
+                )
             else:
                 # Variable not found in data division (might be external or typo)
                 affected_list = []
+                affected_vars = []
 
             impact = VariableImpact(
                 variable_name=mod.variable_name,
                 affected_records=affected_list,
                 modification_type=mod.modification_type.name,
                 line_number=mod.line_number,
+                affected_variables=affected_vars,
             )
             impacts.append(impact)
 
@@ -262,12 +271,7 @@ class ImpactAnalyzer:
         for section_name, impact in self._section_impacts.items():
             if impact.variable_impacts:
                 sections_and_paragraphs[section_name] = [
-                    {
-                        "variable": vi.variable_name,
-                        "affected_records": vi.affected_records,
-                        "modification_type": vi.modification_type,
-                        "line_number": vi.line_number,
-                    }
+                    self._format_variable_impact(vi)
                     for vi in impact.variable_impacts
                 ]
 
@@ -275,12 +279,7 @@ class ImpactAnalyzer:
         for para_name, impact in self._paragraph_impacts.items():
             if impact.variable_impacts:
                 sections_and_paragraphs[para_name] = [
-                    {
-                        "variable": vi.variable_name,
-                        "affected_records": vi.affected_records,
-                        "modification_type": vi.modification_type,
-                        "line_number": vi.line_number,
-                    }
+                    self._format_variable_impact(vi)
                     for vi in impact.variable_impacts
                 ]
 
@@ -308,6 +307,35 @@ class ImpactAnalyzer:
             "summary": summary,
         }
 
+    def _format_variable_impact(self, vi: VariableImpact) -> Dict[str, Any]:
+        """Format a VariableImpact for output.
+
+        Args:
+            vi: VariableImpact object
+
+        Returns:
+            Dictionary representation
+        """
+        result = {
+            "variable": vi.variable_name,
+            "affected_records": vi.affected_records,
+            "modification_type": vi.modification_type,
+            "line_number": vi.line_number,
+        }
+
+        if vi.affected_variables:
+            result["affected_variables"] = [
+                {
+                    "name": av.name,
+                    "overlap_type": av.overlap_type,
+                    "redefines_chain": av.redefines_chain,
+                    "redefines_level": av.redefines_level,
+                }
+                for av in vi.affected_variables
+            ]
+
+        return result
+
     def generate_compact_output(self) -> Dict[str, List[Dict]]:
         """Generate a compact output with unique variable/records per section.
 
@@ -324,20 +352,29 @@ class ImpactAnalyzer:
             if not impact.variable_impacts:
                 continue
 
-            # Deduplicate by variable name, keeping all affected records
+            # Deduplicate by variable name, keeping all affected records and variables
             var_to_records: Dict[str, Set[str]] = {}
+            var_to_affected_vars: Dict[str, Set[str]] = {}
             for vi in impact.variable_impacts:
                 if vi.variable_name not in var_to_records:
                     var_to_records[vi.variable_name] = set()
+                    var_to_affected_vars[vi.variable_name] = set()
                 var_to_records[vi.variable_name].update(vi.affected_records)
+                for av in vi.affected_variables:
+                    var_to_affected_vars[vi.variable_name].add(av.name)
 
-            result[name] = [
-                {
+            compact_list = []
+            for var_name, records in var_to_records.items():
+                entry = {
                     "variable": var_name,
                     "affected_records": sorted(list(records)),
                 }
-                for var_name, records in var_to_records.items()
-            ]
+                affected_vars = var_to_affected_vars.get(var_name, set())
+                if affected_vars:
+                    entry["affected_variables"] = sorted(list(affected_vars))
+                compact_list.append(entry)
+
+            result[name] = compact_list
 
         return result
 
