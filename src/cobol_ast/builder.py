@@ -33,6 +33,27 @@ class ASTBuilder:
     simplified parse tree produced by the regex-based parser.
     """
 
+    # COBOL keywords that should not be captured as variable names
+    # (backup filter in case parser misses some)
+    COBOL_KEYWORDS = {
+        "MOVE", "TO", "FROM", "BY", "GIVING", "REMAINDER", "ROUNDED",
+        "PERFORM", "VARYING", "UNTIL", "TIMES", "THRU", "THROUGH",
+        "ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "COMPUTE", "INTO",
+        "IF", "ELSE", "END-IF", "THEN", "NOT", "AND", "OR",
+        "DISPLAY", "ACCEPT", "READ", "WRITE", "REWRITE", "DELETE",
+        "OPEN", "CLOSE", "START", "STOP", "RUN",
+        "CALL", "USING", "RETURNING", "ON", "SIZE", "ERROR",
+        "STRING", "UNSTRING", "INSPECT", "TALLYING", "REPLACING",
+        "SET", "TRUE", "FALSE", "SEARCH", "WHEN", "ALL", "AT", "END",
+        "INITIALIZE", "WITH", "FILLER", "CORRESPONDING", "CORR",
+        "EVALUATE", "OTHER", "END-EVALUATE", "GO", "GOTO",
+        "INPUT", "OUTPUT", "I-O", "EXTEND", "OVERFLOW", "EXCEPTION",
+        "CONVERTING", "DELIMITED", "POINTER", "COUNT",
+        "NUMERIC", "ALPHABETIC", "POSITIVE", "NEGATIVE",
+        "CONTINUE", "EXIT", "NEXT", "SENTENCE",
+        "AFTER", "BEFORE", "INITIAL", "REFERENCE", "CONTENT", "VALUE",
+    }
+
     def __init__(self):
         self._all_data_items: Dict[str, DataItem] = {}
         self._record_descriptions: Dict[str, RecordDescription] = {}
@@ -225,6 +246,10 @@ class ASTBuilder:
 
                 # Skip literals and special values
                 if self._is_literal(var_name):
+                    continue
+
+                # Skip COBOL keywords (backup filter)
+                if var_name in self.COBOL_KEYWORDS:
                     continue
 
                 modification = VariableModification(

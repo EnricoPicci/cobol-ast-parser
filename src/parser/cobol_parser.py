@@ -290,6 +290,42 @@ class SimplifiedCobolParser:
 
     import re
 
+    # COBOL keywords that should not be captured as variable names
+    COBOL_KEYWORDS = {
+        # Data movement
+        "MOVE", "TO", "FROM", "CORRESPONDING", "CORR",
+        # Arithmetic
+        "ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "COMPUTE",
+        "GIVING", "REMAINDER", "ROUNDED", "BY", "INTO",
+        # Control flow
+        "PERFORM", "VARYING", "UNTIL", "TIMES", "THRU", "THROUGH",
+        "IF", "ELSE", "END-IF", "THEN", "NOT", "AND", "OR",
+        "EVALUATE", "WHEN", "OTHER", "END-EVALUATE",
+        "GO", "GOTO",
+        # I/O
+        "DISPLAY", "ACCEPT", "READ", "WRITE", "REWRITE", "DELETE",
+        "OPEN", "CLOSE", "START", "STOP", "RUN",
+        # File handling
+        "INPUT", "OUTPUT", "I-O", "EXTEND",
+        # Procedure
+        "CALL", "USING", "RETURNING", "ON", "SIZE", "ERROR",
+        "OVERFLOW", "EXCEPTION",
+        # String handling
+        "STRING", "UNSTRING", "INSPECT", "TALLYING", "REPLACING",
+        "CONVERTING", "DELIMITED", "POINTER", "COUNT",
+        # Data manipulation
+        "SET", "TRUE", "FALSE", "SEARCH", "ALL", "AT", "END",
+        "INITIALIZE", "WITH", "FILLER",
+        # Conditionals
+        "NUMERIC", "ALPHABETIC", "ALPHABETIC-LOWER", "ALPHABETIC-UPPER",
+        "POSITIVE", "NEGATIVE", "ZERO", "ZEROS", "ZEROES",
+        "SPACE", "SPACES", "HIGH-VALUE", "HIGH-VALUES",
+        "LOW-VALUE", "LOW-VALUES", "QUOTE", "QUOTES",
+        # Misc
+        "CONTINUE", "EXIT", "NEXT", "SENTENCE",
+        "AFTER", "BEFORE", "INITIAL", "REFERENCE", "CONTENT", "VALUE",
+    }
+
     # Division patterns
     IDENTIFICATION_DIVISION = re.compile(
         r"IDENTIFICATION\s+DIVISION\s*\.", re.IGNORECASE
@@ -330,8 +366,10 @@ class SimplifiedCobolParser:
     )
 
     # Statement patterns (for modification tracking)
+    # MOVE pattern - only allow comma-separated targets to avoid multi-line issues
+    # Use [ \t] instead of \s to avoid matching newlines in target list
     MOVE_STMT = re.compile(
-        r"\bMOVE\s+(.+?)\s+TO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?(?:\s*,?\s*[A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)*)\s*[.\n]",
+        r"\bMOVE\s+(.+?)\s+TO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?(?:[ \t]*,[ \t]*[A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?)*)[ \t]*[.\n]",
         re.IGNORECASE,
     )
     COMPUTE_STMT = re.compile(
@@ -362,8 +400,9 @@ class SimplifiedCobolParser:
         r"\bREAD\s+([A-Za-z0-9][-A-Za-z0-9]*)\s+INTO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)",
         re.IGNORECASE,
     )
+    # INITIALIZE pattern - only allow comma-separated targets
     INITIALIZE_STMT = re.compile(
-        r"\bINITIALIZE\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?(?:\s*,?\s*[A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)*)",
+        r"\bINITIALIZE\s+([A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?(?:[ \t]*,[ \t]*[A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?)*)",
         re.IGNORECASE,
     )
     SET_STMT = re.compile(
@@ -374,8 +413,9 @@ class SimplifiedCobolParser:
         r"\bSTRING\s+.+?\s+INTO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)",
         re.IGNORECASE | re.DOTALL,
     )
+    # UNSTRING pattern - only allow comma-separated targets
     UNSTRING_STMT = re.compile(
-        r"\bUNSTRING\s+.+?\s+INTO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?(?:\s*,?\s*[A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)*)",
+        r"\bUNSTRING\s+.+?\s+INTO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?(?:[ \t]*,[ \t]*[A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?)*)",
         re.IGNORECASE | re.DOTALL,
     )
     INSPECT_STMT = re.compile(
@@ -614,6 +654,26 @@ class SimplifiedCobolParser:
         paragraph.statements = self._extract_statements(source, offset, all_lines)
         return paragraph
 
+    def _get_line_number_at_offset(self, all_lines: List[str], char_offset: int) -> int:
+        """Calculate the 1-based line number for a character offset in the original source.
+
+        Args:
+            all_lines: All source lines from the original file
+            char_offset: Character offset from the beginning of the source
+
+        Returns:
+            1-based line number
+        """
+        current_pos = 0
+        for line_num, line in enumerate(all_lines, start=1):
+            # Each line includes its newline character in the offset calculation
+            line_length = len(line) + 1  # +1 for newline
+            if current_pos + line_length > char_offset:
+                return line_num
+            current_pos += line_length
+        # If we reach here, return the last line
+        return len(all_lines)
+
     def _extract_statements(
         self, source: str, offset: int, all_lines: List[str]
     ) -> List[SimplifiedStatement]:
@@ -640,7 +700,9 @@ class SimplifiedCobolParser:
         for pattern, stmt_type, extractor in patterns:
             for match in pattern.finditer(source):
                 targets = extractor(match)
-                line_num = source[: match.start()].count("\n") + 1
+                # Calculate actual line number using offset from original source
+                char_pos = offset + match.start()
+                line_num = self._get_line_number_at_offset(all_lines, char_pos)
 
                 statements.append(
                     SimplifiedStatement(
@@ -683,7 +745,7 @@ class SimplifiedCobolParser:
         return self._split_variable_list(targets_str)
 
     def _split_variable_list(self, text: str) -> List[str]:
-        """Split a list of variable names."""
+        """Split a list of variable names, filtering out COBOL keywords."""
         import re
         # Split on commas and whitespace, filter empties
         parts = re.split(r"[,\s]+", text)
@@ -692,7 +754,10 @@ class SimplifiedCobolParser:
             part = part.strip()
             if part and part[0].isalpha():
                 part = self._remove_subscript(part)
-                results.append(part.upper())
+                upper_part = part.upper()
+                # Filter out COBOL keywords
+                if upper_part not in self.COBOL_KEYWORDS:
+                    results.append(upper_part)
         return results
 
     def _remove_subscript(self, text: str) -> str:

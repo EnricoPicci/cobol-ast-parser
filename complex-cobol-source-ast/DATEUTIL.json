@@ -1,5 +1,5 @@
 {
-  "analysis_date": "2026-01-24T15:11:11.705160",
+  "analysis_date": "2026-01-24T16:20:20.912885",
   "program_name": "DATEUTIL",
   "sections_and_paragraphs": {
     "1000-TEST": [
@@ -9,19 +9,7 @@
         ],
         "affected_variables": [
           {
-            "name": "WS-DATE-YEAR",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          },
-          {
             "name": "WS-DATE-DAY",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          },
-          {
-            "name": "WS-DATE-PARTS",
             "overlap_type": "direct_redefines_group",
             "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
             "redefines_level": 5
@@ -31,35 +19,39 @@
             "overlap_type": "direct_redefines_group",
             "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
             "redefines_level": 5
+          },
+          {
+            "name": "WS-DATE-YEAR",
+            "overlap_type": "direct_redefines_group",
+            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
+            "redefines_level": 5
+          },
+          {
+            "name": "WS-DATE-PARTS",
+            "overlap_type": "direct_redefines_group",
+            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
+            "redefines_level": 5
           }
         ],
-        "line_number": 2,
+        "line_number": 92,
         "modification_type": "MOVE",
         "variable": "WS-DATE-YYYYMMDD"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "affected_variables": [
+          {
+            "name": "WS-DATE-YYYYMMDD",
+            "overlap_type": "direct_redefines_group",
+            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
+            "redefines_level": 5
+          }
+        ],
+        "line_number": 93,
         "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
+        "variable": "WS-DATE-MONTH"
       }
     ],
     "1000-TEST-CONVERSIONS": [
@@ -69,19 +61,7 @@
         ],
         "affected_variables": [
           {
-            "name": "WS-DATE-YEAR",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          },
-          {
             "name": "WS-DATE-DAY",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          },
-          {
-            "name": "WS-DATE-PARTS",
             "overlap_type": "direct_redefines_group",
             "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
             "redefines_level": 5
@@ -91,35 +71,39 @@
             "overlap_type": "direct_redefines_group",
             "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
             "redefines_level": 5
+          },
+          {
+            "name": "WS-DATE-YEAR",
+            "overlap_type": "direct_redefines_group",
+            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
+            "redefines_level": 5
+          },
+          {
+            "name": "WS-DATE-PARTS",
+            "overlap_type": "direct_redefines_group",
+            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
+            "redefines_level": 5
           }
         ],
-        "line_number": 2,
+        "line_number": 92,
         "modification_type": "MOVE",
         "variable": "WS-DATE-YYYYMMDD"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
+        "affected_records": [
+          "WS-DATE-WORK-AREA"
+        ],
+        "affected_variables": [
+          {
+            "name": "WS-DATE-YYYYMMDD",
+            "overlap_type": "direct_redefines_group",
+            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
+            "redefines_level": 5
+          }
+        ],
+        "line_number": 93,
         "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
+        "variable": "WS-DATE-MONTH"
       }
     ],
     "2000-CONVERT-TO-US-FORMAT": [
@@ -127,79 +111,23 @@
         "affected_records": [
           "WS-DATE-MMDDYYYY"
         ],
-        "line_number": 2,
+        "line_number": 107,
         "modification_type": "MOVE",
         "variable": "WS-US-MONTH"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-DAY"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-DATE-MMDDYYYY"
         ],
-        "line_number": 2,
+        "line_number": 108,
         "modification_type": "MOVE",
         "variable": "WS-US-DAY"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-YEAR"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-DATE-MMDDYYYY"
         ],
-        "line_number": 2,
+        "line_number": 109,
         "modification_type": "MOVE",
         "variable": "WS-US-YEAR"
       }
@@ -209,79 +137,23 @@
         "affected_records": [
           "WS-DATE-MMDDYYYY"
         ],
-        "line_number": 2,
+        "line_number": 107,
         "modification_type": "MOVE",
         "variable": "WS-US-MONTH"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-DAY"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-DATE-MMDDYYYY"
         ],
-        "line_number": 2,
+        "line_number": 108,
         "modification_type": "MOVE",
         "variable": "WS-US-DAY"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-YEAR"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-DATE-MMDDYYYY"
         ],
-        "line_number": 2,
+        "line_number": 109,
         "modification_type": "MOVE",
         "variable": "WS-US-YEAR"
       }
@@ -291,79 +163,23 @@
         "affected_records": [
           "WS-DATE-DDMMYYYY"
         ],
-        "line_number": 2,
+        "line_number": 114,
         "modification_type": "MOVE",
         "variable": "WS-EU-DAY"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-MONTH"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-DATE-DDMMYYYY"
         ],
-        "line_number": 2,
+        "line_number": 115,
         "modification_type": "MOVE",
         "variable": "WS-EU-MONTH"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-YEAR"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-DATE-DDMMYYYY"
         ],
-        "line_number": 2,
+        "line_number": 116,
         "modification_type": "MOVE",
         "variable": "WS-EU-YEAR"
       }
@@ -373,79 +189,23 @@
         "affected_records": [
           "WS-DATE-DDMMYYYY"
         ],
-        "line_number": 2,
+        "line_number": 114,
         "modification_type": "MOVE",
         "variable": "WS-EU-DAY"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-MONTH"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-DATE-DDMMYYYY"
         ],
-        "line_number": 2,
+        "line_number": 115,
         "modification_type": "MOVE",
         "variable": "WS-EU-MONTH"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-YEAR"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-DATE-DDMMYYYY"
         ],
-        "line_number": 2,
+        "line_number": 116,
         "modification_type": "MOVE",
         "variable": "WS-EU-YEAR"
       }
@@ -455,73 +215,23 @@
         "affected_records": [
           "WS-JULIAN-DATE"
         ],
-        "line_number": 2,
+        "line_number": 121,
         "modification_type": "MOVE",
         "variable": "WS-JULIAN-YEAR"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 2,
+        "line_number": 123,
         "modification_type": "MOVE",
         "variable": "WS-WORK-DAYS"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "VARYING"
-      },
-      {
-        "affected_records": [
-          "WS-CALCULATION-FIELDS"
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-MONTH-IDX"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "FROM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "BY"
       },
       {
         "affected_records": [
           "WS-JULIAN-DATE"
         ],
-        "line_number": 13,
+        "line_number": 132,
         "modification_type": "MOVE",
         "variable": "WS-JULIAN-DAY"
       },
@@ -529,7 +239,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 7,
+        "line_number": 126,
         "modification_type": "ADD",
         "variable": "WS-WORK-DAYS"
       },
@@ -537,7 +247,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 9,
+        "line_number": 128,
         "modification_type": "ADD",
         "variable": "WS-WORK-DAYS"
       },
@@ -545,7 +255,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 12,
+        "line_number": 131,
         "modification_type": "ADD",
         "variable": "WS-WORK-DAYS"
       },
@@ -553,7 +263,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 2,
+        "line_number": 135,
         "modification_type": "SET",
         "variable": "NOT-LEAP-YEAR"
       },
@@ -561,7 +271,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 9,
+        "line_number": 142,
         "modification_type": "SET",
         "variable": "IS-LEAP-YEAR"
       },
@@ -569,7 +279,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 14,
+        "line_number": 147,
         "modification_type": "SET",
         "variable": "IS-LEAP-YEAR"
       }
@@ -579,73 +289,23 @@
         "affected_records": [
           "WS-JULIAN-DATE"
         ],
-        "line_number": 2,
+        "line_number": 121,
         "modification_type": "MOVE",
         "variable": "WS-JULIAN-YEAR"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 2,
+        "line_number": 123,
         "modification_type": "MOVE",
         "variable": "WS-WORK-DAYS"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "PERFORM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "VARYING"
-      },
-      {
-        "affected_records": [
-          "WS-CALCULATION-FIELDS"
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-MONTH-IDX"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "FROM"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "BY"
       },
       {
         "affected_records": [
           "WS-JULIAN-DATE"
         ],
-        "line_number": 13,
+        "line_number": 132,
         "modification_type": "MOVE",
         "variable": "WS-JULIAN-DAY"
       },
@@ -653,7 +313,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 7,
+        "line_number": 126,
         "modification_type": "ADD",
         "variable": "WS-WORK-DAYS"
       },
@@ -661,7 +321,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 9,
+        "line_number": 128,
         "modification_type": "ADD",
         "variable": "WS-WORK-DAYS"
       },
@@ -669,7 +329,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 12,
+        "line_number": 131,
         "modification_type": "ADD",
         "variable": "WS-WORK-DAYS"
       }
@@ -679,7 +339,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 2,
+        "line_number": 135,
         "modification_type": "SET",
         "variable": "NOT-LEAP-YEAR"
       },
@@ -687,7 +347,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 9,
+        "line_number": 142,
         "modification_type": "SET",
         "variable": "IS-LEAP-YEAR"
       },
@@ -695,7 +355,7 @@
         "affected_records": [
           "WS-CALCULATION-FIELDS"
         ],
-        "line_number": 14,
+        "line_number": 147,
         "modification_type": "SET",
         "variable": "IS-LEAP-YEAR"
       }
@@ -705,79 +365,23 @@
         "affected_records": [
           "WS-FORMATTED-DATE"
         ],
-        "line_number": 2,
+        "line_number": 155,
         "modification_type": "MOVE",
         "variable": "WS-FMT-MONTH-NAME"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-DAY"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-FORMATTED-DATE"
         ],
-        "line_number": 2,
+        "line_number": 156,
         "modification_type": "MOVE",
         "variable": "WS-FMT-DAY"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-YEAR"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-FORMATTED-DATE"
         ],
-        "line_number": 2,
+        "line_number": 157,
         "modification_type": "MOVE",
         "variable": "WS-FMT-YEAR"
       }
@@ -787,79 +391,23 @@
         "affected_records": [
           "WS-FORMATTED-DATE"
         ],
-        "line_number": 2,
+        "line_number": 155,
         "modification_type": "MOVE",
         "variable": "WS-FMT-MONTH-NAME"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-DAY"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-FORMATTED-DATE"
         ],
-        "line_number": 2,
+        "line_number": 156,
         "modification_type": "MOVE",
         "variable": "WS-FMT-DAY"
       },
       {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "MOVE"
-      },
-      {
-        "affected_records": [
-          "WS-DATE-WORK-AREA"
-        ],
-        "affected_variables": [
-          {
-            "name": "WS-DATE-YYYYMMDD",
-            "overlap_type": "direct_redefines_group",
-            "redefines_chain": "WS-DATE-PARTS REDEFINES WS-DATE-YYYYMMDD",
-            "redefines_level": 5
-          }
-        ],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "WS-DATE-YEAR"
-      },
-      {
-        "affected_records": [],
-        "line_number": 2,
-        "modification_type": "MOVE",
-        "variable": "TO"
-      },
-      {
         "affected_records": [
           "WS-FORMATTED-DATE"
         ],
-        "line_number": 2,
+        "line_number": 157,
         "modification_type": "MOVE",
         "variable": "WS-FMT-YEAR"
       }
@@ -867,14 +415,14 @@
   },
   "summary": {
     "records_with_redefines": [
-      "WS-DAYS-IN-MONTH-TABLE",
+      "WS-MONTH-TABLE",
       "WS-DAYS-TABLE",
       "WS-MONTH-NAMES",
-      "WS-MONTH-TABLE"
+      "WS-DAYS-IN-MONTH-TABLE"
     ],
-    "total_modifications": 49,
+    "total_modifications": 20,
     "total_paragraphs": 8,
     "total_sections": 6,
-    "unique_modified_variables": 25
+    "unique_modified_variables": 16
   }
 }
