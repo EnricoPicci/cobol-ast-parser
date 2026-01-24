@@ -77,6 +77,13 @@
 - Name test functions with `test_` prefix
 - Use fixtures for common setup
 - Aim for high coverage on core parsing and analysis logic
+- **Always add relevant tests when changing logic** - any bug fix or feature change should include tests that verify the new behavior
+
+### Documentation
+
+- **Always update documentation when changing logic** - keep docs in sync with code changes
+- Update docstrings when function behavior changes
+- Update claude.md if architectural patterns or guidelines change
 
 ---
 
