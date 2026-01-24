@@ -6,6 +6,8 @@ This module provides the CLI interface for analyzing COBOL programs.
 import argparse
 import sys
 import logging
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 
@@ -17,13 +19,18 @@ from cobol_ast import ASTBuilder
 from analyzers import ImpactAnalyzer
 from output import JSONWriter
 
+__version__ = "1.0.0"
 
-def setup_logging(level: str = "INFO") -> None:
+
+def setup_logging(level: str = "INFO", quiet: bool = False) -> None:
     """Configure logging.
 
     Args:
         level: Logging level string (DEBUG, INFO, WARNING, ERROR)
+        quiet: If True, suppress all output except errors
     """
+    if quiet:
+        level = "ERROR"
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -76,6 +83,7 @@ def analyze_cobol_file(
     resolve_copies: bool = True,
     output_path: Optional[Path] = None,
     config: Optional[dict] = None,
+    include_source_info: bool = False,
 ) -> dict:
     """Analyze a COBOL source file.
 
@@ -85,16 +93,19 @@ def analyze_cobol_file(
         resolve_copies: Whether to resolve COPY statements
         output_path: Optional path to write JSON output
         config: Configuration dictionary
+        include_source_info: Whether to include source file metadata
 
     Returns:
-        Analysis results dictionary
+        Analysis results dictionary with execution timing
     """
+    start_time = time.perf_counter()
     config = config or load_config()
     logger = logging.getLogger(__name__)
 
     # Read source file
     logger.info(f"Reading source file: {source_path}")
     source = source_path.read_text(encoding="utf-8", errors="replace")
+    source_lines_count = len(source.splitlines())
 
     # Detect format
     source_lines = source.splitlines()
@@ -139,6 +150,22 @@ def analyze_cobol_file(
     # Generate output
     output = analyzer.generate_output()
 
+    # Calculate execution time
+    end_time = time.perf_counter()
+    execution_time_seconds = end_time - start_time
+
+    # Add execution metadata
+    output["execution_time_seconds"] = round(execution_time_seconds, 4)
+
+    # Add source file info if requested
+    if include_source_info:
+        output["source_info"] = {
+            "file_path": str(source_path.absolute()),
+            "file_name": source_path.name,
+            "source_format": source_format.value,
+            "lines_count": source_lines_count,
+        }
+
     # Write to file if path provided
     if output_path:
         output_config = config.get("output", {})
@@ -157,71 +184,131 @@ def analyze_cobol_file(
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="COBOL Source Code Analyzer",
+        prog="cobol-analyzer",
+        description="COBOL Source Code Analyzer - Analyzes COBOL programs to identify variable modifications and their impact on data structures.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  cobol-analyzer source.cob
-  cobol-analyzer source.cob -o analysis.json
-  cobol-analyzer source.cob -c copybooks/ -o analysis.json
-  cobol-analyzer source.cob --no-copy-resolution
+  %(prog)s source.cob -o ./output
+  %(prog)s source.cob -o ./output --compact
+  %(prog)s source.cob -o ./output -c copybooks/ -c shared/
+  %(prog)s source.cob -o ./output --no-copy-resolution
+  %(prog)s source.cob --summary-only
+
+For more information, see the documentation at docs/cli-reference.md
         """,
     )
 
+    # Required arguments
     parser.add_argument(
         "source",
         type=Path,
-        help="Path to COBOL source file",
+        help="Path to the COBOL source file to analyze",
     )
-    parser.add_argument(
-        "-o", "--output",
+
+    # Output options
+    output_group = parser.add_argument_group("Output Options")
+    output_group.add_argument(
+        "-o", "--output-dir",
         type=Path,
-        help="Output JSON file path",
+        dest="output_dir",
+        help="Output directory for analysis results (created if it doesn't exist)",
     )
-    parser.add_argument(
+    output_group.add_argument(
+        "--output-filename",
+        type=str,
+        default="{program_name}-analysis.json",
+        help="Output filename pattern. Use {program_name} as placeholder (default: {program_name}-analysis.json)",
+    )
+    output_group.add_argument(
+        "--compact",
+        action="store_true",
+        help="Generate compact output (unique variables per section, no duplicates)",
+    )
+    output_group.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Output only the summary section (minimal output)",
+    )
+    output_group.add_argument(
+        "--include-source-info",
+        action="store_true",
+        help="Include source file metadata in output (path, format, line count)",
+    )
+
+    # Copybook options
+    copybook_group = parser.add_argument_group("Copybook Options")
+    copybook_group.add_argument(
         "-c", "--copybook-path",
         type=Path,
         action="append",
         dest="copybook_paths",
+        metavar="PATH",
         help="Path to search for copybooks (can be specified multiple times)",
     )
-    parser.add_argument(
-        "--config",
-        type=Path,
-        help="Path to configuration file",
-    )
-    parser.add_argument(
+    copybook_group.add_argument(
         "--no-copy-resolution",
         action="store_true",
         help="Skip COPY statement resolution",
     )
-    parser.add_argument(
-        "--compact",
-        action="store_true",
-        help="Generate compact output (unique variables per section)",
+
+    # Configuration options
+    config_group = parser.add_argument_group("Configuration")
+    config_group.add_argument(
+        "--config",
+        type=Path,
+        metavar="FILE",
+        help="Path to YAML configuration file",
     )
-    parser.add_argument(
+
+    # Logging options
+    logging_group = parser.add_argument_group("Logging")
+    logging_group.add_argument(
         "-v", "--verbose",
         action="store_true",
-        help="Enable verbose output",
+        help="Enable verbose output (debug level logging)",
     )
-    parser.add_argument(
-        "--summary-only",
+    logging_group.add_argument(
+        "-q", "--quiet",
         action="store_true",
-        help="Output only the summary section",
+        help="Suppress all output except errors",
+    )
+
+    # Version
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
 
     args = parser.parse_args()
 
+    # Validate conflicting options
+    if args.verbose and args.quiet:
+        parser.error("--verbose and --quiet cannot be used together")
+
     # Setup logging
     log_level = "DEBUG" if args.verbose else "INFO"
-    setup_logging(log_level)
+    setup_logging(log_level, quiet=args.quiet)
     logger = logging.getLogger(__name__)
 
     # Validate input
     if not args.source.exists():
         logger.error(f"Source file not found: {args.source}")
         sys.exit(1)
+
+    if not args.source.is_file():
+        logger.error(f"Source path is not a file: {args.source}")
+        sys.exit(1)
+
+    # Create output directory if specified and doesn't exist
+    if args.output_dir:
+        try:
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Output directory: {args.output_dir}")
+        except OSError as e:
+            logger.error(f"Failed to create output directory: {e}")
+            sys.exit(1)
 
     # Load config
     config = load_config(args.config)
@@ -233,7 +320,11 @@ Examples:
             copybook_paths=args.copybook_paths,
             resolve_copies=not args.no_copy_resolution,
             config=config,
+            include_source_info=args.include_source_info,
         )
+
+        # Store execution time before transformations
+        execution_time = output.get("execution_time_seconds", 0)
 
         # Handle compact output - transform the full output to compact format
         if args.compact:
@@ -252,16 +343,24 @@ Examples:
                     for var, recs in var_to_records.items()
                 ]
             output = {
+                "analysis_date": output.get("analysis_date"),
                 "program_name": output.get("program_name", "UNKNOWN"),
+                "execution_time_seconds": execution_time,
                 "sections_and_paragraphs": compact_sections,
             }
+            if args.include_source_info and "source_info" in output:
+                output["source_info"] = output.get("source_info")
 
         # Handle summary only
         if args.summary_only:
             output = {
+                "analysis_date": output.get("analysis_date"),
                 "program_name": output.get("program_name", "UNKNOWN"),
+                "execution_time_seconds": execution_time,
                 "summary": output.get("summary", {}),
             }
+            if args.include_source_info and "source_info" in output:
+                output["source_info"] = output.get("source_info")
 
         # Output
         output_config = config.get("output", {})
@@ -270,9 +369,15 @@ Examples:
             indent=output_config.get("indent_size", 2),
         )
 
-        if args.output:
-            writer.write(output, args.output)
-            print(f"Analysis written to: {args.output}")
+        if args.output_dir:
+            # Generate output filename
+            program_name = output.get("program_name", "UNKNOWN")
+            output_filename = args.output_filename.format(program_name=program_name)
+            output_path = args.output_dir / output_filename
+            writer.write(output, output_path)
+            if not args.quiet:
+                print(f"Analysis written to: {output_path}")
+                print(f"Execution time: {execution_time:.4f} seconds")
         else:
             print(writer.write(output))
 

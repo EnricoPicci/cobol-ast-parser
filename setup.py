@@ -10,7 +10,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="cobol-ast-parser",
-    version="0.1.0",
+    version="1.0.0",
     author="COBOL Analyzer Team",
     description="A COBOL source code analyzer for variable modification tracking",
     long_description=long_description,
