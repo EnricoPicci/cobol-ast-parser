@@ -1,0 +1,50 @@
+# COBOL Analyzer Configuration
+
+# Paths to search for copybooks
+copybook_paths:
+  - ./copybooks
+  - ./copy
+  - /usr/share/cobol/copybooks
+
+# File extensions to recognize as COBOL source
+cobol_extensions:
+  - .cob
+  - .cbl
+  - .cobol
+  - .cpy
+
+# File extensions to recognize as copybooks
+copybook_extensions:
+  - .cpy
+  - .copy
+  - .cbl
+
+# Parser settings
+parser:
+  # Maximum COPY nesting depth (COBOL standard is 16)
+  max_copy_depth: 16
+
+  # Default source format (fixed or free)
+  default_format: fixed
+
+  # Auto-detect source format
+  auto_detect_format: true
+
+# Output settings
+output:
+  # Include line numbers in modification tracking
+  include_line_numbers: true
+
+  # Include modification type (MOVE, COMPUTE, etc.)
+  include_modification_type: true
+
+  # Pretty print JSON output
+  pretty_print: true
+
+  # Indent size for JSON output
+  indent_size: 2
+
+# Logging settings
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

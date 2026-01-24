@@ -1,0 +1,34 @@
+Metadata-Version: 2.4
+Name: cobol-ast-parser
+Version: 0.1.0
+Summary: A COBOL source code analyzer for variable modification tracking
+Home-page: https://github.com/example/cobol-ast-parser
+Author: COBOL Analyzer Team
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Compilers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: antlr4-python3-runtime>=4.13.0
+Requires-Dist: networkx>=3.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: pytest>=7.0
+Requires-Dist: pytest-cov>=4.0
+Requires-Dist: mypy>=1.0
+Requires-Dist: black>=23.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# cobol-ast-parser

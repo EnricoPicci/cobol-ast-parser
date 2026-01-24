@@ -1,0 +1,69 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. REDEFINES-EXAMPLE.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+
+       01 INPUT-RECORD.
+          05 INPUT-TYPE         PIC X.
+          05 INPUT-DATA         PIC X(99).
+
+       01 EMPLOYEE-RECORD REDEFINES INPUT-RECORD.
+          05 EMP-TYPE           PIC X.
+          05 EMP-ID             PIC 9(5).
+          05 EMP-NAME           PIC X(30).
+          05 EMP-SALARY         PIC 9(9)V99.
+          05 FILLER             PIC X(53).
+
+       01 DEPARTMENT-RECORD REDEFINES INPUT-RECORD.
+          05 DEPT-TYPE          PIC X.
+          05 DEPT-CODE          PIC X(5).
+          05 DEPT-NAME          PIC X(40).
+          05 DEPT-BUDGET        PIC 9(12)V99.
+          05 FILLER             PIC X(41).
+
+       01 OUTPUT-RECORD.
+          05 OUT-STATUS         PIC X(10).
+          05 OUT-MESSAGE        PIC X(90).
+
+       01 OUTPUT-OVERLAY REDEFINES OUTPUT-RECORD.
+          05 OUT-CODE           PIC 9(5).
+          05 OUT-DESCRIPTION    PIC X(95).
+
+       01 WS-WORK-AREA.
+          05 WS-TEMP-NUM        PIC 9(10).
+          05 WS-TEMP-TEXT       PIC X(50).
+
+       PROCEDURE DIVISION.
+
+       MAIN-SECTION SECTION.
+
+       START-PROCESS.
+           PERFORM INIT-RECORDS
+           PERFORM PROCESS-EMPLOYEE
+           PERFORM PROCESS-DEPARTMENT
+           PERFORM WRITE-OUTPUT
+           STOP RUN.
+
+       INIT-RECORDS.
+           INITIALIZE INPUT-RECORD
+           INITIALIZE OUTPUT-RECORD
+           MOVE SPACES TO WS-TEMP-TEXT.
+
+       PROCESS-EMPLOYEE.
+           MOVE "E" TO INPUT-TYPE
+           MOVE 12345 TO EMP-ID
+           MOVE "SMITH, JOHN" TO EMP-NAME
+           COMPUTE EMP-SALARY = 50000.00
+           MOVE EMP-NAME TO WS-TEMP-TEXT.
+
+       PROCESS-DEPARTMENT.
+           MOVE "D" TO INPUT-TYPE
+           MOVE "SALES" TO DEPT-CODE
+           MOVE "SALES DEPARTMENT" TO DEPT-NAME
+           MOVE 1000000.00 TO DEPT-BUDGET.
+
+       WRITE-OUTPUT.
+           MOVE "SUCCESS" TO OUT-STATUS
+           MOVE "PROCESSING COMPLETE" TO OUT-MESSAGE
+           MOVE 0 TO OUT-CODE.
