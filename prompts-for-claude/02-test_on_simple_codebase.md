@@ -1,0 +1,1 @@
+tell me which is command line command to analyze the code in "some-cobol-source/COBCALC.cbl" and write the output in a folder named "some-cobol-source-ast"

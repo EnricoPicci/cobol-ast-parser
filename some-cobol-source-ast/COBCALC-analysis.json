@@ -1,0 +1,31 @@
+{
+  "analysis_date": "2026-01-24T12:18:17.181659",
+  "program_name": "COBCALC",
+  "sections_and_paragraphs": {
+    "ACCEPT-INPUT": [
+      {
+        "affected_records": [
+          "FIELDS"
+        ],
+        "line_number": 2,
+        "modification_type": "MOVE",
+        "variable": "INPUT-1"
+      },
+      {
+        "affected_records": [
+          "FIELDS"
+        ],
+        "line_number": 7,
+        "modification_type": "MOVE",
+        "variable": "INPUT-1"
+      }
+    ]
+  },
+  "summary": {
+    "records_with_redefines": [],
+    "total_modifications": 2,
+    "total_paragraphs": 5,
+    "total_sections": 0,
+    "unique_modified_variables": 1
+  }
+}
