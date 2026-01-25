@@ -193,6 +193,7 @@ class TestVariableFilter:
         assert "variables_not_found" in summary
         assert "total_direct_modifications" in summary
         assert "total_redefines_modifications" in summary
+        assert "total_ancestor_modifications" in summary
 
     def test_modification_details_preserved(self, sample_analysis_data):
         """Test that modification details are correctly preserved."""
@@ -682,6 +683,259 @@ class TestAnalyzeAndFilterCommand:
         assert filter_data["summary"]["variables_found"] == 1
         assert "WS-LOOP-CTR" in filter_data["variables"]
 
+    def test_analyze_and_filter_no_ancestor_mods(self, simple_program_path, tmp_path):
+        """Test --no-ancestor-mods flag in analyze-and-filter command."""
+        import subprocess
+        import sys
+
+        # Run with --no-ancestor-mods
+        result = subprocess.run(
+            [sys.executable, "-m", "src", "analyze-and-filter",
+             str(simple_program_path), "-v", "WS-EMP-ID", "--no-ancestor-mods",
+             "-o", str(tmp_path), "-q"],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent
+        )
+
+        assert result.returncode == 0
+
+        filter_file = tmp_path / "SIMPLE-PROGRAM-variable-filter.json"
+        with open(filter_file, "r") as f:
+            filter_data = json.load(f)
+
+        # ancestor_modifications should be empty when flag is set
+        if "WS-EMP-ID" in filter_data["variables"]:
+            assert filter_data["variables"]["WS-EMP-ID"]["ancestor_modifications"] == []
+        assert filter_data["summary"]["total_ancestor_modifications"] == 0
+
+    def test_analyze_and_filter_includes_data_hierarchy(self, simple_program_path, tmp_path):
+        """Test that analysis output includes data_hierarchy field."""
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "src", "analyze-and-filter",
+             str(simple_program_path), "-v", "WS-LOOP-CTR", "-o", str(tmp_path), "-q"],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent
+        )
+
+        assert result.returncode == 0
+
+        # Check analysis file has data_hierarchy
+        analysis_file = tmp_path / "SIMPLE-PROGRAM-analysis.json"
+        with open(analysis_file, "r") as f:
+            analysis_data = json.load(f)
+
+        assert "data_hierarchy" in analysis_data
+        # data_hierarchy should be a dict with variable names as keys
+        assert isinstance(analysis_data["data_hierarchy"], dict)
+
+
+class TestAncestorModifications:
+    """Tests for ancestor modification tracking."""
+
+    @pytest.fixture
+    def hierarchical_analysis_data(self):
+        """Create analysis data with data hierarchy for testing."""
+        return {
+            "program_name": "HIERARCHY-TEST",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "execution_time_seconds": 0.1,
+            "sections_and_paragraphs": {
+                "INIT-PARA": [
+                    {
+                        "variable": "CUST-HEADER",
+                        "modification_type": "INITIALIZE",
+                        "line_number": 100,
+                        "affected_records": ["CUSTOMER-RECORD"]
+                    }
+                ],
+                "UPDATE-PARA": [
+                    {
+                        "variable": "CUST-ID",
+                        "modification_type": "MOVE",
+                        "line_number": 150,
+                        "affected_records": ["CUSTOMER-RECORD"]
+                    }
+                ],
+                "RESET-PARA": [
+                    {
+                        "variable": "CUSTOMER-RECORD",
+                        "modification_type": "INITIALIZE",
+                        "line_number": 200,
+                        "affected_records": ["CUSTOMER-RECORD"]
+                    }
+                ]
+            },
+            "data_hierarchy": {
+                "CUSTOMER-RECORD": ["CUSTOMER-RECORD"],
+                "CUST-HEADER": ["CUSTOMER-RECORD", "CUST-HEADER"],
+                "CUST-ID": ["CUSTOMER-RECORD", "CUST-HEADER", "CUST-ID"],
+                "CUST-NAME": ["CUSTOMER-RECORD", "CUST-HEADER", "CUST-NAME"],
+                "CUST-DETAILS": ["CUSTOMER-RECORD", "CUST-DETAILS"],
+                "CUST-BALANCE": ["CUSTOMER-RECORD", "CUST-DETAILS", "CUST-BALANCE"]
+            },
+            "summary": {"total_modifications": 3}
+        }
+
+    def test_simple_ancestor_modification(self, hierarchical_analysis_data):
+        """Test finding modification of direct parent."""
+        var_filter = VariableFilter(hierarchical_analysis_data)
+        result = var_filter.filter(["CUST-ID"])
+
+        assert "CUST-ID" in result["variables"]
+        var_data = result["variables"]["CUST-ID"]
+
+        # Should have direct modification
+        assert len(var_data["direct_modifications"]) == 1
+
+        # Should have ancestor modifications from CUST-HEADER and CUSTOMER-RECORD
+        ancestor_mods = var_data["ancestor_modifications"]
+        assert len(ancestor_mods) == 2
+
+        # Find CUST-HEADER modification
+        header_mod = next(
+            (m for m in ancestor_mods if m["ancestor_variable"] == "CUST-HEADER"),
+            None
+        )
+        assert header_mod is not None
+        assert header_mod["section_or_paragraph"] == "INIT-PARA"
+        assert header_mod["modification_type"] == "INITIALIZE"
+        assert header_mod["ancestor_level"] == 2  # Second in hierarchy
+
+        # Find CUSTOMER-RECORD modification
+        record_mod = next(
+            (m for m in ancestor_mods if m["ancestor_variable"] == "CUSTOMER-RECORD"),
+            None
+        )
+        assert record_mod is not None
+        assert record_mod["section_or_paragraph"] == "RESET-PARA"
+        assert record_mod["ancestor_level"] == 1  # Root level
+
+    def test_deep_hierarchy(self, hierarchical_analysis_data):
+        """Test variable with multiple ancestor levels."""
+        var_filter = VariableFilter(hierarchical_analysis_data)
+        result = var_filter.filter(["CUST-NAME"])
+
+        assert "CUST-NAME" in result["variables"]
+        var_data = result["variables"]["CUST-NAME"]
+
+        # No direct modifications for CUST-NAME
+        assert len(var_data["direct_modifications"]) == 0
+
+        # Should have ancestor modifications from CUST-HEADER and CUSTOMER-RECORD
+        ancestor_mods = var_data["ancestor_modifications"]
+        assert len(ancestor_mods) == 2
+
+    def test_no_hierarchy_data_backwards_compatibility(self):
+        """Test that filter works when data_hierarchy is missing."""
+        analysis_data = {
+            "program_name": "NO-HIERARCHY",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "sections_and_paragraphs": {
+                "SOME-PARA": [
+                    {
+                        "variable": "MY-VAR",
+                        "modification_type": "MOVE",
+                        "line_number": 10,
+                        "affected_records": []
+                    }
+                ]
+            }
+            # No data_hierarchy key
+        }
+
+        var_filter = VariableFilter(analysis_data)
+        result = var_filter.filter(["MY-VAR"])
+
+        assert "MY-VAR" in result["variables"]
+        assert result["variables"]["MY-VAR"]["ancestor_modifications"] == []
+
+    def test_no_ancestor_mods_flag(self, hierarchical_analysis_data):
+        """Test --no-ancestor-mods excludes ancestor modifications."""
+        var_filter = VariableFilter(hierarchical_analysis_data)
+        result = var_filter.filter(["CUST-ID"], include_ancestor_mods=False)
+
+        assert "CUST-ID" in result["variables"]
+        var_data = result["variables"]["CUST-ID"]
+
+        # Should still have direct modification
+        assert len(var_data["direct_modifications"]) == 1
+
+        # Should have empty ancestor_modifications
+        assert len(var_data["ancestor_modifications"]) == 0
+
+    def test_root_level_variable_no_ancestors(self, hierarchical_analysis_data):
+        """Test that root level variables have no ancestor modifications."""
+        var_filter = VariableFilter(hierarchical_analysis_data)
+        result = var_filter.filter(["CUSTOMER-RECORD"])
+
+        assert "CUSTOMER-RECORD" in result["variables"]
+        var_data = result["variables"]["CUSTOMER-RECORD"]
+
+        # Root variable has no ancestors
+        assert len(var_data["ancestor_modifications"]) == 0
+
+    def test_summary_includes_ancestor_count(self, hierarchical_analysis_data):
+        """Test that summary includes total_ancestor_modifications."""
+        var_filter = VariableFilter(hierarchical_analysis_data)
+        result = var_filter.filter(["CUST-ID"])
+
+        assert "total_ancestor_modifications" in result["summary"]
+        assert result["summary"]["total_ancestor_modifications"] == 2
+
+    def test_ancestor_level_ordering(self, hierarchical_analysis_data):
+        """Test that ancestor_level correctly indicates hierarchy depth."""
+        var_filter = VariableFilter(hierarchical_analysis_data)
+        result = var_filter.filter(["CUST-ID"])
+
+        ancestor_mods = result["variables"]["CUST-ID"]["ancestor_modifications"]
+
+        # Sort by ancestor_level to verify ordering
+        sorted_mods = sorted(ancestor_mods, key=lambda m: m["ancestor_level"])
+
+        # Level 1 should be CUSTOMER-RECORD (root)
+        assert sorted_mods[0]["ancestor_level"] == 1
+        assert sorted_mods[0]["ancestor_variable"] == "CUSTOMER-RECORD"
+
+        # Level 2 should be CUST-HEADER
+        assert sorted_mods[1]["ancestor_level"] == 2
+        assert sorted_mods[1]["ancestor_variable"] == "CUST-HEADER"
+
+    def test_variable_only_found_via_ancestor(self):
+        """Test variable that is only found via ancestor modification."""
+        analysis_data = {
+            "program_name": "ANCESTOR-ONLY",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "sections_and_paragraphs": {
+                "INIT-PARA": [
+                    {
+                        "variable": "PARENT-GROUP",
+                        "modification_type": "INITIALIZE",
+                        "line_number": 50,
+                        "affected_records": ["MY-RECORD"]
+                    }
+                ]
+            },
+            "data_hierarchy": {
+                "MY-RECORD": ["MY-RECORD"],
+                "PARENT-GROUP": ["MY-RECORD", "PARENT-GROUP"],
+                "CHILD-FIELD": ["MY-RECORD", "PARENT-GROUP", "CHILD-FIELD"]
+            }
+        }
+
+        var_filter = VariableFilter(analysis_data)
+        result = var_filter.filter(["CHILD-FIELD"])
+
+        # CHILD-FIELD should be found via ancestor modification
+        assert "CHILD-FIELD" in result["variables"]
+        assert result["summary"]["variables_found"] == 1
+        assert len(result["variables"]["CHILD-FIELD"]["direct_modifications"]) == 0
+        assert len(result["variables"]["CHILD-FIELD"]["ancestor_modifications"]) == 1
+
 
 class TestCLIBackwardsCompatibility:
     """Tests for CLI backwards compatibility."""
@@ -742,7 +996,7 @@ class TestCLIBackwardsCompatibility:
         )
 
         assert result.returncode == 0
-        assert "1.2.0" in result.stdout
+        assert "1.3.0" in result.stdout
 
     def test_help_shows_all_commands(self):
         """Test that help shows all available commands."""

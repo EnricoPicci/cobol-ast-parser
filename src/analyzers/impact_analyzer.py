@@ -256,6 +256,22 @@ class ImpactAnalyzer:
 
         return paragraphs
 
+    def _build_data_hierarchy(self) -> Dict[str, List[str]]:
+        """Build hierarchy chains for all data items.
+
+        Returns:
+            Dictionary mapping variable names to their ancestor chain
+            (from root record down to the item itself)
+        """
+        hierarchy = {}
+        for item_name in self.program.all_data_items.keys():
+            item_hierarchy = self.data_analyzer.get_item_hierarchy(item_name)
+            if item_hierarchy:
+                # Extract names from the DataItem hierarchy
+                chain = [item.name for item in item_hierarchy]
+                hierarchy[item_name.upper()] = chain
+        return hierarchy
+
     def generate_output(self) -> Dict[str, Any]:
         """Generate the final output dictionary.
 
@@ -304,6 +320,7 @@ class ImpactAnalyzer:
             "program_name": self.program.name,
             "analysis_date": datetime.now().isoformat(),
             "sections_and_paragraphs": sections_and_paragraphs,
+            "data_hierarchy": self._build_data_hierarchy(),
             "summary": summary,
         }
 

@@ -315,6 +315,14 @@ Exclude REDEFINES-related modifications from the output. Only show direct variab
 cobol-analyzer filter-by-variable analysis.json -v WS-TOTAL --no-redefines
 ```
 
+##### `--no-ancestor-mods`
+
+Exclude ancestor group modifications from the output. By default, when a parent group is modified (e.g., via INITIALIZE), it is shown as an ancestor modification for child variables.
+
+```bash
+cobol-analyzer filter-by-variable analysis.json -v CUST-ID --no-ancestor-mods
+```
+
 #### Logging Options
 
 ##### `-q, --quiet`
@@ -343,7 +351,8 @@ cobol-analyzer filter-by-variable analysis.json -v WS-TOTAL -o ./output -q
           "affected_records": ["WS-TOTALS"]
         }
       ],
-      "redefines_modifications": []
+      "redefines_modifications": [],
+      "ancestor_modifications": []
     },
     "CUST-BALANCE": {
       "direct_modifications": [
@@ -364,6 +373,16 @@ cobol-analyzer filter-by-variable analysis.json -v WS-TOTAL -o ./output -q
           "overlap_type": "full",
           "redefines_chain": "CUSTOMER-OVERLAY REDEFINES CUSTOMER-RECORD"
         }
+      ],
+      "ancestor_modifications": [
+        {
+          "section_or_paragraph": "1000-INIT-CUSTOMER",
+          "modification_type": "INITIALIZE",
+          "line_number": 50,
+          "affected_records": ["CUSTOMER-RECORD"],
+          "ancestor_variable": "CUST-DETAILS",
+          "ancestor_level": 2
+        }
       ]
     }
   },
@@ -372,7 +391,8 @@ cobol-analyzer filter-by-variable analysis.json -v WS-TOTAL -o ./output -q
     "variables_found": 2,
     "variables_not_found": [],
     "total_direct_modifications": 2,
-    "total_redefines_modifications": 1
+    "total_redefines_modifications": 1,
+    "total_ancestor_modifications": 1
   }
 }
 ```
@@ -384,9 +404,12 @@ cobol-analyzer filter-by-variable analysis.json -v WS-TOTAL -o ./output -q
 | `filter_variables` | Echo of input variables for traceability |
 | `direct_modifications` | Locations where variable is directly modified |
 | `redefines_modifications` | Locations where variable is indirectly modified via REDEFINES |
+| `ancestor_modifications` | Locations where a parent group of the variable is modified |
 | `modified_variable` | The variable that was directly modified (for REDEFINES entries) |
 | `overlap_type` | Memory overlap relationship (full, partial, contains, contained_by) |
 | `redefines_chain` | Description of REDEFINES relationship |
+| `ancestor_variable` | The ancestor group that was modified (for ancestor entries) |
+| `ancestor_level` | Hierarchy depth of the ancestor (1 = root record, 2 = first child, etc.) |
 
 ---
 
@@ -479,6 +502,14 @@ Exclude REDEFINES-related modifications from the filter output.
 cobol-analyzer analyze-and-filter program.cob -v WS-TOTAL --no-redefines
 ```
 
+##### `--no-ancestor-mods`
+
+Exclude ancestor group modifications from the filter output.
+
+```bash
+cobol-analyzer analyze-and-filter program.cob -v CUST-ID --no-ancestor-mods
+```
+
 ##### `--include-source-info`
 
 Include source file metadata in the analysis output.
@@ -544,7 +575,7 @@ Display version information and exit.
 
 ```bash
 cobol-analyzer --version
-# Output: cobol-analyzer 1.2.0
+# Output: cobol-analyzer 1.3.0
 ```
 
 ### `-h, --help`

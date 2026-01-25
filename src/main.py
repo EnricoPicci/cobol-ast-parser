@@ -20,7 +20,7 @@ from cobol_ast import ASTBuilder
 from analyzers import ImpactAnalyzer
 from output import JSONWriter, VariableFilter
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 
 def setup_logging(level: str = "INFO", quiet: bool = False) -> None:
@@ -354,7 +354,12 @@ def handle_filter_by_variable(args) -> int:
         # Create filter and execute
         var_filter = VariableFilter(analysis_data)
         include_redefines = not args.no_redefines
-        result = var_filter.filter(variable_names, include_redefines=include_redefines)
+        include_ancestor_mods = not args.no_ancestor_mods
+        result = var_filter.filter(
+            variable_names,
+            include_redefines=include_redefines,
+            include_ancestor_mods=include_ancestor_mods
+        )
 
         # Log warnings for variables not found
         not_found = result.get("summary", {}).get("variables_not_found", [])
@@ -475,7 +480,12 @@ def handle_analyze_and_filter(args) -> int:
         logger.info("Step 2: Filtering by variables...")
         var_filter = VariableFilter(analysis_output)
         include_redefines = not args.no_redefines
-        filter_result = var_filter.filter(variable_names, include_redefines=include_redefines)
+        include_ancestor_mods = not args.no_ancestor_mods
+        filter_result = var_filter.filter(
+            variable_names,
+            include_redefines=include_redefines,
+            include_ancestor_mods=include_ancestor_mods
+        )
 
         filter_execution_time = filter_result.get("execution_time_seconds", 0)
 
@@ -688,6 +698,11 @@ Examples:
         action="store_true",
         help="Exclude REDEFINES-related modifications",
     )
+    output_group.add_argument(
+        "--no-ancestor-mods",
+        action="store_true",
+        help="Exclude ancestor group modifications from filter output",
+    )
 
     # Logging options
     logging_group = filter_parser.add_argument_group("Logging")
@@ -772,6 +787,11 @@ Examples:
         "--no-redefines",
         action="store_true",
         help="Exclude REDEFINES-related modifications from filter output",
+    )
+    output_group.add_argument(
+        "--no-ancestor-mods",
+        action="store_true",
+        help="Exclude ancestor group modifications from filter output",
     )
     output_group.add_argument(
         "--include-source-info",
