@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from cobol_ast.nodes import CobolProgram, VariableModification
-from .data_analyzer import DataStructureAnalyzer
+from .data_analyzer import DataStructureAnalyzer, MemoryRegion
 from .redefines import RedefinesAnalyzer, AffectedVariable
 from .procedure_analyzer import ProcedureAnalyzer
 
@@ -138,9 +138,13 @@ class ImpactAnalyzer:
                 # Get all affected records through REDEFINES
                 affected = self.redefines_analyzer.get_affected_records(record.name)
                 affected_list = sorted(list(affected))
-                # Get all affected variables through subordinate REDEFINES
-                affected_vars = self.redefines_analyzer.get_overlapping_variables(
+                # Get all potential affected variables through subordinate REDEFINES
+                potential_affected_vars = self.redefines_analyzer.get_overlapping_variables(
                     mod.variable_name
+                )
+                # Filter by actual byte-level overlap
+                affected_vars = self._filter_by_byte_overlap(
+                    mod.variable_name, potential_affected_vars
                 )
             else:
                 # Variable not found in data division (might be external or typo)
@@ -157,6 +161,97 @@ class ImpactAnalyzer:
             impacts.append(impact)
 
         return impacts
+
+    def _filter_by_byte_overlap(
+        self,
+        modified_var: str,
+        potential_affected: List[AffectedVariable]
+    ) -> List[AffectedVariable]:
+        """Filter affected variables to only those with actual byte overlap.
+
+        For REDEFINES records, byte 0 in RECORD-A equals byte 0 in
+        RECORD-B REDEFINES RECORD-A. So we compare byte offsets directly
+        to determine which variables actually overlap in memory.
+
+        For 88-level condition names, we check if their parent overlaps
+        since 88-level items don't occupy memory themselves.
+
+        Args:
+            modified_var: Name of the modified variable
+            potential_affected: List of potentially affected variables from REDEFINES
+
+        Returns:
+            Filtered list with only variables that actually overlap in memory,
+            with accurate overlap_type values
+        """
+        modified_region = self.data_analyzer.get_memory_region(modified_var)
+        if not modified_region:
+            # Can't filter without region info, return original list
+            return potential_affected
+
+        filtered = []
+        for av in potential_affected:
+            # Check if this is an 88-level condition name
+            if self.data_analyzer.is_88_level(av.name):
+                # For 88-level items, use parent's memory region
+                other_region = self.data_analyzer.get_parent_memory_region(av.name)
+            else:
+                other_region = self.data_analyzer.get_memory_region(av.name)
+
+            if not other_region:
+                # Can't determine overlap, skip this variable
+                # (previously we kept them, but that causes false positives)
+                continue
+
+            # For REDEFINES records, byte positions are equivalent
+            # (byte 0 in RECORD-A = byte 0 in RECORD-B REDEFINES RECORD-A)
+            # So we compare offsets directly, ignoring record_name
+            if self._regions_overlap(modified_region, other_region):
+                # Calculate accurate overlap_type based on byte positions
+                overlap_type = self._calculate_overlap_type(modified_region, other_region)
+                filtered.append(AffectedVariable(
+                    name=av.name,
+                    overlap_type=overlap_type,
+                    redefines_chain=av.redefines_chain,
+                    redefines_level=av.redefines_level,
+                    redefining_ancestor=av.redefining_ancestor,
+                    redefined_ancestor=av.redefined_ancestor,
+                ))
+
+        return filtered
+
+    def _regions_overlap(self, r1: MemoryRegion, r2: MemoryRegion) -> bool:
+        """Check if two memory regions overlap (ignoring record name for REDEFINES).
+
+        Args:
+            r1: First memory region
+            r2: Second memory region
+
+        Returns:
+            True if the byte ranges overlap
+        """
+        return r1.start_offset < r2.end_offset and r2.start_offset < r1.end_offset
+
+    def _calculate_overlap_type(self, modified: MemoryRegion, affected: MemoryRegion) -> str:
+        """Calculate the type of overlap between two memory regions.
+
+        Args:
+            modified: Memory region of the modified variable
+            affected: Memory region of the potentially affected variable
+
+        Returns:
+            Overlap type: "full", "partial", "contains", or "contained_by"
+        """
+        if modified.start_offset == affected.start_offset and modified.size == affected.size:
+            return "full"
+        elif (modified.start_offset <= affected.start_offset and
+              modified.end_offset >= affected.end_offset):
+            return "contains"
+        elif (affected.start_offset <= modified.start_offset and
+              affected.end_offset >= modified.end_offset):
+            return "contained_by"
+        else:
+            return "partial"
 
     def get_section_impact(self, section_name: str) -> Optional[SectionParagraphImpact]:
         """Get impact information for a section.
@@ -341,6 +436,8 @@ class ImpactAnalyzer:
         }
 
         if vi.affected_variables:
+            # Sort by name for consistent output ordering
+            sorted_vars = sorted(vi.affected_variables, key=lambda av: av.name)
             result["affected_variables"] = [
                 {
                     "name": av.name,
@@ -348,7 +445,7 @@ class ImpactAnalyzer:
                     "redefines_chain": av.redefines_chain,
                     "redefines_level": av.redefines_level,
                 }
-                for av in vi.affected_variables
+                for av in sorted_vars
             ]
 
         return result

@@ -44,6 +44,21 @@ cd cobol-ast-parser
 pip install -r requirements.txt
 ```
 
+### Optional: Install as command
+
+To use `cobol-analyzer` as a system command (instead of `./cobol-analyzer` or `python -m src`):
+
+```bash
+pip install -e .
+```
+
+Then you can run from anywhere:
+
+```bash
+cobol-analyzer analyze source.cob -o ./output
+cobol-analyzer paragraph-variables-map source.cob -o ./output
+```
+
 ## License
 
 See LICENSE file for details.

@@ -1,5 +1,0 @@
-analyzers
-ast
-output
-parser
-preprocessor

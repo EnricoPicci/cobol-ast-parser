@@ -4,12 +4,13 @@ This document describes all properties in the JSON files produced by the COBOL A
 
 ## Overview
 
-The COBOL Analyzer produces two types of JSON output files:
+The COBOL Analyzer produces three types of JSON output files:
 
 | Output Type | Command | Default Filename | Description |
 |-------------|---------|------------------|-------------|
-| Analysis Output | `analyze`, `analyze-and-filter` | `{program_name}-analysis.json` | Section-centric view of all variable modifications |
+| Analysis Output | `analyze`, `analyze-and-filter`, `paragraph-variables-map` | `{program_name}-analysis.json` | Section-centric view of all variable modifications |
 | Variable Filter Output | `filter-by-variable`, `analyze-and-filter` | `{program_name}-variable-filter.json` | Variable-centric view filtered to specific variables |
+| Paragraph Variables Map | `paragraph-variables-map` | `{program_name}-paragraph-variables.json` | Paragraph-centric view of all changed variables with record membership |
 
 ---
 
@@ -549,6 +550,225 @@ The `overlap_type` field describes the memory relationship between variables in 
     "total_direct_modifications": 1,
     "total_redefines_modifications": 1,
     "total_ancestor_modifications": 1
+  }
+}
+```
+
+---
+
+## Paragraph Variables Map Output
+
+The paragraph variables map output provides a paragraph-centric view showing which variables may change within each SECTION or PARAGRAPH, with Level 01 record membership including REDEFINES resolution.
+
+### Command Usage
+
+The `paragraph-variables-map` command takes a COBOL source file as input, analyzes it, and produces both the full analysis JSON and the paragraph-variables map JSON:
+
+```bash
+# Basic usage - analyze and map to output directory
+python -m src paragraph-variables-map source.cob -o ./output
+
+# Output to stdout (only map JSON, analysis not saved)
+python -m src paragraph-variables-map source.cob -q
+
+# With copybook resolution
+python -m src paragraph-variables-map source.cob -o ./output -c copybooks/
+
+# Exclude REDEFINES-affected variables
+python -m src paragraph-variables-map source.cob -o ./output --no-redefines
+
+# Exclude ancestor-modified variables
+python -m src paragraph-variables-map source.cob -o ./output --no-ancestor-mods
+
+# Custom output filenames
+python -m src paragraph-variables-map source.cob -o ./output \
+    --analysis-filename "{program_name}-full.json" \
+    --output-filename "{program_name}-vars.json"
+```
+
+When using `-o`, the command produces two files:
+- `{program_name}-analysis.json` - Full analysis output
+- `{program_name}-paragraph-variables.json` - Paragraph-to-variables map
+
+### Top-Level Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `program_name` | string | The PROGRAM-ID from the COBOL source |
+| `analysis_date` | string | ISO 8601 timestamp (inherited from the analysis) |
+| `execution_time_seconds` | number | Time taken to perform the mapping operation |
+| `paragraphs` | object | Mapping of paragraph/section names to changed variables |
+| `summary` | object | Statistical summary of the mapping results |
+
+### Example Structure
+
+```json
+{
+  "program_name": "TRANPROC",
+  "analysis_date": "2026-01-25T14:02:58.528677",
+  "execution_time_seconds": 0.0025,
+  "paragraphs": { ... },
+  "summary": { ... }
+}
+```
+
+---
+
+### `paragraphs`
+
+An object where each key is a SECTION or PARAGRAPH name, and the value is an object mapping variable names to their record information.
+
+```json
+{
+  "paragraphs": {
+    "3100-APPLY-PAYMENT": {
+      "CUST-BALANCE": {
+        "defined_in_record": "CUSTOMER-RECORD",
+        "base_record": "CUSTOMER-RECORD"
+      },
+      "PAY-CASH": {
+        "defined_in_record": "PAYMENT-DETAIL",
+        "base_record": "TRANSACTION-RECORD"
+      }
+    },
+    "4200-UPDATE-TOTALS": {
+      "WS-TOTAL-PAYMENTS": { ... }
+    }
+  }
+}
+```
+
+**Note:** Paragraphs with no variable changes are excluded from the output.
+
+#### Variable Entry Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `defined_in_record` | string | Level 01 record that directly contains this variable |
+| `base_record` | string | Ultimate Level 01 record (follows REDEFINES chain to root) |
+| `77-level-var` | boolean | *(Only present if true)* Variable is a 77-level standalone item |
+
+##### Example Variable Entries
+
+**Standard variable:**
+```json
+{
+  "CUST-BALANCE": {
+    "defined_in_record": "CUSTOMER-RECORD",
+    "base_record": "CUSTOMER-RECORD"
+  }
+}
+```
+
+**Variable in REDEFINES record:**
+```json
+{
+  "PAY-CASH": {
+    "defined_in_record": "PAYMENT-DETAIL",
+    "base_record": "TRANSACTION-RECORD"
+  }
+}
+```
+
+The `defined_in_record` shows that `PAY-CASH` is structurally within `PAYMENT-DETAIL`, while `base_record` shows that `PAYMENT-DETAIL REDEFINES TRANSACTION-RECORD`, so the ultimate memory allocation is under `TRANSACTION-RECORD`.
+
+**77-level variable:**
+```json
+{
+  "WS-STANDALONE": {
+    "defined_in_record": "WS-STANDALONE",
+    "base_record": "WS-STANDALONE",
+    "77-level-var": true
+  }
+}
+```
+
+---
+
+### `summary` (Paragraph Variables Map)
+
+Statistical overview of the mapping results.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `total_paragraphs_with_changes` | integer | Number of paragraphs/sections that have variable changes |
+| `total_unique_variables` | integer | Count of distinct variable names across all paragraphs |
+| `variables_in_redefines_records` | integer | Count of variables where `defined_in_record` differs from `base_record` |
+| `variables_via_ancestor_modification` | integer | Count of variables included because an ancestor group was modified |
+| `level_77_variables` | integer | Count of 77-level standalone variables |
+
+#### Example
+
+```json
+{
+  "summary": {
+    "total_paragraphs_with_changes": 15,
+    "total_unique_variables": 42,
+    "variables_in_redefines_records": 8,
+    "variables_via_ancestor_modification": 5,
+    "level_77_variables": 2
+  }
+}
+```
+
+---
+
+### Variable Collection Sources
+
+The paragraph variables map collects variables from three sources:
+
+1. **Direct modifications** - Variables explicitly named in modification statements (e.g., `MOVE X TO VAR-A`)
+
+2. **REDEFINES-affected variables** - When a variable in one record is modified, variables in REDEFINES-related records that share the same memory are also included (can be disabled with `--no-redefines`)
+
+3. **Ancestor modifications** - When a group item is modified (e.g., `INITIALIZE CUSTOMER-RECORD`), all subordinate items are indirectly affected and included (can be disabled with `--no-ancestor-mods`)
+
+---
+
+### Complete Example
+
+```json
+{
+  "program_name": "TRANPROC",
+  "analysis_date": "2026-01-25T14:02:58.528677",
+  "execution_time_seconds": 0.0025,
+  "paragraphs": {
+    "3100-APPLY-PAYMENT": {
+      "CUST-BALANCE": {
+        "defined_in_record": "CUSTOMER-RECORD",
+        "base_record": "CUSTOMER-RECORD"
+      },
+      "PAY-CASH": {
+        "defined_in_record": "PAYMENT-DETAIL",
+        "base_record": "TRANSACTION-RECORD"
+      },
+      "WS-STANDALONE": {
+        "defined_in_record": "WS-STANDALONE",
+        "base_record": "WS-STANDALONE",
+        "77-level-var": true
+      }
+    },
+    "1000-INIT": {
+      "WS-TOTALS": {
+        "defined_in_record": "WS-TOTALS",
+        "base_record": "WS-TOTALS"
+      },
+      "WS-TOTAL-PAYMENTS": {
+        "defined_in_record": "WS-TOTALS",
+        "base_record": "WS-TOTALS"
+      },
+      "WS-TOTAL-REFUNDS": {
+        "defined_in_record": "WS-TOTALS",
+        "base_record": "WS-TOTALS"
+      }
+    }
+  },
+  "summary": {
+    "total_paragraphs_with_changes": 2,
+    "total_unique_variables": 5,
+    "variables_in_redefines_records": 1,
+    "variables_via_ancestor_modification": 2,
+    "level_77_variables": 1
   }
 }
 ```

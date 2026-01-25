@@ -1,2 +1,0 @@
-[console_scripts]
-cobol-analyzer = main:main

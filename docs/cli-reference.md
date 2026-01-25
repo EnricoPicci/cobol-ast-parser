@@ -8,25 +8,28 @@ Complete command-line interface reference for the COBOL Analyzer.
 cobol-analyzer <command> [OPTIONS]
 ```
 
+**Note:** The `cobol-analyzer` command requires installation: `pip install -e .`
+
 Alternative invocation methods:
 
 ```bash
-# Using Python module syntax
-python -m src <command> [OPTIONS]
+# Using the wrapper script from project root (no installation required)
+./cobol-analyzer <command> [OPTIONS]
 
-# Running directly from src directory
-cd src && python main.py <command> [OPTIONS]
+# Using Python module syntax (no installation required)
+python -m src <command> [OPTIONS]
 ```
 
 ## Commands
 
-The COBOL Analyzer provides three commands:
+The COBOL Analyzer provides four commands:
 
 | Command | Description |
 |---------|-------------|
 | `analyze` | Analyze COBOL source file (default) |
 | `filter-by-variable` | Filter analysis output by variable names |
 | `analyze-and-filter` | Analyze and filter in one step (produces both JSON files) |
+| `paragraph-variables-map` | Map paragraphs/sections to variables that may change |
 
 **Backwards Compatibility:** If no command is specified, `analyze` is assumed:
 ```bash
@@ -567,6 +570,186 @@ When run without `-o`, prints only the filter JSON to stdout.
 
 ---
 
+## Command: `paragraph-variables-map`
+
+Analyze a COBOL source file and produce a paragraph-centric view showing which variables may change within each SECTION or PARAGRAPH.
+
+### Synopsis
+
+```
+cobol-analyzer paragraph-variables-map SOURCE [OPTIONS]
+```
+
+### Description
+
+This command analyzes a COBOL source file and produces a mapping of paragraphs/sections to the variables that may be modified within them. For each variable, it shows:
+- The Level 01 record where the variable is defined
+- The base record (following REDEFINES chains to the ultimate non-REDEFINE root)
+- Whether it's a 77-level standalone variable
+
+The command produces two output files:
+1. Full analysis JSON (same as `analyze` command)
+2. Paragraph-variables map JSON
+
+### Arguments
+
+#### SOURCE (required)
+
+Path to the COBOL source file to analyze.
+
+```bash
+cobol-analyzer paragraph-variables-map program.cob -o ./output
+```
+
+### Options
+
+#### Output Options
+
+##### `-o, --output-dir PATH`
+
+Output directory for both JSON files. If not specified, only the paragraph-variables map is written to stdout.
+
+```bash
+cobol-analyzer paragraph-variables-map program.cob -o ./output
+```
+
+**Produces:**
+- `{program_name}-analysis.json` - Full section-centric analysis
+- `{program_name}-paragraph-variables.json` - Paragraph-to-variables mapping
+
+##### `--analysis-filename PATTERN`
+
+Customize the analysis output filename.
+
+**Default:** `{program_name}-analysis.json`
+
+##### `--output-filename PATTERN`
+
+Customize the paragraph-variables map output filename.
+
+**Default:** `{program_name}-paragraph-variables.json`
+
+```bash
+cobol-analyzer paragraph-variables-map program.cob -o ./output \
+  --analysis-filename "{program_name}-full.json" \
+  --output-filename "{program_name}-para-vars.json"
+```
+
+##### `--no-redefines`
+
+Exclude variables that are only affected via REDEFINES relationships.
+
+```bash
+cobol-analyzer paragraph-variables-map program.cob --no-redefines -o ./output
+```
+
+##### `--no-ancestor-mods`
+
+Exclude variables that are only affected via ancestor group modifications.
+
+```bash
+cobol-analyzer paragraph-variables-map program.cob --no-ancestor-mods -o ./output
+```
+
+##### `--include-source-info`
+
+Include source file metadata in the analysis output.
+
+```bash
+cobol-analyzer paragraph-variables-map program.cob --include-source-info -o ./output
+```
+
+#### Copybook Options
+
+##### `-c, --copybook-path PATH`
+
+Add a path to search for copybooks. Can be specified multiple times.
+
+```bash
+cobol-analyzer paragraph-variables-map program.cob -c ./copybooks -c ./shared -o ./output
+```
+
+##### `--no-copy-resolution`
+
+Skip COPY statement resolution.
+
+#### Configuration
+
+##### `--config FILE`
+
+Path to a YAML configuration file.
+
+#### Logging Options
+
+##### `-v, --verbose`
+
+Enable verbose output with debug-level logging.
+
+##### `-q, --quiet`
+
+Suppress all output except errors.
+
+### Output Format
+
+```json
+{
+  "program_name": "TRANPROC",
+  "analysis_date": "2026-01-25T10:00:00Z",
+  "execution_time_seconds": 0.0025,
+  "paragraphs": {
+    "3100-APPLY-PAYMENT": {
+      "CUST-BALANCE": {
+        "defined_in_record": "CUSTOMER-RECORD",
+        "base_record": "CUSTOMER-RECORD"
+      },
+      "PAY-CASH": {
+        "defined_in_record": "PAYMENT-DETAIL",
+        "base_record": "TRANSACTION-RECORD"
+      },
+      "WS-STANDALONE": {
+        "defined_in_record": "WS-STANDALONE",
+        "base_record": "WS-STANDALONE",
+        "77-level-var": true
+      }
+    }
+  },
+  "summary": {
+    "total_paragraphs_with_changes": 15,
+    "total_unique_variables": 42,
+    "variables_in_redefines_records": 8,
+    "variables_via_ancestor_modification": 5,
+    "level_77_variables": 2
+  }
+}
+```
+
+### Output Field Descriptions
+
+| Field | Description |
+|-------|-------------|
+| `paragraphs` | Mapping of paragraph/section names to changed variables |
+| `defined_in_record` | The Level 01 record where the variable is defined |
+| `base_record` | The ultimate Level 01 record (follows REDEFINES chain) |
+| `77-level-var` | Present and `true` if variable is a 77-level item |
+
+### Examples
+
+```bash
+# Basic usage
+cobol-analyzer paragraph-variables-map program.cob -o ./output
+
+# With copybooks
+cobol-analyzer paragraph-variables-map program.cob -c ./copybooks -o ./output
+
+# Exclude REDEFINES-affected variables
+cobol-analyzer paragraph-variables-map program.cob --no-redefines -o ./output
+
+# Output to stdout
+cobol-analyzer paragraph-variables-map program.cob -q
+```
+
+---
+
 ## Information Options
 
 ### `--version`
@@ -587,6 +770,7 @@ cobol-analyzer --help
 cobol-analyzer analyze --help
 cobol-analyzer filter-by-variable --help
 cobol-analyzer analyze-and-filter --help
+cobol-analyzer paragraph-variables-map --help
 ```
 
 ---
@@ -748,6 +932,25 @@ cobol-analyzer analyze-and-filter program.cob -v WS-TOTAL -c ./copybooks -o ./ou
 cobol-analyzer analyze-and-filter program.cob -v WS-TOTAL
 ```
 
+### Paragraph-Variables Mapping
+
+```bash
+# Map paragraphs to changed variables
+cobol-analyzer paragraph-variables-map program.cob -o ./output
+
+# With copybook paths
+cobol-analyzer paragraph-variables-map program.cob -c ./copybooks -o ./output
+
+# Exclude REDEFINES-affected variables
+cobol-analyzer paragraph-variables-map program.cob --no-redefines -o ./output
+
+# Exclude ancestor modifications
+cobol-analyzer paragraph-variables-map program.cob --no-ancestor-mods -o ./output
+
+# Output map to stdout only
+cobol-analyzer paragraph-variables-map program.cob -q
+```
+
 ### Maximizing Output Information
 
 The variable filter produces three types of modifications. To see all types, choose variables strategically:
@@ -846,3 +1049,4 @@ cobol-analyzer analyze program.cob -o ./output -v 2>&1 | tee analysis.log
 - [Configuration](../config/settings.yaml) - Default configuration file
 - [Strategy Document](../claude_generated_docs/cobol-analyzer-strategy.md) - Technical implementation details
 - [Variable Filter Strategy](../claude_generated_docs/variable-filter-strategy.md) - Variable filtering implementation
+- [Paragraph Variables Map Plan](../claude_generated_docs/paragraph-variables-map-plan.md) - Paragraph-variables mapping implementation

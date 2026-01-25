@@ -429,7 +429,7 @@ class RedefinesAnalyzer:
             "subordinate_redefines": sum(
                 1 for r in self._relations if r.level != 1
             ),
-            "records_with_redefines": list(records_with_redefines),
+            "records_with_redefines": sorted(records_with_redefines),
             "connected_components": len(self._connected_components),
             "multi_record_components": len(multi_record_components),
             "largest_component_size": max(

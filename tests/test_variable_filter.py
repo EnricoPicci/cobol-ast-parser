@@ -548,10 +548,12 @@ class TestAnalyzeAndFilterCommand:
         import subprocess
         import sys
 
+        # Use EMP-TYPE which is affected by REDEFINES modifications
+        # (when INPUT-TYPE is modified, EMP-TYPE is affected because they share the same byte position)
         # First run without --no-redefines
         result1 = subprocess.run(
             [sys.executable, "-m", "src", "analyze-and-filter",
-             str(redefines_program_path), "-v", "INPUT-TYPE", "-o", str(tmp_path), "-q"],
+             str(redefines_program_path), "-v", "EMP-TYPE", "-o", str(tmp_path), "-q"],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent
@@ -566,7 +568,7 @@ class TestAnalyzeAndFilterCommand:
         output_dir2 = tmp_path / "no-redefines"
         result2 = subprocess.run(
             [sys.executable, "-m", "src", "analyze-and-filter",
-             str(redefines_program_path), "-v", "INPUT-TYPE", "--no-redefines",
+             str(redefines_program_path), "-v", "EMP-TYPE", "--no-redefines",
              "-o", str(output_dir2), "-q"],
             capture_output=True,
             text=True,

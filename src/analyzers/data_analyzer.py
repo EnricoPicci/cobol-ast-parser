@@ -397,6 +397,39 @@ class DataStructureAnalyzer:
 
         return self._memory_regions.get(item_name.upper())
 
+    def is_88_level(self, item_name: str) -> bool:
+        """Check if an item is an 88-level condition name.
+
+        Args:
+            item_name: Name of the data item
+
+        Returns:
+            True if the item is an 88-level condition name
+        """
+        item = self.program.all_data_items.get(item_name.upper())
+        return item is not None and item.level == 88
+
+    def get_parent_memory_region(self, item_name: str) -> Optional[MemoryRegion]:
+        """Get the memory region of an item's parent.
+
+        This is useful for 88-level condition names which don't have their
+        own memory region but inherit their parent's byte position.
+
+        Args:
+            item_name: Name of the data item
+
+        Returns:
+            Parent's MemoryRegion if found, None otherwise
+        """
+        if not self._analyzed:
+            self.analyze()
+
+        item = self.program.all_data_items.get(item_name.upper())
+        if not item or not item.parent:
+            return None
+
+        return self._memory_regions.get(item.parent.name.upper())
+
     def get_item_offset(self, item_name: str) -> Optional[int]:
         """Get the byte offset of an item within its record.
 

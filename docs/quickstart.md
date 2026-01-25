@@ -21,10 +21,22 @@ cd /path/to/cobol-ast-parser
 pip install -r requirements.txt
 ```
 
-### 3. Verify installation
+### 3. (Optional) Install as command
+
+To use `cobol-analyzer` as a system command from anywhere:
 
 ```bash
+pip install -e .
+```
+
+### 4. Verify installation
+
+```bash
+# Using wrapper script (from project root)
 ./cobol-analyzer --version
+
+# Or if installed as command
+cobol-analyzer --version
 ```
 
 You should see: `cobol-analyzer 1.0.0`
@@ -48,14 +60,14 @@ This will:
 ### Alternative invocation methods
 
 ```bash
-# Using the wrapper script (recommended)
+# Using the wrapper script from project root
 ./cobol-analyzer program.cob -o ./output
 
 # Using Python module syntax
 python -m src program.cob -o ./output
 
-# Running directly from src directory
-cd src && python main.py ../program.cob -o ../output
+# Using installed command (requires: pip install -e .)
+cobol-analyzer program.cob -o ./output
 ```
 
 ### View results on screen (no file output)
