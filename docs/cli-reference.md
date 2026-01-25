@@ -748,6 +748,47 @@ cobol-analyzer analyze-and-filter program.cob -v WS-TOTAL -c ./copybooks -o ./ou
 cobol-analyzer analyze-and-filter program.cob -v WS-TOTAL
 ```
 
+### Maximizing Output Information
+
+The variable filter produces three types of modifications. To see all types, choose variables strategically:
+
+| Modification Type | Description | Best Variable Types |
+|-------------------|-------------|---------------------|
+| `direct_modifications` | Variable is directly modified | Variables used in MOVE, ADD, COMPUTE, etc. |
+| `redefines_modifications` | Variable affected via REDEFINES overlap | Subordinates of records that REDEFINE other records |
+| `ancestor_modifications` | Parent group is modified | Children of groups that are INITIALIZED or moved to |
+
+**Example with TRANPROC program:**
+
+```bash
+# Select variables that demonstrate all three modification types
+cobol-analyzer analyze-and-filter complex-cobol-source/TRANPROC.cbl \
+  -v WS-TOTAL-PAYMENTS PAY-CASH CUST-BALANCE WS-CALC-TAX \
+  -o output -c complex-cobol-source/copybooks
+```
+
+**Why these variables:**
+
+| Variable | Direct | REDEFINES | Ancestor | Reason |
+|----------|:------:|:---------:|:--------:|--------|
+| `WS-TOTAL-PAYMENTS` | ✓ | - | ✓ | Has ADD + parent WS-TOTALS is INITIALIZEd |
+| `PAY-CASH` | - | ✓ | - | Affected when TRAN-CUSTOMER-ID modified (PAYMENT-DETAIL REDEFINES TRANSACTION-RECORD) |
+| `CUST-BALANCE` | ✓ | - | - | Multiple direct mods (ADD, SUBTRACT) across sections |
+| `WS-CALC-TAX` | - | - | ✓ | Parent WS-WORK-FIELDS is INITIALIZEd and MOVEd |
+
+**Output summary shows all three types populated:**
+
+```json
+{
+  "summary": {
+    "total_direct_modifications": 8,
+    "total_redefines_modifications": 2,
+    "total_ancestor_modifications": 10,
+    "variables_found": 4
+  }
+}
+```
+
 ### Production Usage
 
 ```bash
@@ -801,6 +842,7 @@ cobol-analyzer analyze program.cob -o ./output -v 2>&1 | tee analysis.log
 ## See Also
 
 - [Quickstart Guide](quickstart.md) - Get started quickly
+- [JSON Output Reference](json-output-reference.md) - Detailed description of all JSON output properties
 - [Configuration](../config/settings.yaml) - Default configuration file
 - [Strategy Document](../claude_generated_docs/cobol-analyzer-strategy.md) - Technical implementation details
 - [Variable Filter Strategy](../claude_generated_docs/variable-filter-strategy.md) - Variable filtering implementation

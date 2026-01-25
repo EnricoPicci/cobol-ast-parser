@@ -84,6 +84,10 @@
 - **Always update documentation when changing logic** - keep docs in sync with code changes
 - Update docstrings when function behavior changes
 - Update claude.md if architectural patterns or guidelines change
+- **Always update `docs/json-output-reference.md`** when:
+  - The structure of any JSON output file changes (new properties, removed properties, type changes)
+  - A new JSON output file is added to the CLI
+  - The meaning or format of existing properties changes
 
 ---
 

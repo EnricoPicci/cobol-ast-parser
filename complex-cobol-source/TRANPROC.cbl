@@ -128,6 +128,9 @@
                    ADD 1 TO WS-ERROR-COUNT
                    ADD 1 TO RPT-ERROR-COUNT
            END-EVALUATE
+
+           MOVE 'abcd' TO TRAN-CUSTOMER-ID
+           
            PERFORM 2100-READ-NEXT-TRAN.
 
        2100-READ-NEXT-TRAN.

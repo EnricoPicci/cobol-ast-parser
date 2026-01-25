@@ -1,0 +1,1 @@
+Generate a new document in "docs" that describes the meaining of all the properties of the json files that are produced by the CLI commands
