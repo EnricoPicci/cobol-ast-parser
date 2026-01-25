@@ -4,6 +4,7 @@ This module provides the CLI interface for analyzing COBOL programs.
 """
 
 import argparse
+import json
 import sys
 import logging
 import time
@@ -17,9 +18,9 @@ from preprocessor import CopyResolver, SourceFormat, detect_format, normalize_so
 from parser import CobolParser, ParseError
 from cobol_ast import ASTBuilder
 from analyzers import ImpactAnalyzer
-from output import JSONWriter
+from output import JSONWriter, VariableFilter
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 def setup_logging(level: str = "INFO", quiet: bool = False) -> None:
@@ -181,125 +182,25 @@ def analyze_cobol_file(
     return output
 
 
-def main():
-    """Main CLI entry point."""
-    parser = argparse.ArgumentParser(
-        prog="cobol-analyzer",
-        description="COBOL Source Code Analyzer - Analyzes COBOL programs to identify variable modifications and their impact on data structures.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s source.cob -o ./output
-  %(prog)s source.cob -o ./output --compact
-  %(prog)s source.cob -o ./output -c copybooks/ -c shared/
-  %(prog)s source.cob -o ./output --no-copy-resolution
-  %(prog)s source.cob --summary-only
+def handle_analyze(args) -> int:
+    """Handle the analyze subcommand.
 
-For more information, see the documentation at docs/cli-reference.md
-        """,
-    )
+    Args:
+        args: Parsed arguments
 
-    # Required arguments
-    parser.add_argument(
-        "source",
-        type=Path,
-        help="Path to the COBOL source file to analyze",
-    )
-
-    # Output options
-    output_group = parser.add_argument_group("Output Options")
-    output_group.add_argument(
-        "-o", "--output-dir",
-        type=Path,
-        dest="output_dir",
-        help="Output directory for analysis results (created if it doesn't exist)",
-    )
-    output_group.add_argument(
-        "--output-filename",
-        type=str,
-        default="{program_name}-analysis.json",
-        help="Output filename pattern. Use {program_name} as placeholder (default: {program_name}-analysis.json)",
-    )
-    output_group.add_argument(
-        "--compact",
-        action="store_true",
-        help="Generate compact output (unique variables per section, no duplicates)",
-    )
-    output_group.add_argument(
-        "--summary-only",
-        action="store_true",
-        help="Output only the summary section (minimal output)",
-    )
-    output_group.add_argument(
-        "--include-source-info",
-        action="store_true",
-        help="Include source file metadata in output (path, format, line count)",
-    )
-
-    # Copybook options
-    copybook_group = parser.add_argument_group("Copybook Options")
-    copybook_group.add_argument(
-        "-c", "--copybook-path",
-        type=Path,
-        action="append",
-        dest="copybook_paths",
-        metavar="PATH",
-        help="Path to search for copybooks (can be specified multiple times)",
-    )
-    copybook_group.add_argument(
-        "--no-copy-resolution",
-        action="store_true",
-        help="Skip COPY statement resolution",
-    )
-
-    # Configuration options
-    config_group = parser.add_argument_group("Configuration")
-    config_group.add_argument(
-        "--config",
-        type=Path,
-        metavar="FILE",
-        help="Path to YAML configuration file",
-    )
-
-    # Logging options
-    logging_group = parser.add_argument_group("Logging")
-    logging_group.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose output (debug level logging)",
-    )
-    logging_group.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="Suppress all output except errors",
-    )
-
-    # Version
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {__version__}",
-    )
-
-    args = parser.parse_args()
-
-    # Validate conflicting options
-    if args.verbose and args.quiet:
-        parser.error("--verbose and --quiet cannot be used together")
-
-    # Setup logging
-    log_level = "DEBUG" if args.verbose else "INFO"
-    setup_logging(log_level, quiet=args.quiet)
+    Returns:
+        Exit code
+    """
     logger = logging.getLogger(__name__)
 
     # Validate input
     if not args.source.exists():
         logger.error(f"Source file not found: {args.source}")
-        sys.exit(1)
+        return 1
 
     if not args.source.is_file():
         logger.error(f"Source path is not a file: {args.source}")
-        sys.exit(1)
+        return 1
 
     # Create output directory if specified and doesn't exist
     if args.output_dir:
@@ -308,7 +209,7 @@ For more information, see the documentation at docs/cli-reference.md
             logger.info(f"Output directory: {args.output_dir}")
         except OSError as e:
             logger.error(f"Failed to create output directory: {e}")
-            sys.exit(1)
+            return 1
 
     # Load config
     config = load_config(args.config)
@@ -381,12 +282,355 @@ For more information, see the documentation at docs/cli-reference.md
         else:
             print(writer.write(output))
 
+        return 0
+
     except ParseError as e:
         logger.error(f"Parse error: {e}")
-        sys.exit(1)
+        return 1
     except Exception as e:
         logger.exception(f"Analysis failed: {e}")
-        sys.exit(1)
+        return 1
+
+
+def handle_filter_by_variable(args) -> int:
+    """Handle the filter-by-variable subcommand.
+
+    Args:
+        args: Parsed arguments
+
+    Returns:
+        Exit code
+    """
+    logger = logging.getLogger(__name__)
+
+    # Validate input JSON file
+    if not args.input_json.exists():
+        logger.error(f"Input JSON file not found: {args.input_json}")
+        return 1
+
+    if not args.input_json.is_file():
+        logger.error(f"Input path is not a file: {args.input_json}")
+        return 1
+
+    # Get variable names
+    variable_names = []
+
+    if args.variables:
+        variable_names = args.variables
+    elif args.variables_file:
+        if not args.variables_file.exists():
+            logger.error(f"Variables file not found: {args.variables_file}")
+            return 1
+        try:
+            with open(args.variables_file, "r") as f:
+                variable_names = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            logger.error(f"Failed to read variables file: {e}")
+            return 1
+
+    if not variable_names:
+        logger.error("At least one variable name is required")
+        return 1
+
+    # Create output directory if specified
+    if args.output_dir:
+        try:
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Output directory: {args.output_dir}")
+        except OSError as e:
+            logger.error(f"Failed to create output directory: {e}")
+            return 1
+
+    try:
+        # Load input JSON
+        with open(args.input_json, "r") as f:
+            analysis_data = json.load(f)
+
+        # Validate JSON structure
+        if "sections_and_paragraphs" not in analysis_data:
+            logger.error("Invalid analysis JSON: missing 'sections_and_paragraphs' field")
+            return 1
+
+        # Create filter and execute
+        var_filter = VariableFilter(analysis_data)
+        include_redefines = not args.no_redefines
+        result = var_filter.filter(variable_names, include_redefines=include_redefines)
+
+        # Log warnings for variables not found
+        not_found = result.get("summary", {}).get("variables_not_found", [])
+        for var in not_found:
+            logger.warning(f"Variable not found in analysis: {var}")
+
+        # Output
+        writer = JSONWriter(pretty_print=True, indent=2)
+
+        if args.output_dir:
+            # Generate output filename
+            program_name = result.get("program_name", "UNKNOWN")
+            output_filename = args.output_filename.format(program_name=program_name)
+            output_path = args.output_dir / output_filename
+            writer.write(result, output_path)
+            if not args.quiet:
+                print(f"Filter output written to: {output_path}")
+                print(f"Variables requested: {len(variable_names)}")
+                print(f"Variables found: {result['summary']['variables_found']}")
+                if not_found:
+                    print(f"Variables not found: {', '.join(not_found)}")
+        else:
+            print(writer.write(result))
+
+        return 0
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in input file: {e}")
+        return 1
+    except Exception as e:
+        logger.exception(f"Filter operation failed: {e}")
+        return 1
+
+
+def create_analyze_parser(subparsers):
+    """Create the analyze subcommand parser.
+
+    Args:
+        subparsers: Subparsers object from main parser
+
+    Returns:
+        The analyze subparser
+    """
+    analyze_parser = subparsers.add_parser(
+        "analyze",
+        help="Analyze COBOL source file",
+        description="Analyze a COBOL source file to identify variable modifications and their impact on data structures.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s source.cob -o ./output
+  %(prog)s source.cob -o ./output --compact
+  %(prog)s source.cob -o ./output -c copybooks/ -c shared/
+  %(prog)s source.cob -o ./output --no-copy-resolution
+  %(prog)s source.cob --summary-only
+        """,
+    )
+
+    # Required arguments
+    analyze_parser.add_argument(
+        "source",
+        type=Path,
+        help="Path to the COBOL source file to analyze",
+    )
+
+    # Output options
+    output_group = analyze_parser.add_argument_group("Output Options")
+    output_group.add_argument(
+        "-o", "--output-dir",
+        type=Path,
+        dest="output_dir",
+        help="Output directory for analysis results (created if it doesn't exist)",
+    )
+    output_group.add_argument(
+        "--output-filename",
+        type=str,
+        default="{program_name}-analysis.json",
+        help="Output filename pattern. Use {program_name} as placeholder (default: {program_name}-analysis.json)",
+    )
+    output_group.add_argument(
+        "--compact",
+        action="store_true",
+        help="Generate compact output (unique variables per section, no duplicates)",
+    )
+    output_group.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Output only the summary section (minimal output)",
+    )
+    output_group.add_argument(
+        "--include-source-info",
+        action="store_true",
+        help="Include source file metadata in output (path, format, line count)",
+    )
+
+    # Copybook options
+    copybook_group = analyze_parser.add_argument_group("Copybook Options")
+    copybook_group.add_argument(
+        "-c", "--copybook-path",
+        type=Path,
+        action="append",
+        dest="copybook_paths",
+        metavar="PATH",
+        help="Path to search for copybooks (can be specified multiple times)",
+    )
+    copybook_group.add_argument(
+        "--no-copy-resolution",
+        action="store_true",
+        help="Skip COPY statement resolution",
+    )
+
+    # Configuration options
+    config_group = analyze_parser.add_argument_group("Configuration")
+    config_group.add_argument(
+        "--config",
+        type=Path,
+        metavar="FILE",
+        help="Path to YAML configuration file",
+    )
+
+    # Logging options
+    logging_group = analyze_parser.add_argument_group("Logging")
+    logging_group.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output (debug level logging)",
+    )
+    logging_group.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Suppress all output except errors",
+    )
+
+    analyze_parser.set_defaults(func=handle_analyze)
+    return analyze_parser
+
+
+def create_filter_parser(subparsers):
+    """Create the filter-by-variable subcommand parser.
+
+    Args:
+        subparsers: Subparsers object from main parser
+
+    Returns:
+        The filter-by-variable subparser
+    """
+    filter_parser = subparsers.add_parser(
+        "filter-by-variable",
+        help="Filter analysis output by variable names",
+        description="Transform section-centric analysis output into a variable-centric view.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s analysis.json -v WS-TOTAL CUST-BALANCE
+  %(prog)s analysis.json --variables-file vars.txt
+  %(prog)s analysis.json -v WS-TOTAL -o ./filtered
+  %(prog)s analysis.json -v WS-TOTAL --no-redefines
+        """,
+    )
+
+    # Required arguments
+    filter_parser.add_argument(
+        "input_json",
+        type=Path,
+        help="Path to JSON output from 'analyze' command",
+    )
+
+    # Variable specification (mutually exclusive)
+    var_group = filter_parser.add_argument_group("Variable Specification (one required)")
+    var_exclusive = var_group.add_mutually_exclusive_group(required=True)
+    var_exclusive.add_argument(
+        "-v", "--variables",
+        type=str,
+        nargs="+",
+        metavar="VAR",
+        help="Variable names to filter (space-separated)",
+    )
+    var_exclusive.add_argument(
+        "--variables-file",
+        type=Path,
+        metavar="FILE",
+        help="File containing variable names (one per line)",
+    )
+
+    # Output options
+    output_group = filter_parser.add_argument_group("Output Options")
+    output_group.add_argument(
+        "-o", "--output-dir",
+        type=Path,
+        dest="output_dir",
+        help="Output directory for filtered results (default: stdout)",
+    )
+    output_group.add_argument(
+        "--output-filename",
+        type=str,
+        default="{program_name}-variable-filter.json",
+        help="Output filename pattern (default: {program_name}-variable-filter.json)",
+    )
+    output_group.add_argument(
+        "--no-redefines",
+        action="store_true",
+        help="Exclude REDEFINES-related modifications",
+    )
+
+    # Logging options
+    logging_group = filter_parser.add_argument_group("Logging")
+    logging_group.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Suppress all output except errors",
+    )
+
+    filter_parser.set_defaults(func=handle_filter_by_variable, verbose=False)
+    return filter_parser
+
+
+def main():
+    """Main CLI entry point."""
+    # Backwards compatibility: if first arg is not a subcommand, assume 'analyze'
+    subcommands = ['analyze', 'filter-by-variable']
+    if len(sys.argv) > 1 and sys.argv[1] not in subcommands + ['-h', '--help', '--version']:
+        sys.argv.insert(1, 'analyze')
+
+    parser = argparse.ArgumentParser(
+        prog="cobol-analyzer",
+        description="COBOL Source Code Analyzer - Analyzes COBOL programs to identify variable modifications and their impact on data structures.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Commands:
+  analyze             Analyze COBOL source file (default)
+  filter-by-variable  Filter analysis output by variable names
+
+Examples:
+  %(prog)s analyze source.cob -o ./output
+  %(prog)s source.cob -o ./output  # backwards compatible
+  %(prog)s filter-by-variable analysis.json -v WS-TOTAL
+
+For more information on a command, use: %(prog)s <command> --help
+        """,
+    )
+
+    # Version
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
+
+    # Create subparsers
+    subparsers = parser.add_subparsers(
+        title="commands",
+        dest="command",
+        metavar="<command>",
+    )
+
+    # Add subcommands
+    create_analyze_parser(subparsers)
+    create_filter_parser(subparsers)
+
+    args = parser.parse_args()
+
+    # Show help if no command specified
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+
+    # Validate conflicting options for analyze command
+    if args.command == "analyze" and args.verbose and args.quiet:
+        parser.error("--verbose and --quiet cannot be used together")
+
+    # Setup logging
+    log_level = "DEBUG" if getattr(args, 'verbose', False) else "INFO"
+    setup_logging(log_level, quiet=getattr(args, 'quiet', False))
+
+    # Execute the appropriate handler
+    sys.exit(args.func(args))
 
 
 if __name__ == "__main__":
