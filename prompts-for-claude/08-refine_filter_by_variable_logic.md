@@ -1,0 +1,2 @@
+The new command cobol-analyzer filter-by-variable requires an "analysis.json" file as input.
+Now I want a third CLI command that starts from the Cobol source and produces both json files, the json file produced by cobol-analyzer analyze and the one  produced by cobol-analyzer filter-by-variable

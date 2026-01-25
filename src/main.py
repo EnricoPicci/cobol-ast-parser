@@ -20,7 +20,7 @@ from cobol_ast import ASTBuilder
 from analyzers import ImpactAnalyzer
 from output import JSONWriter, VariableFilter
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 def setup_logging(level: str = "INFO", quiet: bool = False) -> None:
@@ -389,6 +389,136 @@ def handle_filter_by_variable(args) -> int:
         return 1
 
 
+def handle_analyze_and_filter(args) -> int:
+    """Handle the analyze-and-filter subcommand.
+
+    Combines analyze and filter-by-variable in a single operation.
+
+    Args:
+        args: Parsed arguments
+
+    Returns:
+        Exit code
+    """
+    logger = logging.getLogger(__name__)
+
+    # Validate input
+    if not args.source.exists():
+        logger.error(f"Source file not found: {args.source}")
+        return 1
+
+    if not args.source.is_file():
+        logger.error(f"Source path is not a file: {args.source}")
+        return 1
+
+    # Get variable names
+    variable_names = []
+
+    if args.variables:
+        variable_names = args.variables
+    elif args.variables_file:
+        if not args.variables_file.exists():
+            logger.error(f"Variables file not found: {args.variables_file}")
+            return 1
+        try:
+            with open(args.variables_file, "r") as f:
+                variable_names = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            logger.error(f"Failed to read variables file: {e}")
+            return 1
+
+    if not variable_names:
+        logger.error("At least one variable name is required")
+        return 1
+
+    # Create output directory if specified and doesn't exist
+    if args.output_dir:
+        try:
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Output directory: {args.output_dir}")
+        except OSError as e:
+            logger.error(f"Failed to create output directory: {e}")
+            return 1
+
+    # Load config
+    config = load_config(args.config)
+
+    try:
+        # Step 1: Analyze the COBOL source
+        logger.info("Step 1: Analyzing COBOL source...")
+        analysis_output = analyze_cobol_file(
+            source_path=args.source,
+            copybook_paths=args.copybook_paths,
+            resolve_copies=not args.no_copy_resolution,
+            config=config,
+            include_source_info=args.include_source_info,
+        )
+
+        analysis_execution_time = analysis_output.get("execution_time_seconds", 0)
+        program_name = analysis_output.get("program_name", "UNKNOWN")
+
+        # Write analysis output if output directory specified
+        output_config = config.get("output", {})
+        writer = JSONWriter(
+            pretty_print=output_config.get("pretty_print", True),
+            indent=output_config.get("indent_size", 2),
+        )
+
+        analysis_output_path = None
+        if args.output_dir:
+            analysis_filename = args.analysis_filename.format(program_name=program_name)
+            analysis_output_path = args.output_dir / analysis_filename
+            writer.write(analysis_output, analysis_output_path)
+            logger.info(f"Analysis output written to: {analysis_output_path}")
+
+        # Step 2: Filter by variables
+        logger.info("Step 2: Filtering by variables...")
+        var_filter = VariableFilter(analysis_output)
+        include_redefines = not args.no_redefines
+        filter_result = var_filter.filter(variable_names, include_redefines=include_redefines)
+
+        filter_execution_time = filter_result.get("execution_time_seconds", 0)
+
+        # Log warnings for variables not found
+        not_found = filter_result.get("summary", {}).get("variables_not_found", [])
+        for var in not_found:
+            logger.warning(f"Variable not found in analysis: {var}")
+
+        # Write filter output
+        filter_output_path = None
+        if args.output_dir:
+            filter_filename = args.filter_filename.format(program_name=program_name)
+            filter_output_path = args.output_dir / filter_filename
+            writer.write(filter_result, filter_output_path)
+            logger.info(f"Filter output written to: {filter_output_path}")
+
+        # Print summary
+        if not args.quiet:
+            if args.output_dir:
+                print(f"Analysis written to: {analysis_output_path}")
+                print(f"Filter output written to: {filter_output_path}")
+            print(f"Analysis execution time: {analysis_execution_time:.4f} seconds")
+            print(f"Filter execution time: {filter_execution_time:.4f} seconds")
+            print(f"Total execution time: {analysis_execution_time + filter_execution_time:.4f} seconds")
+            print(f"Variables requested: {len(variable_names)}")
+            print(f"Variables found: {filter_result['summary']['variables_found']}")
+            if not_found:
+                print(f"Variables not found: {', '.join(not_found)}")
+
+        # If no output directory, print filter result to stdout
+        if not args.output_dir:
+            print(writer.write(filter_result))
+
+        return 0
+
+    except ParseError as e:
+        logger.error(f"Parse error: {e}")
+        return 1
+    except Exception as e:
+        logger.exception(f"Analysis and filter failed: {e}")
+        return 1
+
+
 def create_analyze_parser(subparsers):
     """Create the analyze subcommand parser.
 
@@ -571,10 +701,131 @@ Examples:
     return filter_parser
 
 
+def create_analyze_and_filter_parser(subparsers):
+    """Create the analyze-and-filter subcommand parser.
+
+    Args:
+        subparsers: Subparsers object from main parser
+
+    Returns:
+        The analyze-and-filter subparser
+    """
+    parser = subparsers.add_parser(
+        "analyze-and-filter",
+        help="Analyze COBOL source and filter by variables in one step",
+        description="Analyze a COBOL source file and immediately filter the results by variable names. Produces both the full analysis JSON and the variable-filtered JSON.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s source.cob -v WS-TOTAL CUST-BALANCE -o ./output
+  %(prog)s source.cob --variables-file vars.txt -o ./output
+  %(prog)s source.cob -v WS-TOTAL --no-redefines -o ./output
+  %(prog)s source.cob -v WS-TOTAL -c copybooks/ -o ./output
+        """,
+    )
+
+    # Required arguments
+    parser.add_argument(
+        "source",
+        type=Path,
+        help="Path to the COBOL source file to analyze",
+    )
+
+    # Variable specification (mutually exclusive, required)
+    var_group = parser.add_argument_group("Variable Specification (one required)")
+    var_exclusive = var_group.add_mutually_exclusive_group(required=True)
+    var_exclusive.add_argument(
+        "-v", "--variables",
+        type=str,
+        nargs="+",
+        metavar="VAR",
+        help="Variable names to filter (space-separated)",
+    )
+    var_exclusive.add_argument(
+        "--variables-file",
+        type=Path,
+        metavar="FILE",
+        help="File containing variable names (one per line)",
+    )
+
+    # Output options
+    output_group = parser.add_argument_group("Output Options")
+    output_group.add_argument(
+        "-o", "--output-dir",
+        type=Path,
+        dest="output_dir",
+        help="Output directory for both JSON files (created if it doesn't exist)",
+    )
+    output_group.add_argument(
+        "--analysis-filename",
+        type=str,
+        default="{program_name}-analysis.json",
+        help="Analysis output filename pattern (default: {program_name}-analysis.json)",
+    )
+    output_group.add_argument(
+        "--filter-filename",
+        type=str,
+        default="{program_name}-variable-filter.json",
+        help="Filter output filename pattern (default: {program_name}-variable-filter.json)",
+    )
+    output_group.add_argument(
+        "--no-redefines",
+        action="store_true",
+        help="Exclude REDEFINES-related modifications from filter output",
+    )
+    output_group.add_argument(
+        "--include-source-info",
+        action="store_true",
+        help="Include source file metadata in analysis output",
+    )
+
+    # Copybook options
+    copybook_group = parser.add_argument_group("Copybook Options")
+    copybook_group.add_argument(
+        "-c", "--copybook-path",
+        type=Path,
+        action="append",
+        dest="copybook_paths",
+        metavar="PATH",
+        help="Path to search for copybooks (can be specified multiple times)",
+    )
+    copybook_group.add_argument(
+        "--no-copy-resolution",
+        action="store_true",
+        help="Skip COPY statement resolution",
+    )
+
+    # Configuration options
+    config_group = parser.add_argument_group("Configuration")
+    config_group.add_argument(
+        "--config",
+        type=Path,
+        metavar="FILE",
+        help="Path to YAML configuration file",
+    )
+
+    # Logging options
+    logging_group = parser.add_argument_group("Logging")
+    logging_group.add_argument(
+        "-V", "--verbose",
+        action="store_true",
+        dest="verbose",
+        help="Enable verbose output (debug level logging)",
+    )
+    logging_group.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Suppress all output except errors",
+    )
+
+    parser.set_defaults(func=handle_analyze_and_filter)
+    return parser
+
+
 def main():
     """Main CLI entry point."""
     # Backwards compatibility: if first arg is not a subcommand, assume 'analyze'
-    subcommands = ['analyze', 'filter-by-variable']
+    subcommands = ['analyze', 'filter-by-variable', 'analyze-and-filter']
     if len(sys.argv) > 1 and sys.argv[1] not in subcommands + ['-h', '--help', '--version']:
         sys.argv.insert(1, 'analyze')
 
@@ -586,11 +837,13 @@ def main():
 Commands:
   analyze             Analyze COBOL source file (default)
   filter-by-variable  Filter analysis output by variable names
+  analyze-and-filter  Analyze and filter in one step (produces both JSON files)
 
 Examples:
   %(prog)s analyze source.cob -o ./output
   %(prog)s source.cob -o ./output  # backwards compatible
   %(prog)s filter-by-variable analysis.json -v WS-TOTAL
+  %(prog)s analyze-and-filter source.cob -v WS-TOTAL -o ./output
 
 For more information on a command, use: %(prog)s <command> --help
         """,
@@ -613,6 +866,7 @@ For more information on a command, use: %(prog)s <command> --help
     # Add subcommands
     create_analyze_parser(subparsers)
     create_filter_parser(subparsers)
+    create_analyze_and_filter_parser(subparsers)
 
     args = parser.parse_args()
 
@@ -621,8 +875,8 @@ For more information on a command, use: %(prog)s <command> --help
         parser.print_help()
         sys.exit(0)
 
-    # Validate conflicting options for analyze command
-    if args.command == "analyze" and args.verbose and args.quiet:
+    # Validate conflicting options for commands with verbose option
+    if args.command in ("analyze", "analyze-and-filter") and getattr(args, 'verbose', False) and args.quiet:
         parser.error("--verbose and --quiet cannot be used together")
 
     # Setup logging
