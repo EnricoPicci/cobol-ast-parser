@@ -108,10 +108,29 @@ cobol-analyzer paragraph-variables-map program.cob --no-ancestor-mods -o ./outpu
 
 ##### `--include-source-info`
 
-Include source file metadata in the analysis output.
+Include source file metadata in both output JSON files (analysis and paragraph-variables map). When specified, adds a `source_info` object containing:
+
+| Field | Description |
+|-------|-------------|
+| `file_path` | Absolute path to the source file |
+| `file_name` | Name of the source file |
+| `lines_count` | Number of lines in the original source file |
+| `source_format` | Detected format (`fixed` or `free`) |
 
 ```bash
 cobol-analyzer paragraph-variables-map program.cob --include-source-info -o ./output
+```
+
+**Example output (added to both JSON files):**
+```json
+{
+  "source_info": {
+    "file_path": "/workspaces/project/TRANPROC.cbl",
+    "file_name": "TRANPROC.cbl",
+    "lines_count": 276,
+    "source_format": "fixed"
+  }
+}
 ```
 
 #### Copybook Options

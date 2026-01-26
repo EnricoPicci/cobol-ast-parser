@@ -1,0 +1,1 @@
+Make sure that the option --include-source-info has effects also on *-paragraph-variables.json files and then update documentation

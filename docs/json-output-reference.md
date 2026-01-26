@@ -229,6 +229,7 @@ The paragraph variables map output provides a paragraph-centric view showing whi
 | `execution_time_seconds` | number | Time taken to perform the mapping operation |
 | `paragraphs` | object | Mapping of paragraph/section names to changed variables |
 | `summary` | object | Statistical summary of the mapping results |
+| `source_info` | object | *(Optional)* Source file metadata (when `--include-source-info` is used) |
 
 ### Example Structure
 
@@ -238,7 +239,8 @@ The paragraph variables map output provides a paragraph-centric view showing whi
   "analysis_date": "2026-01-25T14:02:58.528677",
   "execution_time_seconds": 0.0025,
   "paragraphs": { ... },
-  "summary": { ... }
+  "summary": { ... },
+  "source_info": { ... }
 }
 ```
 
@@ -246,7 +248,7 @@ The paragraph variables map output provides a paragraph-centric view showing whi
 
 ### `paragraphs`
 
-An object where each key is a SECTION or PARAGRAPH name, and the value is an object mapping variable names to their record information.
+An object where each key is a SECTION or PARAGRAPH name, and the value is an object mapping variable names to their record information and explanation.
 
 ```json
 {
@@ -254,11 +256,13 @@ An object where each key is a SECTION or PARAGRAPH name, and the value is an obj
     "3100-APPLY-PAYMENT": {
       "CUST-BALANCE": {
         "defined_in_record": "CUSTOMER-RECORD",
-        "base_record": "CUSTOMER-RECORD"
+        "base_record": "CUSTOMER-RECORD",
+        "explanation": "directly affected by ADD at line 185"
       },
       "PAY-CASH": {
         "defined_in_record": "PAYMENT-DETAIL",
-        "base_record": "TRANSACTION-RECORD"
+        "base_record": "TRANSACTION-RECORD",
+        "explanation": "directly affected by MOVE at line 201"
       }
     },
     "4200-UPDATE-TOTALS": {
@@ -276,16 +280,29 @@ An object where each key is a SECTION or PARAGRAPH name, and the value is an obj
 |----------|------|-------------|
 | `defined_in_record` | string | Level 01 record that directly contains this variable |
 | `base_record` | string | Ultimate Level 01 record (follows REDEFINES chain to root) |
+| `explanation` | string | Human-readable explanation of why this variable may change (see [Explanation Formats](#explanation-formats)) |
 | `77-level-var` | boolean | *(Only present if true)* Variable is a 77-level standalone item |
 
 ##### Example Variable Entries
 
-**Standard variable:**
+**Standard variable with direct modification:**
 ```json
 {
   "CUST-BALANCE": {
     "defined_in_record": "CUSTOMER-RECORD",
-    "base_record": "CUSTOMER-RECORD"
+    "base_record": "CUSTOMER-RECORD",
+    "explanation": "directly affected by ADD at line 185"
+  }
+}
+```
+
+**Variable affected by multiple modifications:**
+```json
+{
+  "WS-TOTAL-AMOUNT": {
+    "defined_in_record": "WS-TOTALS",
+    "base_record": "WS-TOTALS",
+    "explanation": "affected by multiple modifications at lines 142, 156, 189"
   }
 }
 ```
@@ -295,12 +312,24 @@ An object where each key is a SECTION or PARAGRAPH name, and the value is an obj
 {
   "PAY-CASH": {
     "defined_in_record": "PAYMENT-DETAIL",
-    "base_record": "TRANSACTION-RECORD"
+    "base_record": "TRANSACTION-RECORD",
+    "explanation": "directly affected by MOVE at line 201; some modifications are due to REDEFINE (e.g., PAY-BANK-CODE at positions 15-24 overlaps TRAN-AMOUNT at positions 11-20)"
   }
 }
 ```
 
 The `defined_in_record` shows that `PAY-CASH` is structurally within `PAYMENT-DETAIL`, while `base_record` shows that `PAYMENT-DETAIL REDEFINES TRANSACTION-RECORD`, so the ultimate memory allocation is under `TRANSACTION-RECORD`.
+
+**Variable affected via ancestor modification:**
+```json
+{
+  "WS-TOTAL-PAYMENTS": {
+    "defined_in_record": "WS-TOTALS",
+    "base_record": "WS-TOTALS",
+    "explanation": "indirectly affected via ancestor WS-TOTALS modification at line 120"
+  }
+}
+```
 
 **77-level variable:**
 ```json
@@ -308,7 +337,8 @@ The `defined_in_record` shows that `PAY-CASH` is structurally within `PAYMENT-DE
   "WS-STANDALONE": {
     "defined_in_record": "WS-STANDALONE",
     "base_record": "WS-STANDALONE",
-    "77-level-var": true
+    "77-level-var": true,
+    "explanation": "directly affected by MOVE at line 95"
   }
 }
 ```
@@ -352,6 +382,60 @@ The paragraph variables map collects variables from three sources:
 2. **REDEFINES-affected variables** - When a variable in one record is modified, variables in REDEFINES-related records that share the same memory are also included (can be disabled with `--no-redefines`)
 
 3. **Ancestor modifications** - When a group item is modified (e.g., `INITIALIZE CUSTOMER-RECORD`), all subordinate items are indirectly affected and included (can be disabled with `--no-ancestor-mods`)
+
+---
+
+### Explanation Formats
+
+The `explanation` property provides a human-readable description of why each variable may change. The format varies based on the type of modification:
+
+#### Direct Modification (Single)
+
+When a variable is directly modified by a single COBOL statement:
+
+```
+directly affected by {MODIFICATION_TYPE} at line {LINE}
+```
+
+**Example:** `"directly affected by MOVE at line 142"`
+
+#### Direct Modification (Multiple)
+
+When a variable is directly modified by multiple COBOL statements:
+
+```
+affected by multiple modifications at lines {LINE1}, {LINE2}, {LINE3}
+```
+
+**Example:** `"affected by multiple modifications at lines 142, 156, 189"`
+
+#### REDEFINES Modification
+
+When modifications include REDEFINES-related memory overlaps, the explanation includes an example with byte positions (1-indexed, COBOL convention):
+
+```
+{base explanation}; some modifications are due to REDEFINE (e.g., {VAR1} at positions {START1}-{END1} overlaps {VAR2} at positions {START2}-{END2})
+```
+
+**Example:** `"directly affected by MOVE at line 201; some modifications are due to REDEFINE (e.g., PAY-BANK-CODE at positions 15-24 overlaps TRAN-AMOUNT at positions 11-20)"`
+
+#### Ancestor Modification
+
+When a variable is affected because its parent group was modified:
+
+```
+indirectly affected via ancestor {ANCESTOR_NAME} modification at line {LINE}
+```
+
+**Example:** `"indirectly affected via ancestor WS-TOTALS modification at line 120"`
+
+#### Combined Explanations
+
+Variables may have explanations that combine multiple types:
+
+```
+affected by multiple modifications at lines 142, 156; some modifications are due to REDEFINE (e.g., PAY-AMOUNT at positions 5-12 overlaps TRAN-CODE at positions 1-8)
+```
 
 ---
 
@@ -447,30 +531,36 @@ The `overlap_type` field describes the memory relationship between variables in 
     "3100-APPLY-PAYMENT": {
       "CUST-BALANCE": {
         "defined_in_record": "CUSTOMER-RECORD",
-        "base_record": "CUSTOMER-RECORD"
+        "base_record": "CUSTOMER-RECORD",
+        "explanation": "directly affected by ADD at line 185"
       },
       "PAY-CASH": {
         "defined_in_record": "PAYMENT-DETAIL",
-        "base_record": "TRANSACTION-RECORD"
+        "base_record": "TRANSACTION-RECORD",
+        "explanation": "directly affected by MOVE at line 201; some modifications are due to REDEFINE (e.g., PAY-BANK-CODE at positions 15-24 overlaps TRAN-AMOUNT at positions 11-20)"
       },
       "WS-STANDALONE": {
         "defined_in_record": "WS-STANDALONE",
         "base_record": "WS-STANDALONE",
-        "77-level-var": true
+        "77-level-var": true,
+        "explanation": "directly affected by MOVE at line 195"
       }
     },
     "1000-INIT": {
       "WS-TOTALS": {
         "defined_in_record": "WS-TOTALS",
-        "base_record": "WS-TOTALS"
+        "base_record": "WS-TOTALS",
+        "explanation": "directly affected by INITIALIZE at line 120"
       },
       "WS-TOTAL-PAYMENTS": {
         "defined_in_record": "WS-TOTALS",
-        "base_record": "WS-TOTALS"
+        "base_record": "WS-TOTALS",
+        "explanation": "indirectly affected via ancestor WS-TOTALS modification at line 120"
       },
       "WS-TOTAL-REFUNDS": {
         "defined_in_record": "WS-TOTALS",
-        "base_record": "WS-TOTALS"
+        "base_record": "WS-TOTALS",
+        "explanation": "indirectly affected via ancestor WS-TOTALS modification at line 120"
       }
     }
   },

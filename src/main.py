@@ -268,6 +268,10 @@ def handle_paragraph_variables_map(args) -> int:
             include_ancestor_mods=include_ancestor_mods
         )
 
+        # Add source_info to map result if requested
+        if args.include_source_info and "source_info" in analysis_output:
+            map_result["source_info"] = analysis_output["source_info"]
+
         map_execution_time = map_result.get("execution_time_seconds", 0)
         total_execution_time = analysis_execution_time + map_execution_time
 
