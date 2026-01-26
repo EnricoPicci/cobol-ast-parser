@@ -1,27 +1,50 @@
-# COBOL AST Parser
+# COBOL Paragraph Variables Mapper
 
-A static analysis tool for COBOL programs that parses source code and generates JSON reports identifying variable modifications, data structure relationships, and REDEFINES impacts.
+A static analysis tool for COBOL programs that parses source code and generates a paragraph-centric view showing which variables may be modified within each SECTION or PARAGRAPH.
 
 ## Features
 
-- **Variable Modification Tracking**: Identifies where variables are modified within SECTIONs and PARAGRAPHs
+- **Paragraph-to-Variable Mapping**: Maps each SECTION/PARAGRAPH to the variables it may modify
 - **REDEFINES Analysis**: Tracks memory overlaps and affected variables through REDEFINES relationships
 - **Ancestor Modification Detection**: Detects when parent group modifications affect child variables
-- **Data Hierarchy Mapping**: Maps variables to their Level 01 record descriptions
-- **Variable-Centric Filtering**: Transform section-centric analysis into variable-centric views
+- **Level 01 Record Mapping**: Maps variables to their containing Level 01 record descriptions
 - **COPY Statement Resolution**: Resolves copybook includes for complete analysis
 
 ## Quick Example
 
 ```bash
-# Analyze a COBOL program
-python -m src analyze program.cob -o ./output
+# Map paragraphs to the variables they may modify
+python -m src paragraph-variables-map program.cob -o ./output
 
-# Analyze and filter by specific variables
-python -m src analyze-and-filter program.cob -v WS-TOTAL CUST-BALANCE -o ./output
+# With copybook paths
+python -m src paragraph-variables-map program.cob -c ./copybooks -o ./output
 
-# Filter existing analysis by variables
-python -m src filter-by-variable analysis.json -v WS-TOTAL
+# Exclude REDEFINES-affected variables
+python -m src paragraph-variables-map program.cob --no-redefines -o ./output
+```
+
+## Output Example
+
+```json
+{
+  "program_name": "TRANPROC",
+  "paragraphs": {
+    "3100-APPLY-PAYMENT": {
+      "CUST-BALANCE": {
+        "defined_in_record": "CUSTOMER-RECORD",
+        "base_record": "CUSTOMER-RECORD"
+      },
+      "PAY-AMOUNT": {
+        "defined_in_record": "PAYMENT-DETAIL",
+        "base_record": "TRANSACTION-RECORD"
+      }
+    }
+  },
+  "summary": {
+    "total_paragraphs_with_changes": 15,
+    "total_unique_variables": 42
+  }
+}
 ```
 
 ## Documentation
@@ -30,6 +53,7 @@ python -m src filter-by-variable analysis.json -v WS-TOTAL
 |----------|-------------|
 | [Quickstart Guide](docs/quickstart.md) | Get up and running quickly |
 | [CLI Reference](docs/cli-reference.md) | Complete command-line interface reference |
+| [Strategy Document](claude_generated_docs/strategy.md) | Technical implementation details |
 
 ## Requirements
 
@@ -55,7 +79,6 @@ pip install -e .
 Then you can run from anywhere:
 
 ```bash
-cobol-analyzer analyze source.cob -o ./output
 cobol-analyzer paragraph-variables-map source.cob -o ./output
 ```
 
