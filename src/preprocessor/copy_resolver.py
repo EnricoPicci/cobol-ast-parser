@@ -6,12 +6,23 @@ external copybook files into the source code. Features:
 - Circular dependency detection
 - REPLACING clause support
 - Library/path search
+- Line number mapping from expanded source to original source
 """
 
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass, field
+
+
+@dataclass
+class LineMapping:
+    """Maps an expanded line number to its original source location."""
+
+    expanded_line: int
+    original_line: int
+    source_file: str  # "<main>" for the main source file, or copybook name
+    is_copybook: bool = False
 
 
 @dataclass
@@ -92,6 +103,10 @@ class CopyResolver:
         self.extensions = extensions or self.COPYBOOK_EXTENSIONS
         self.resolved_cache: Dict[str, str] = {}
         self.resolution_stack: List[str] = []
+        # Line mapping from expanded source to original source
+        self._line_mapping: Dict[int, LineMapping] = {}
+        self._main_source_name: str = "<main>"
+        self._original_line_count: int = 0
 
     def resolve(self, source: str, source_name: str = "<main>") -> str:
         """Resolve all COPY statements in the source.
@@ -109,7 +124,134 @@ class CopyResolver:
             CopyResolutionError: For other resolution errors
         """
         self.resolution_stack = [source_name]
-        return self._resolve_recursive(source, 0)
+        self._main_source_name = source_name
+        self._original_line_count = len(source.splitlines())
+        self._line_mapping = {}
+
+        resolved = self._resolve_recursive(source, 0)
+
+        # Build line mapping after resolution
+        self._build_line_mapping(source, resolved)
+
+        return resolved
+
+    def _build_line_mapping(self, original_source: str, resolved_source: str) -> None:
+        """Build mapping from resolved line numbers to original line numbers.
+
+        For lines that come from copybooks, maps to the COPY statement line in original.
+        For original source lines, maps directly.
+
+        Args:
+            original_source: Original source before COPY resolution
+            resolved_source: Source after COPY resolution
+        """
+        original_lines = original_source.splitlines()
+        resolved_lines = resolved_source.splitlines()
+
+        # Find all COPY statement locations in original source
+        copy_locations: Dict[int, str] = {}  # original_line -> copybook_name
+        for i, line in enumerate(original_lines, 1):
+            if self.COPY_PATTERN.search(line):
+                match = self.COPY_PATTERN.search(line)
+                if match:
+                    copy_locations[i] = match.group(1).upper()
+
+        # Track position in both sources
+        orig_idx = 0
+        resolved_idx = 0
+        current_copybook: Optional[str] = None
+        copybook_start_line: int = 0
+
+        while resolved_idx < len(resolved_lines):
+            resolved_line_num = resolved_idx + 1
+            resolved_line = resolved_lines[resolved_idx]
+
+            # Check if this is a COPY resolution comment
+            if resolved_line.strip().startswith("* COPY") and "resolved" in resolved_line:
+                # Extract copybook name from comment
+                parts = resolved_line.strip().split()
+                if len(parts) >= 3:
+                    current_copybook = parts[2]
+                    # Find which original COPY statement this corresponds to
+                    for orig_line_num, copybook_name in copy_locations.items():
+                        if copybook_name == current_copybook and orig_line_num > copybook_start_line:
+                            copybook_start_line = orig_line_num
+                            break
+                self._line_mapping[resolved_line_num] = LineMapping(
+                    expanded_line=resolved_line_num,
+                    original_line=copybook_start_line,
+                    source_file=current_copybook or self._main_source_name,
+                    is_copybook=True,
+                )
+                resolved_idx += 1
+                continue
+
+            # Check if we're back to original source
+            if orig_idx < len(original_lines):
+                orig_line = original_lines[orig_idx]
+                # Skip COPY statements in original - they're replaced
+                if self.COPY_PATTERN.search(orig_line):
+                    orig_idx += 1
+                    current_copybook = None
+                    continue
+
+                # If lines match (approximately), we're in original source
+                if self._lines_match(resolved_line, orig_line):
+                    self._line_mapping[resolved_line_num] = LineMapping(
+                        expanded_line=resolved_line_num,
+                        original_line=orig_idx + 1,
+                        source_file=self._main_source_name,
+                        is_copybook=False,
+                    )
+                    orig_idx += 1
+                    current_copybook = None
+                else:
+                    # Line is from copybook
+                    self._line_mapping[resolved_line_num] = LineMapping(
+                        expanded_line=resolved_line_num,
+                        original_line=copybook_start_line if copybook_start_line else 1,
+                        source_file=current_copybook or "COPYBOOK",
+                        is_copybook=True,
+                    )
+            else:
+                # All remaining lines are from copybook
+                self._line_mapping[resolved_line_num] = LineMapping(
+                    expanded_line=resolved_line_num,
+                    original_line=copybook_start_line if copybook_start_line else 1,
+                    source_file=current_copybook or "COPYBOOK",
+                    is_copybook=True,
+                )
+
+            resolved_idx += 1
+
+    def _lines_match(self, line1: str, line2: str) -> bool:
+        """Check if two lines are approximately equal (ignoring whitespace differences)."""
+        return line1.strip() == line2.strip()
+
+    def get_original_line(self, expanded_line: int) -> Tuple[int, str, bool]:
+        """Get the original line number for an expanded line number.
+
+        Args:
+            expanded_line: Line number in the expanded (resolved) source
+
+        Returns:
+            Tuple of (original_line_number, source_file_name, is_from_copybook)
+        """
+        if expanded_line in self._line_mapping:
+            mapping = self._line_mapping[expanded_line]
+            return (mapping.original_line, mapping.source_file, mapping.is_copybook)
+        # Fallback: return the same line number
+        return (expanded_line, self._main_source_name, False)
+
+    @property
+    def line_mapping(self) -> Dict[int, LineMapping]:
+        """Get the line mapping dictionary."""
+        return self._line_mapping
+
+    @property
+    def original_line_count(self) -> int:
+        """Get the line count of the original source file."""
+        return self._original_line_count
 
     def _resolve_recursive(self, source: str, depth: int) -> str:
         """Recursively resolve COPY statements.

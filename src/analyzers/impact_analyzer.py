@@ -477,8 +477,25 @@ class ImpactAnalyzer:
             "analysis_date": datetime.now().isoformat(),
             "sections_and_paragraphs": sections_and_paragraphs,
             "data_hierarchy": self._build_data_hierarchy(),
+            "memory_regions": self._build_memory_regions(),
             "summary": summary,
         }
+
+    def _build_memory_regions(self) -> Dict[str, Dict[str, Any]]:
+        """Build memory region info for all data items.
+
+        Returns:
+            Dictionary mapping variable names to their memory region info
+            (start_offset, size, record_name)
+        """
+        memory_regions = {}
+        for var_name, region in self.data_analyzer._memory_regions.items():
+            memory_regions[var_name] = {
+                "start_offset": region.start_offset,
+                "size": region.size,
+                "record_name": region.record_name
+            }
+        return memory_regions
 
     def _format_variable_impact(self, vi: VariableImpact) -> Dict[str, Any]:
         """Format a VariableImpact for output.

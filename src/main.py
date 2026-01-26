@@ -114,6 +114,8 @@ def analyze_cobol_file(
     logger.info(f"Detected source format: {source_format.value}")
 
     # Resolve COPY statements
+    line_mapping = None
+    original_line_count = source_lines_count
     if resolve_copies:
         copy_paths = copybook_paths or [Path(p) for p in config.get("copybook_paths", ["."])]
         copy_paths = [source_path.parent] + copy_paths  # Add source directory
@@ -121,6 +123,8 @@ def analyze_cobol_file(
         resolver = CopyResolver(copy_paths)
         try:
             source = resolver.resolve(source, source_path.name)
+            line_mapping = resolver.line_mapping
+            original_line_count = resolver.original_line_count
             logger.info("COPY statements resolved successfully")
         except Exception as e:
             logger.warning(f"Error resolving COPY statements: {e}")
@@ -166,6 +170,18 @@ def analyze_cobol_file(
             "source_format": source_format.value,
             "lines_count": source_lines_count,
         }
+
+    # Add line mapping for converting expanded line numbers to original
+    if line_mapping:
+        output["_line_mapping"] = {
+            str(k): {
+                "original_line": v.original_line,
+                "source_file": v.source_file,
+                "is_copybook": v.is_copybook,
+            }
+            for k, v in line_mapping.items()
+        }
+        output["_original_line_count"] = original_line_count
 
     # Write to file if path provided
     if output_path:

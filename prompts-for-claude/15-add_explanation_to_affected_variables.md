@@ -29,3 +29,19 @@ Review this requirement, highligh any gap and then write the strategy and the pl
 - Backward compatibility is not required
 
 Update the strategy and plan document accordingly
+
+# Fix bug
+In line 133 of file complex-cobol-source/TRANPROC.cbl there is the instruction:
+           MOVE '123' TO PAY-BANK-CODE
+
+Because of the REDEFINE, this statement should change other variables but I do not see any change due to redefine in the json file. Can you check and tell if this is a bug?
+
+# Fix bug
+In the same json I see the following snippet:
+      "WS-CALC-TOTAL": {
+        "base_record": "WS-WORK-FIELDS",
+        "defined_in_record": "WS-WORK-FIELDS",
+        "explanation": "affected by multiple modifications at lines 355, 357"
+      },
+
+the "explanation" states that there are multiple modifications at lines 355, 357 but TRANPROC.cbl does not have lines 355 and 357. This seems a bug. If so, fix it.
