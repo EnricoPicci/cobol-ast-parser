@@ -130,6 +130,7 @@
            END-EVALUATE
 
            MOVE 'abcd' TO TRAN-CUSTOMER-ID
+           MOVE '123' TO PAY-BANK-CODE
            
            PERFORM 2100-READ-NEXT-TRAN.
 
