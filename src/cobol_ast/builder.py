@@ -128,6 +128,7 @@ class ASTBuilder:
                 occurs=sitem.occurs,
                 value=sitem.value,
                 line_number=sitem.line_number,
+                is_filler=sitem.is_filler,
             )
 
             # Handle level hierarchy

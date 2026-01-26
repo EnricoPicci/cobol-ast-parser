@@ -77,11 +77,18 @@ class DataItem:
     occurs: Optional[int] = None
     occurs_depending_on: Optional[str] = None
     line_number: int = 0
+    is_filler: bool = False
 
     @property
     def is_group(self) -> bool:
-        """Check if this is a group item (has children)."""
-        return len(self.children) > 0 or (self.picture is None and self.level not in (66, 77, 88))
+        """Check if this is a group item (has non-88-level children).
+
+        Note: 88-level condition names don't make an item a group - they're
+        just named conditions that share the parent's memory location.
+        """
+        # Count only non-88-level children (88-level items are condition names, not data items)
+        data_children = [c for c in self.children if c.level != 88]
+        return len(data_children) > 0 or (self.picture is None and self.level not in (66, 77, 88))
 
     @property
     def is_elementary(self) -> bool:

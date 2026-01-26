@@ -85,6 +85,21 @@ class ParagraphVariablesMapper:
         # 77-level vars have hierarchy containing only themselves
         return len(hierarchy) == 1 and hierarchy[0].upper() == var_name.upper()
 
+    def _is_filler(self, var_name: str) -> bool:
+        """Check if variable is a FILLER item (internal placeholder).
+
+        FILLER items are given unique names like FILLER$1, FILLER$2, etc.
+        during parsing to track their memory positions, but they should
+        not appear in user-facing output.
+
+        Args:
+            var_name: Name of the variable to check
+
+        Returns:
+            True if variable is a FILLER item
+        """
+        return var_name.upper().startswith("FILLER$")
+
     def _get_children_of_group(self, group_name: str) -> Set[str]:
         """Find all variables where group appears in their hierarchy.
 
@@ -130,21 +145,21 @@ class ParagraphVariablesMapper:
         for mod in modifications:
             # Direct modification
             direct_var = mod.get("variable", "").upper()
-            if direct_var and direct_var not in variables:
+            if direct_var and direct_var not in variables and not self._is_filler(direct_var):
                 self._add_variable(variables, direct_var)
 
             # REDEFINES-related modifications
             if include_redefines:
                 for av in mod.get("affected_variables", []):
                     affected_var = av.get("name", "").upper()
-                    if affected_var and affected_var not in variables:
+                    if affected_var and affected_var not in variables and not self._is_filler(affected_var):
                         self._add_variable(variables, affected_var)
 
             # Ancestor modifications - children of modified groups
             if include_ancestor_mods and direct_var:
                 children = self._get_children_of_group(direct_var)
                 for child in children:
-                    if child not in variables:
+                    if child not in variables and not self._is_filler(child):
                         self._add_variable(variables, child)
 
         return variables

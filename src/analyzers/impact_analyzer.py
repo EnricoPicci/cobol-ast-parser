@@ -218,7 +218,68 @@ class ImpactAnalyzer:
                     redefined_ancestor=av.redefined_ancestor,
                 ))
 
+        # Remove Level 01 REDEFINES records that only overlap via FILLER areas
+        filtered = self._filter_redundant_level01_records(filtered)
+
         return filtered
+
+    def _filter_redundant_level01_records(
+        self,
+        affected_vars: List[AffectedVariable]
+    ) -> List[AffectedVariable]:
+        """Remove Level 01 REDEFINES records that only overlap via FILLER areas.
+
+        If a Level 01 REDEFINES record is in the affected list but none of its
+        named (non-FILLER) subordinate fields overlap, it means the overlap is
+        only with FILLER space. In this case, reporting the Level 01 record is
+        misleading - it suggests the record's meaningful fields are affected
+        when they're not.
+
+        Args:
+            affected_vars: List of affected variables after byte overlap filtering
+
+        Returns:
+            Filtered list with redundant Level 01 records removed
+        """
+        if not affected_vars:
+            return affected_vars
+
+        # Identify Level 01 REDEFINES records in the list
+        level01_records = set()
+        for av in affected_vars:
+            item = self.program.all_data_items.get(av.name.upper())
+            if item and item.level == 1 and item.redefines:
+                level01_records.add(av.name.upper())
+
+        if not level01_records:
+            return affected_vars
+
+        # For each Level 01 record, check if any non-FILLER subordinates are affected
+        level01_with_affected_subordinates = set()
+        for av in affected_vars:
+            if av.name.upper() in level01_records:
+                continue  # Skip the Level 01 record itself
+
+            # Check if this affected variable belongs to one of the Level 01 records
+            item = self.program.all_data_items.get(av.name.upper())
+            if item and not item.is_filler:
+                # Find which Level 01 record this item belongs to
+                root = item.root_record
+                if root and root.name.upper() in level01_records:
+                    level01_with_affected_subordinates.add(root.name.upper())
+
+        # Filter out Level 01 records that have no non-FILLER subordinates affected
+        result = []
+        for av in affected_vars:
+            if av.name.upper() in level01_records:
+                # Only keep if it has affected non-FILLER subordinates
+                if av.name.upper() in level01_with_affected_subordinates:
+                    result.append(av)
+                # Otherwise, skip it (only FILLER areas overlap)
+            else:
+                result.append(av)
+
+        return result
 
     def _regions_overlap(self, r1: MemoryRegion, r2: MemoryRegion) -> bool:
         """Check if two memory regions overlap (ignoring record name for REDEFINES).

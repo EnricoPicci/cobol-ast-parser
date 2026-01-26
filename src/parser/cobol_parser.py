@@ -240,6 +240,7 @@ class SimplifiedDataItem:
     occurs: Optional[int] = None
     value: Optional[str] = None
     line_number: int = 0
+    is_filler: bool = False
 
 
 @dataclass
@@ -528,14 +529,18 @@ class SimplifiedCobolParser:
     ) -> List[SimplifiedDataItem]:
         """Parse data items from a section."""
         items = []
+        filler_counter = 0
 
         for match in self.DATA_ITEM.finditer(source):
             level = int(match.group(1))
             name = match.group(2).upper()
 
-            # Skip FILLER
+            # Handle FILLER items - give them unique internal names
+            is_filler = False
             if name == "FILLER":
-                continue
+                filler_counter += 1
+                name = f"FILLER${filler_counter}"
+                is_filler = True
 
             redefines = match.group(3).upper() if match.group(3) else None
             picture = match.group(4) if match.group(4) else None
@@ -555,6 +560,7 @@ class SimplifiedCobolParser:
                     occurs=occurs,
                     value=value,
                     line_number=line_num,
+                    is_filler=is_filler,
                 )
             )
 
