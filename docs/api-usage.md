@@ -80,11 +80,13 @@ Configuration dataclass for analysis options.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `copybook_paths` | `List[Path]` | `None` | Additional paths to search for copybooks |
+| `copybook_paths` | `List[Path]` | `None` | Additional paths to search for copybooks (source file's directory is always searched) |
 | `resolve_copies` | `bool` | `True` | Whether to resolve COPY statements |
 | `include_redefines` | `bool` | `True` | Include REDEFINES-affected variables in output |
 | `include_ancestor_mods` | `bool` | `True` | Include ancestor-modified variables in output |
-| `include_source_info` | `bool` | `False` | Include source file metadata in output |
+| `include_source_info` | `bool` | `True` | Include source file metadata in output |
+
+**Note:** The source file's directory is always searched for copybooks by default, even if `copybook_paths` is `None`.
 
 ### `AnalysisResult`
 
