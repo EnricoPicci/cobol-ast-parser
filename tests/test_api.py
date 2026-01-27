@@ -53,9 +53,9 @@ class TestAnalyzePararagraphVariables:
 
         result = analyze_paragraph_variables(source_path)
 
-        # Should include redefines and ancestor mods by default
-        # Source info should NOT be included by default
-        assert result.source_info is None
+        # Should include redefines, ancestor mods, and source info by default
+        assert result.source_info is not None
+        assert result.source_info["file_name"] == "simple_program.cob"
 
     def test_with_custom_options(self):
         """Test analysis with custom options."""
@@ -166,11 +166,11 @@ class TestAnalysisOptions:
         """Test that default values are set correctly."""
         options = AnalysisOptions()
 
-        assert options.copybook_paths is None
+        assert options.copybook_paths is None  # Source dir is added automatically
         assert options.resolve_copies is True
         assert options.include_redefines is True
         assert options.include_ancestor_mods is True
-        assert options.include_source_info is False
+        assert options.include_source_info is True
 
     def test_custom_values(self):
         """Test setting custom values."""

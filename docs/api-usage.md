@@ -33,14 +33,29 @@ git+https://github.com/your-org/cobol-ast-parser.git
 from pathlib import Path
 from src import analyze_paragraph_variables
 
-# Analyze a COBOL file
+# Analyze a COBOL file (all features enabled by default)
 result = analyze_paragraph_variables(Path("program.cob"))
 
 # Access the results
 print(result.program_name)
 print(result.analysis)             # Full analysis JSON
 print(result.paragraph_variables)  # Paragraph-variables map JSON
+print(result.source_info)          # Source file metadata (included by default)
 ```
+
+## Default Behavior
+
+When called without options, `analyze_paragraph_variables` uses these defaults:
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| Copybook search path | Source file's directory | Automatically searches the COBOL file's folder for copybooks |
+| `resolve_copies` | `True` | COPY statements are resolved |
+| `include_redefines` | `True` | Variables affected via REDEFINES are included |
+| `include_ancestor_mods` | `True` | Variables affected via ancestor group modifications are included |
+| `include_source_info` | `True` | Source file metadata is included in the output |
+
+This means the simplest call provides the most complete analysis:
 
 ## API Reference
 
@@ -98,7 +113,7 @@ Result dataclass containing both JSON outputs.
 | `analysis` | `dict` | Full analysis (same as `{program_name}-analysis.json`) |
 | `paragraph_variables` | `dict` | Paragraph-variables map (same as `{program_name}-paragraph-variables.json`) |
 | `execution_time_seconds` | `float` | Total processing time |
-| `source_info` | `dict \| None` | Source file metadata (if `include_source_info=True`) |
+| `source_info` | `dict \| None` | Source file metadata (included by default, `None` if `include_source_info=False`) |
 
 ## Usage Examples
 
@@ -120,20 +135,36 @@ print(f"Execution time: {result.execution_time_seconds:.4f}s")
 from pathlib import Path
 from src import analyze_paragraph_variables, AnalysisOptions
 
+# Add extra copybook paths (source directory is always searched by default)
 options = AnalysisOptions(
     copybook_paths=[Path("./copybooks"), Path("./shared/copy")],
-    resolve_copies=True,
-    include_redefines=True,
-    include_ancestor_mods=True,
-    include_source_info=True,
 )
 
 result = analyze_paragraph_variables(Path("program.cob"), options)
 
-# Source info is now available
+# Source info is included by default
 print(result.source_info)
 # Output: {'file_path': '/full/path/program.cob', 'file_name': 'program.cob',
 #          'source_format': 'fixed', 'lines_count': 500}
+```
+
+### Disabling Default Features
+
+```python
+from pathlib import Path
+from src import analyze_paragraph_variables, AnalysisOptions
+
+# Disable REDEFINES tracking and source info
+options = AnalysisOptions(
+    include_redefines=False,
+    include_ancestor_mods=False,
+    include_source_info=False,
+)
+
+result = analyze_paragraph_variables(Path("program.cob"), options)
+
+# Only direct modifications will be included
+# result.source_info will be None
 ```
 
 ### Iterating Over Results
@@ -235,7 +266,7 @@ print(f"Paragraph variables written to: {paragraph_vars_path}")
 
 ```python
 from pathlib import Path
-from src import analyze_paragraph_variables, AnalysisOptions
+from src import analyze_paragraph_variables
 from parser import ParseError
 
 def analyze_directory(source_dir: Path, output_dir: Path):
@@ -243,12 +274,11 @@ def analyze_directory(source_dir: Path, output_dir: Path):
     import json
 
     output_dir.mkdir(exist_ok=True)
-    options = AnalysisOptions(include_source_info=True)
 
     results = []
     for cob_file in source_dir.glob("*.cob"):
         try:
-            result = analyze_paragraph_variables(cob_file, options)
+            result = analyze_paragraph_variables(cob_file)
 
             # Write individual output
             out_path = output_dir / f"{result.program_name}-paragraph-variables.json"
@@ -294,16 +324,15 @@ for r in results:
 
 ### Equivalent Operations
 
-**CLI:**
+**CLI (with non-default options):**
 ```bash
 cobol-analyzer paragraph-variables-map program.cob \
     -o ./output \
     -c ./copybooks \
-    --include-source-info \
     --no-redefines
 ```
 
-**API:**
+**API (equivalent):**
 ```python
 from pathlib import Path
 from src import analyze_paragraph_variables, AnalysisOptions
@@ -311,13 +340,37 @@ import json
 
 options = AnalysisOptions(
     copybook_paths=[Path("./copybooks")],
-    include_source_info=True,
     include_redefines=False,
 )
 
 result = analyze_paragraph_variables(Path("program.cob"), options)
 
 # Write outputs like CLI does
+Path("./output").mkdir(exist_ok=True)
+Path(f"./output/{result.program_name}-analysis.json").write_text(
+    json.dumps(result.analysis, indent=2)
+)
+Path(f"./output/{result.program_name}-paragraph-variables.json").write_text(
+    json.dumps(result.paragraph_variables, indent=2)
+)
+```
+
+### Default Behavior (simplest usage)
+
+**CLI:**
+```bash
+cobol-analyzer paragraph-variables-map program.cob -o ./output
+```
+
+**API:**
+```python
+from pathlib import Path
+from src import analyze_paragraph_variables
+import json
+
+result = analyze_paragraph_variables(Path("program.cob"))
+
+# All features enabled by default: REDEFINES, ancestor mods, source info
 Path("./output").mkdir(exist_ok=True)
 Path(f"./output/{result.program_name}-analysis.json").write_text(
     json.dumps(result.analysis, indent=2)

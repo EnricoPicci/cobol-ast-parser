@@ -18,7 +18,7 @@ Example:
     print(result.paragraph_variables)  # Paragraph-variables map JSON
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -33,17 +33,18 @@ class AnalysisOptions:
     """Options for COBOL analysis.
 
     Attributes:
-        copybook_paths: Paths to search for copybooks (in addition to source directory)
+        copybook_paths: Additional paths to search for copybooks. The source file's
+            directory is always searched by default.
         resolve_copies: Whether to resolve COPY statements (default: True)
         include_redefines: Include REDEFINES-affected variables in output (default: True)
         include_ancestor_mods: Include ancestor-modified variables in output (default: True)
-        include_source_info: Include source file metadata in output (default: False)
+        include_source_info: Include source file metadata in output (default: True)
     """
     copybook_paths: Optional[List[Path]] = None
     resolve_copies: bool = True
     include_redefines: bool = True
     include_ancestor_mods: bool = True
-    include_source_info: bool = False
+    include_source_info: bool = True
 
 
 @dataclass
