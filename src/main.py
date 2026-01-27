@@ -14,11 +14,9 @@ from typing import Optional, List
 
 import yaml
 
-from preprocessor import CopyResolver, SourceFormat, detect_format, normalize_source
-from parser import CobolParser, ParseError
-from cobol_ast import ASTBuilder
-from analyzers import ImpactAnalyzer
-from output import JSONWriter, ParagraphVariablesMapper
+from parser import ParseError
+from output import JSONWriter
+from api import analyze_paragraph_variables, AnalysisOptions, AnalysisError
 
 __version__ = "2.0.0"
 
@@ -204,6 +202,8 @@ def handle_paragraph_variables_map(args) -> int:
     Analyzes a COBOL source file and generates a paragraph-centric view
     showing which variables may change within each SECTION or PARAGRAPH.
 
+    This is a thin CLI wrapper around the public API (analyze_paragraph_variables).
+
     Args:
         args: Parsed arguments
 
@@ -211,15 +211,6 @@ def handle_paragraph_variables_map(args) -> int:
         Exit code (0 for success, 1 for failure)
     """
     logger = logging.getLogger(__name__)
-
-    # Validate input
-    if not args.source.exists():
-        logger.error(f"Source file not found: {args.source}")
-        return 1
-
-    if not args.source.is_file():
-        logger.error(f"Source path is not a file: {args.source}")
-        return 1
 
     # Create output directory if specified and doesn't exist
     if args.output_dir:
@@ -230,73 +221,64 @@ def handle_paragraph_variables_map(args) -> int:
             logger.error(f"Failed to create output directory: {e}")
             return 1
 
-    # Load config
+    # Load config for output formatting
     config = load_config(args.config)
 
     try:
-        # Analyze the COBOL source
-        analysis_output = analyze_cobol_file(
-            source_path=args.source,
+        # Build options from CLI arguments
+        options = AnalysisOptions(
             copybook_paths=args.copybook_paths,
             resolve_copies=not args.no_copy_resolution,
-            config=config,
+            include_redefines=not args.no_redefines,
+            include_ancestor_mods=not args.no_ancestor_mods,
             include_source_info=args.include_source_info,
         )
 
-        analysis_execution_time = analysis_output.get("execution_time_seconds", 0)
-        program_name = analysis_output.get("program_name", "UNKNOWN")
+        # Call the public API
+        result = analyze_paragraph_variables(args.source, options)
 
-        # Write analysis output if output directory specified
+        # Setup JSON writer from config
         output_config = config.get("output", {})
         writer = JSONWriter(
             pretty_print=output_config.get("pretty_print", True),
             indent=output_config.get("indent_size", 2),
         )
 
+        # Write analysis output if output directory specified
         analysis_output_path = None
         if args.output_dir:
-            analysis_filename = args.analysis_filename.format(program_name=program_name)
+            analysis_filename = args.analysis_filename.format(program_name=result.program_name)
             analysis_output_path = args.output_dir / analysis_filename
-            writer.write(analysis_output, analysis_output_path)
+            writer.write(result.analysis, analysis_output_path)
 
-        # Generate paragraph-variables map
-        mapper = ParagraphVariablesMapper(analysis_output)
-        include_redefines = not args.no_redefines
-        include_ancestor_mods = not args.no_ancestor_mods
-        map_result = mapper.map(
-            include_redefines=include_redefines,
-            include_ancestor_mods=include_ancestor_mods
-        )
-
-        # Add source_info to map result if requested
-        if args.include_source_info and "source_info" in analysis_output:
-            map_result["source_info"] = analysis_output["source_info"]
-
-        map_execution_time = map_result.get("execution_time_seconds", 0)
-        total_execution_time = analysis_execution_time + map_execution_time
-
-        # Write map output
+        # Write paragraph-variables map output
         map_output_path = None
         if args.output_dir:
-            map_filename = args.output_filename.format(program_name=program_name)
+            map_filename = args.output_filename.format(program_name=result.program_name)
             map_output_path = args.output_dir / map_filename
-            writer.write(map_result, map_output_path)
+            writer.write(result.paragraph_variables, map_output_path)
 
         # Print summary
         if not args.quiet:
             if args.output_dir:
                 print(f"Analysis written to: {analysis_output_path}")
                 print(f"Paragraph variables map written to: {map_output_path}")
-                print(f"Execution time: {total_execution_time:.4f} seconds")
+                print(f"Execution time: {result.execution_time_seconds:.4f} seconds")
 
-        # If no output directory, print map result to stdout
+        # If no output directory, print paragraph-variables map to stdout
         if not args.output_dir:
-            print(writer.write(map_result))
+            print(writer.write(result.paragraph_variables))
 
         return 0
 
+    except FileNotFoundError as e:
+        logger.error(str(e))
+        return 1
     except ParseError as e:
         logger.error(f"Parse error: {e}")
+        return 1
+    except AnalysisError as e:
+        logger.error(str(e))
         return 1
     except Exception as e:
         logger.exception(f"Paragraph variables map operation failed: {e}")

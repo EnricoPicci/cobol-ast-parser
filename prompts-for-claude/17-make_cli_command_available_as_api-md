@@ -1,0 +1,2 @@
+I want to call the logic of the only CLI command as an API. I think the entry point is the function                              
+  handle_paragraph_variables_map. Can you confirm? If so, what do you suggest to do? Write a strategy and plan document in the "claude_generated_docs" folder.
