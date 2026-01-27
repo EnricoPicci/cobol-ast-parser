@@ -7,10 +7,8 @@ and mapping paragraphs to the variables they may modify.
 import argparse
 import sys
 import logging
-import time
-from datetime import datetime
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 
 import yaml
 
@@ -74,126 +72,6 @@ def load_config(config_path: Optional[Path] = None) -> dict:
                         default_config[key] = value
 
     return default_config
-
-
-def analyze_cobol_file(
-    source_path: Path,
-    copybook_paths: Optional[List[Path]] = None,
-    resolve_copies: bool = True,
-    output_path: Optional[Path] = None,
-    config: Optional[dict] = None,
-    include_source_info: bool = False,
-) -> dict:
-    """Analyze a COBOL source file.
-
-    Args:
-        source_path: Path to COBOL source file
-        copybook_paths: Paths to search for copybooks
-        resolve_copies: Whether to resolve COPY statements
-        output_path: Optional path to write JSON output
-        config: Configuration dictionary
-        include_source_info: Whether to include source file metadata
-
-    Returns:
-        Analysis results dictionary with execution timing
-    """
-    start_time = time.perf_counter()
-    config = config or load_config()
-    logger = logging.getLogger(__name__)
-
-    # Read source file
-    logger.info(f"Reading source file: {source_path}")
-    source = source_path.read_text(encoding="utf-8", errors="replace")
-    source_lines_count = len(source.splitlines())
-
-    # Detect format
-    source_lines = source.splitlines()
-    source_format = detect_format(source_lines)
-    logger.info(f"Detected source format: {source_format.value}")
-
-    # Resolve COPY statements
-    line_mapping = None
-    original_line_count = source_lines_count
-    if resolve_copies:
-        copy_paths = copybook_paths or [Path(p) for p in config.get("copybook_paths", ["."])]
-        copy_paths = [source_path.parent] + copy_paths  # Add source directory
-
-        resolver = CopyResolver(copy_paths)
-        try:
-            source = resolver.resolve(source, source_path.name)
-            line_mapping = resolver.line_mapping
-            original_line_count = resolver.original_line_count
-            logger.info("COPY statements resolved successfully")
-        except Exception as e:
-            logger.warning(f"Error resolving COPY statements: {e}")
-
-    # Normalize source
-    source = normalize_source(source, source_format)
-
-    # Parse
-    logger.info("Parsing COBOL source...")
-    parser = CobolParser(use_generated=False)  # Use simplified parser
-    try:
-        parse_tree = parser.parse(source)
-    except ParseError as e:
-        logger.error(f"Parse error: {e}")
-        raise
-
-    # Build AST
-    logger.info("Building AST...")
-    builder = ASTBuilder()
-    program = builder.build(parse_tree)
-    logger.info(f"Program name: {program.name}")
-
-    # Analyze
-    logger.info("Performing impact analysis...")
-    analyzer = ImpactAnalyzer(program)
-    analyzer.analyze()
-
-    # Generate output
-    output = analyzer.generate_output()
-
-    # Calculate execution time
-    end_time = time.perf_counter()
-    execution_time_seconds = end_time - start_time
-
-    # Add execution metadata
-    output["execution_time_seconds"] = round(execution_time_seconds, 4)
-
-    # Add source file info if requested
-    if include_source_info:
-        output["source_info"] = {
-            "file_path": str(source_path.absolute()),
-            "file_name": source_path.name,
-            "source_format": source_format.value,
-            "lines_count": source_lines_count,
-        }
-
-    # Add line mapping for converting expanded line numbers to original
-    if line_mapping:
-        output["_line_mapping"] = {
-            str(k): {
-                "original_line": v.original_line,
-                "source_file": v.source_file,
-                "is_copybook": v.is_copybook,
-            }
-            for k, v in line_mapping.items()
-        }
-        output["_original_line_count"] = original_line_count
-
-    # Write to file if path provided
-    if output_path:
-        output_config = config.get("output", {})
-        writer = JSONWriter(
-            pretty_print=output_config.get("pretty_print", True),
-            indent=output_config.get("indent_size", 2),
-            include_line_numbers=output_config.get("include_line_numbers", True),
-            include_modification_types=output_config.get("include_modification_type", True),
-        )
-        writer.write(output, output_path)
-        logger.info(f"Output written to: {output_path}")
-
-    return output
 
 
 def handle_paragraph_variables_map(args) -> int:
