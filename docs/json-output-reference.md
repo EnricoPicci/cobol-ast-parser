@@ -4,12 +4,13 @@ This document describes all properties in the JSON files produced by the COBOL P
 
 ## Overview
 
-The COBOL Paragraph Variables Mapper produces two types of JSON output files:
+The COBOL Paragraph Variables Mapper produces several types of JSON output:
 
-| Output Type | Default Filename | Description |
-|-------------|------------------|-------------|
-| Analysis Output | `{program_name}-analysis.json` | Section-centric view of all variable modifications |
-| Paragraph Variables Map | `{program_name}-paragraph-variables.json` | Paragraph-centric view of all changed variables with record membership |
+| Output Type | API Return Type | Description |
+|-------------|-----------------|-------------|
+| Analysis Output | `AnalysisResult.analysis` | Section-centric view of all variable modifications |
+| Paragraph Variables Map | `AnalysisResult.paragraph_variables` | Paragraph-centric view of all changed variables with record membership |
+| DATA DIVISION Tree | `DataDivisionTree.to_dict()` | Hierarchical tree view of DATA DIVISION structure |
 
 ---
 
@@ -477,6 +478,333 @@ Variables may have explanations that combine multiple types:
 
 ```
 affected by multiple modifications at lines 142, 156; some modifications are due to REDEFINE (e.g., PAY-AMOUNT at positions 5-12 overlaps TRAN-CODE at positions 1-8)
+```
+
+---
+
+## DATA DIVISION Tree Output
+
+The DATA DIVISION tree output provides a hierarchical view of all data items in the COBOL DATA DIVISION, organized by section.
+
+### Top-Level Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `program_name` | string | The PROGRAM-ID from the COBOL source |
+| `sections` | array | List of DATA DIVISION sections with their records |
+| `all_records` | array | Flat list of all Level 01 records (regardless of section) |
+| `summary` | object | Statistical summary of the data structure |
+| `execution_time_seconds` | number | Time taken to generate the tree |
+| `source_info` | object | *(Optional)* Source file metadata (when `include_source_info=True`) |
+
+### Example Structure
+
+```json
+{
+  "program_name": "SIMPLE-PROGRAM",
+  "sections": [ ... ],
+  "all_records": [ ... ],
+  "summary": { ... },
+  "execution_time_seconds": 0.0023,
+  "source_info": { ... }
+}
+```
+
+---
+
+### `sections`
+
+An array of DATA DIVISION section objects. Sections are ordered: FILE, WORKING-STORAGE, LOCAL-STORAGE, LINKAGE, then any others.
+
+#### Section Object Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | string | Section name (e.g., "WORKING-STORAGE", "FILE", "LINKAGE") |
+| `records` | array | List of Level 01 record nodes in this section |
+
+```json
+{
+  "sections": [
+    {
+      "name": "WORKING-STORAGE",
+      "records": [
+        { /* DataItemNode */ },
+        { /* DataItemNode */ }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### DataItemNode Properties
+
+Each data item in the tree (including records and their subordinates) has these properties:
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Data item name (e.g., "WS-EMPLOYEE-RECORD") |
+| `level` | integer | Yes | COBOL level number (01-49, 66, 77, 88) |
+| `picture` | string | No | PICTURE clause if present |
+| `usage` | string | No | USAGE clause if present |
+| `value` | string | No | VALUE clause if present |
+| `occurs` | integer | No | OCCURS count if present |
+| `occurs_depending_on` | string | No | OCCURS DEPENDING ON variable name if present |
+| `redefines` | string | No | Name of item being redefined if REDEFINES clause present |
+| `is_group` | boolean | No | Present and `true` if this is a group item |
+| `is_filler` | boolean | No | Present and `true` if this is a FILLER item |
+| `line_number` | integer | No | Line number in source (after COPY expansion) |
+| `copybook_source` | string | No | Name of copybook if item came from COPY statement |
+| `position` | object | No | Memory position info (see below) |
+| `children` | array | No | Child DataItemNode objects (only present if non-empty) |
+
+#### Position Object
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `start` | integer | Start byte position (1-indexed, COBOL convention) |
+| `end` | integer | End byte position (inclusive) |
+| `size` | integer | Size in bytes |
+
+#### Example DataItemNode
+
+```json
+{
+  "name": "WS-EMPLOYEE-RECORD",
+  "level": 1,
+  "is_group": true,
+  "line_number": 5,
+  "position": {
+    "start": 1,
+    "end": 54,
+    "size": 54
+  },
+  "children": [
+    {
+      "name": "WS-EMP-ID",
+      "level": 5,
+      "picture": "9(5)",
+      "line_number": 8,
+      "position": {
+        "start": 1,
+        "end": 5,
+        "size": 5
+      }
+    },
+    {
+      "name": "WS-EMP-NAME",
+      "level": 5,
+      "picture": "X(30)",
+      "line_number": 9,
+      "position": {
+        "start": 6,
+        "end": 35,
+        "size": 30
+      }
+    }
+  ]
+}
+```
+
+#### Example with 88-Level Condition Names
+
+```json
+{
+  "name": "WS-EOF-FLAG",
+  "level": 5,
+  "picture": "X",
+  "value": "'N'",
+  "line_number": 18,
+  "position": {
+    "start": 1,
+    "end": 1,
+    "size": 1
+  },
+  "children": [
+    {
+      "name": "EOF-REACHED",
+      "level": 88,
+      "value": "'Y'",
+      "line_number": 19
+    },
+    {
+      "name": "NOT-EOF",
+      "level": 88,
+      "value": "'N'",
+      "line_number": 20
+    }
+  ]
+}
+```
+
+#### Example with REDEFINES
+
+```json
+{
+  "name": "EMPLOYEE-RECORD",
+  "level": 1,
+  "redefines": "INPUT-RECORD",
+  "is_group": true,
+  "line_number": 10,
+  "position": {
+    "start": 1,
+    "end": 100,
+    "size": 100
+  },
+  "children": [ ... ]
+}
+```
+
+#### Example with Copybook Source
+
+```json
+{
+  "name": "WS-EMPLOYEE",
+  "level": 1,
+  "is_group": true,
+  "line_number": 8,
+  "copybook_source": "EMPLOYEE-CPY",
+  "position": {
+    "start": 1,
+    "end": 35,
+    "size": 35
+  },
+  "children": [
+    {
+      "name": "WS-EMP-ID",
+      "level": 5,
+      "picture": "9(5)",
+      "line_number": 9,
+      "copybook_source": "EMPLOYEE-CPY",
+      "position": {
+        "start": 1,
+        "end": 5,
+        "size": 5
+      }
+    }
+  ]
+}
+```
+
+---
+
+### `summary` (DATA DIVISION Tree)
+
+Statistical overview of the data structure.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `total_records` | integer | Number of Level 01 records |
+| `total_items` | integer | Total count of all data items (including children) |
+| `group_items` | integer | Count of group items (items with non-88-level children) |
+| `elementary_items` | integer | Count of elementary items (items without children) |
+| `filler_items` | integer | Count of FILLER items |
+| `level_88_items` | integer | Count of 88-level condition names |
+
+#### Example
+
+```json
+{
+  "summary": {
+    "total_records": 3,
+    "total_items": 12,
+    "group_items": 3,
+    "elementary_items": 9,
+    "filler_items": 0,
+    "level_88_items": 2
+  }
+}
+```
+
+---
+
+### Complete DATA DIVISION Tree Example
+
+```json
+{
+  "program_name": "SIMPLE-PROGRAM",
+  "sections": [
+    {
+      "name": "WORKING-STORAGE",
+      "records": [
+        {
+          "name": "WS-EMPLOYEE-RECORD",
+          "level": 1,
+          "is_group": true,
+          "line_number": 5,
+          "position": { "start": 1, "end": 54, "size": 54 },
+          "children": [
+            {
+              "name": "WS-EMP-ID",
+              "level": 5,
+              "picture": "9(5)",
+              "line_number": 8,
+              "position": { "start": 1, "end": 5, "size": 5 }
+            },
+            {
+              "name": "WS-EMP-NAME",
+              "level": 5,
+              "picture": "X(30)",
+              "line_number": 9,
+              "position": { "start": 6, "end": 35, "size": 30 }
+            }
+          ]
+        },
+        {
+          "name": "WS-FLAGS",
+          "level": 1,
+          "is_group": true,
+          "line_number": 16,
+          "position": { "start": 1, "end": 1, "size": 1 },
+          "children": [
+            {
+              "name": "WS-EOF-FLAG",
+              "level": 5,
+              "picture": "X",
+              "value": "'N'",
+              "line_number": 18,
+              "position": { "start": 1, "end": 1, "size": 1 },
+              "children": [
+                {
+                  "name": "EOF-REACHED",
+                  "level": 88,
+                  "value": "'Y'",
+                  "line_number": 19
+                },
+                {
+                  "name": "NOT-EOF",
+                  "level": 88,
+                  "value": "'N'",
+                  "line_number": 20
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "all_records": [
+    { /* same records as above, flattened */ }
+  ],
+  "summary": {
+    "total_records": 2,
+    "total_items": 7,
+    "group_items": 2,
+    "elementary_items": 5,
+    "filler_items": 0,
+    "level_88_items": 2
+  },
+  "execution_time_seconds": 0.0023,
+  "source_info": {
+    "file_path": "/path/to/simple_program.cob",
+    "file_name": "simple_program.cob",
+    "source_format": "fixed",
+    "lines_count": 49
+  }
+}
 ```
 
 ---

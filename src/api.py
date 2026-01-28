@@ -18,9 +18,9 @@ Example:
     print(result.paragraph_variables)  # Paragraph-variables map JSON
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 
 class AnalysisError(Exception):
@@ -229,3 +229,452 @@ def analyze_paragraph_variables(
         raise  # Re-raise FileNotFoundError as-is
     except Exception as e:
         raise AnalysisError(f"Analysis failed: {e}") from e
+
+
+@dataclass
+class TreeOptions:
+    """Options for DATA DIVISION tree generation.
+
+    Attributes:
+        copybook_paths: Additional paths to search for copybooks. The source file's
+            directory is always searched by default.
+        resolve_copies: Whether to resolve COPY statements (default: True)
+        include_filler: Include FILLER items in output (default: True)
+        include_88_levels: Include 88-level condition names in output (default: True)
+        include_source_info: Include source file metadata in output (default: True)
+    """
+    copybook_paths: Optional[List[Path]] = None
+    resolve_copies: bool = True
+    include_filler: bool = True
+    include_88_levels: bool = True
+    include_source_info: bool = True
+
+
+@dataclass
+class DataItemNode:
+    """A node representing a COBOL data item in the tree structure.
+
+    Attributes:
+        name: Data item name (e.g., "WS-EMPLOYEE-RECORD")
+        level: COBOL level number (01-49, 66, 77, 88)
+        picture: PICTURE clause if present
+        usage: USAGE clause if present
+        value: VALUE clause if present
+        occurs: OCCURS count if present
+        occurs_depending_on: OCCURS DEPENDING ON variable name if present
+        redefines: Name of item being redefined if REDEFINES clause present
+        is_group: True if this is a group item (has non-88-level children)
+        is_filler: True if this is a FILLER item
+        line_number: Line number in source file (after COPY expansion)
+        copybook_source: Name of copybook file if this item came from a COPY statement
+        position: Memory position info (start, end, size) if calculable
+        children: List of child DataItemNode objects
+    """
+    name: str
+    level: int
+    picture: Optional[str] = None
+    usage: Optional[str] = None
+    value: Optional[str] = None
+    occurs: Optional[int] = None
+    occurs_depending_on: Optional[str] = None
+    redefines: Optional[str] = None
+    is_group: bool = False
+    is_filler: bool = False
+    line_number: int = 0
+    copybook_source: Optional[str] = None
+    position: Optional[Dict[str, int]] = None
+    children: List["DataItemNode"] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result: Dict[str, Any] = {
+            "name": self.name,
+            "level": self.level,
+        }
+
+        # Only include optional fields if they have values
+        if self.picture is not None:
+            result["picture"] = self.picture
+        if self.usage is not None:
+            result["usage"] = self.usage
+        if self.value is not None:
+            result["value"] = self.value
+        if self.occurs is not None:
+            result["occurs"] = self.occurs
+        if self.occurs_depending_on is not None:
+            result["occurs_depending_on"] = self.occurs_depending_on
+        if self.redefines is not None:
+            result["redefines"] = self.redefines
+        if self.is_group:
+            result["is_group"] = True
+        if self.is_filler:
+            result["is_filler"] = True
+        if self.line_number > 0:
+            result["line_number"] = self.line_number
+        if self.copybook_source is not None:
+            result["copybook_source"] = self.copybook_source
+        if self.position is not None:
+            result["position"] = self.position
+        if self.children:
+            result["children"] = [child.to_dict() for child in self.children]
+
+        return result
+
+
+@dataclass
+class DataDivisionSection:
+    """A DATA DIVISION section (e.g., WORKING-STORAGE, FILE, LINKAGE).
+
+    Attributes:
+        name: Section name (e.g., "WORKING-STORAGE")
+        records: List of Level 01 record nodes in this section
+    """
+    name: str
+    records: List[DataItemNode] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "name": self.name,
+            "records": [record.to_dict() for record in self.records],
+        }
+
+
+@dataclass
+class DataDivisionTree:
+    """Complete DATA DIVISION tree structure.
+
+    Attributes:
+        program_name: Name of the COBOL program
+        sections: List of DATA DIVISION sections with their records
+        all_records: Flat list of all Level 01 records (regardless of section)
+        summary: Summary statistics about the data structure
+        execution_time_seconds: Time taken to generate the tree
+        source_info: Source file metadata (if include_source_info was True)
+    """
+    program_name: str
+    sections: List[DataDivisionSection]
+    all_records: List[DataItemNode]
+    summary: Dict[str, Any]
+    execution_time_seconds: float
+    source_info: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result: Dict[str, Any] = {
+            "program_name": self.program_name,
+            "sections": [section.to_dict() for section in self.sections],
+            "all_records": [record.to_dict() for record in self.all_records],
+            "summary": self.summary,
+            "execution_time_seconds": self.execution_time_seconds,
+        }
+        if self.source_info is not None:
+            result["source_info"] = self.source_info
+        return result
+
+
+def _transform_data_item(
+    item: "DataItem",
+    options: TreeOptions,
+    memory_regions: Dict[str, "MemoryRegion"],
+    line_mapping: Optional[Dict[str, Dict[str, Any]]],
+) -> Optional[DataItemNode]:
+    """Transform a DataItem AST node to a DataItemNode tree node.
+
+    Args:
+        item: The DataItem AST node to transform
+        options: Tree generation options
+        memory_regions: Memory region lookup from DataStructureAnalyzer
+        line_mapping: Line mapping from COPY expansion
+
+    Returns:
+        DataItemNode if the item should be included, None otherwise
+    """
+    # Skip FILLER if not included
+    if item.is_filler and not options.include_filler:
+        return None
+
+    # Skip 88-levels if not included
+    if item.level == 88 and not options.include_88_levels:
+        return None
+
+    # Get position from memory regions
+    position = None
+    region = memory_regions.get(item.name.upper())
+    if region and region.size > 0:
+        position = {
+            "start": region.start_offset + 1,  # 1-indexed for COBOL compatibility
+            "end": region.start_offset + region.size,
+            "size": region.size,
+        }
+
+    # Get copybook source from line mapping
+    copybook_source = None
+    if item.line_number and line_mapping:
+        mapping = line_mapping.get(str(item.line_number))
+        if mapping and mapping.get("is_copybook"):
+            copybook_source = mapping.get("source_file")
+
+    # Recursively transform children
+    children = []
+    for child in item.children:
+        transformed = _transform_data_item(child, options, memory_regions, line_mapping)
+        if transformed:
+            children.append(transformed)
+
+    return DataItemNode(
+        name=item.name,
+        level=item.level,
+        picture=item.picture,
+        usage=item.usage,
+        value=item.value,
+        occurs=item.occurs,
+        occurs_depending_on=item.occurs_depending_on,
+        redefines=item.redefines,
+        is_group=item.is_group,
+        is_filler=item.is_filler,
+        line_number=item.line_number,
+        copybook_source=copybook_source,
+        position=position,
+        children=children,
+    )
+
+
+def _count_items(node: DataItemNode) -> Tuple[int, int, int, int, int]:
+    """Count items in a tree node recursively.
+
+    Args:
+        node: The root node to count from
+
+    Returns:
+        Tuple of (total, groups, elementary, filler, level_88)
+    """
+    total = 1
+    groups = 1 if node.is_group else 0
+    elementary = 0 if node.is_group else 1
+    filler = 1 if node.is_filler else 0
+    level_88 = 1 if node.level == 88 else 0
+
+    for child in node.children:
+        child_counts = _count_items(child)
+        total += child_counts[0]
+        groups += child_counts[1]
+        elementary += child_counts[2]
+        filler += child_counts[3]
+        level_88 += child_counts[4]
+
+    return (total, groups, elementary, filler, level_88)
+
+
+def _compute_summary(all_records: List[DataItemNode]) -> Dict[str, Any]:
+    """Compute summary statistics for the tree.
+
+    Args:
+        all_records: List of all Level 01 record nodes
+
+    Returns:
+        Dictionary with summary statistics
+    """
+    total_items = 0
+    total_groups = 0
+    total_elementary = 0
+    total_filler = 0
+    total_88_levels = 0
+
+    for record in all_records:
+        counts = _count_items(record)
+        total_items += counts[0]
+        total_groups += counts[1]
+        total_elementary += counts[2]
+        total_filler += counts[3]
+        total_88_levels += counts[4]
+
+    return {
+        "total_records": len(all_records),
+        "total_items": total_items,
+        "group_items": total_groups,
+        "elementary_items": total_elementary,
+        "filler_items": total_filler,
+        "level_88_items": total_88_levels,
+    }
+
+
+def get_data_division_tree(
+    source_path: Path,
+    options: Optional[TreeOptions] = None,
+) -> DataDivisionTree:
+    """Get a hierarchical tree view of COBOL DATA DIVISION variables.
+
+    This function parses a COBOL source file and returns a tree structure
+    representing all data items in the DATA DIVISION, organized by section.
+
+    Args:
+        source_path: Path to the COBOL source file
+        options: Tree generation options (uses defaults if not provided)
+
+    Returns:
+        DataDivisionTree containing the hierarchical structure of all data items
+
+    Raises:
+        FileNotFoundError: If source file doesn't exist
+        ParseError: If COBOL source cannot be parsed
+        AnalysisError: If analysis fails for other reasons
+
+    Example:
+        >>> from api import get_data_division_tree, TreeOptions
+        >>> from pathlib import Path
+        >>>
+        >>> # Simple usage with defaults
+        >>> tree = get_data_division_tree(Path("myprogram.cob"))
+        >>> print(tree.program_name)
+        >>> print(tree.summary)
+        >>>
+        >>> # With custom options
+        >>> options = TreeOptions(
+        ...     copybook_paths=[Path("./copybooks")],
+        ...     include_filler=False,
+        ...     include_88_levels=False,
+        ... )
+        >>> tree = get_data_division_tree(Path("myprogram.cob"), options)
+        >>> print(json.dumps(tree.to_dict(), indent=2))
+    """
+    # Import here to avoid circular imports and keep module lightweight
+    import time
+    from preprocessor import CopyResolver, detect_format, normalize_source
+    from parser import CobolParser, ParseError
+    from cobol_ast import ASTBuilder
+    from analyzers import DataStructureAnalyzer
+
+    # Use defaults if no options provided
+    if options is None:
+        options = TreeOptions()
+
+    # Validate input
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source file not found: {source_path}")
+
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Source path is not a file: {source_path}")
+
+    start_time = time.perf_counter()
+
+    try:
+        # Read source file
+        source = source_path.read_text(encoding="utf-8", errors="replace")
+        source_lines_count = len(source.splitlines())
+
+        # Detect format
+        source_lines = source.splitlines()
+        source_format = detect_format(source_lines)
+
+        # Resolve COPY statements
+        line_mapping = None
+        if options.resolve_copies:
+            copy_paths = options.copybook_paths or []
+            copy_paths = [source_path.parent] + list(copy_paths)
+
+            resolver = CopyResolver(copy_paths)
+            try:
+                source = resolver.resolve(source, source_path.name)
+                line_mapping = {
+                    str(k): {
+                        "original_line": v.original_line,
+                        "source_file": v.source_file,
+                        "is_copybook": v.is_copybook,
+                    }
+                    for k, v in resolver.line_mapping.items()
+                }
+            except Exception:
+                # COPY resolution failure is not fatal
+                pass
+
+        # Normalize source
+        source = normalize_source(source, source_format)
+
+        # Parse
+        parser = CobolParser(use_generated=False)
+        try:
+            parse_tree = parser.parse(source)
+        except ParseError:
+            raise  # Re-raise ParseError as-is
+
+        # Build AST
+        builder = ASTBuilder()
+        program = builder.build(parse_tree)
+
+        # Run DataStructureAnalyzer for memory positions
+        data_analyzer = DataStructureAnalyzer(program)
+        data_analyzer.analyze()
+
+        # Build memory regions lookup
+        memory_regions = data_analyzer._memory_regions
+
+        # Transform record descriptions to tree nodes
+        all_records: List[DataItemNode] = []
+        sections_dict: Dict[str, List[DataItemNode]] = {}
+
+        for record_name, record in program.record_descriptions.items():
+            transformed = _transform_data_item(
+                record.root_item, options, memory_regions, line_mapping
+            )
+            if transformed:
+                all_records.append(transformed)
+
+                # Group by section
+                section_name = record.section
+                if section_name not in sections_dict:
+                    sections_dict[section_name] = []
+                sections_dict[section_name].append(transformed)
+
+        # Build section list in standard order
+        section_order = ["FILE", "WORKING-STORAGE", "LOCAL-STORAGE", "LINKAGE"]
+        sections: List[DataDivisionSection] = []
+
+        # Add known sections in order
+        for section_name in section_order:
+            if section_name in sections_dict:
+                sections.append(DataDivisionSection(
+                    name=section_name,
+                    records=sections_dict[section_name]
+                ))
+
+        # Add any other sections not in the standard order
+        for section_name, records in sections_dict.items():
+            if section_name not in section_order:
+                sections.append(DataDivisionSection(
+                    name=section_name,
+                    records=records
+                ))
+
+        # Compute summary
+        summary = _compute_summary(all_records)
+
+        # Calculate total execution time
+        end_time = time.perf_counter()
+        total_execution_time = end_time - start_time
+
+        # Build source info if requested
+        source_info = None
+        if options.include_source_info:
+            source_info = {
+                "file_path": str(source_path.absolute()),
+                "file_name": source_path.name,
+                "source_format": source_format.value,
+                "lines_count": source_lines_count,
+            }
+
+        return DataDivisionTree(
+            program_name=program.name,
+            sections=sections,
+            all_records=all_records,
+            summary=summary,
+            execution_time_seconds=round(total_execution_time, 4),
+            source_info=source_info,
+        )
+
+    except ParseError:
+        raise  # Re-raise ParseError as-is
+    except FileNotFoundError:
+        raise  # Re-raise FileNotFoundError as-is
+    except Exception as e:
+        raise AnalysisError(f"Tree generation failed: {e}") from e
