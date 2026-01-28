@@ -842,6 +842,86 @@ class TestCLIIntegration:
         assert "file_name" in analysis_data["source_info"]
 
 
+class TestOrphanModifications:
+    """Tests for orphan modifications (statements outside paragraphs/sections)."""
+
+    @pytest.fixture
+    def orphan_analysis_data(self):
+        """Create analysis data with PROCEDURE DIVISION orphan modifications."""
+        return {
+            "program_name": "ORPHAN-TEST",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "sections_and_paragraphs": {
+                "PROCEDURE DIVISION": [
+                    {
+                        "variable": "INIT-FLAG",
+                        "modification_type": "MOVE",
+                        "line_number": 24,
+                        "affected_records": ["WS-FLAGS"]
+                    },
+                    {
+                        "variable": "STARTUP-COUNTER",
+                        "modification_type": "MOVE",
+                        "line_number": 25,
+                        "affected_records": ["WS-COUNTERS"]
+                    }
+                ],
+                "MAIN-PARA": [
+                    {
+                        "variable": "PROCESS-COUNT",
+                        "modification_type": "ADD",
+                        "line_number": 30,
+                        "affected_records": ["WS-COUNTERS"]
+                    }
+                ]
+            },
+            "data_hierarchy": {
+                "WS-FLAGS": ["WS-FLAGS"],
+                "INIT-FLAG": ["WS-FLAGS", "INIT-FLAG"],
+                "WS-COUNTERS": ["WS-COUNTERS"],
+                "STARTUP-COUNTER": ["WS-COUNTERS", "STARTUP-COUNTER"],
+                "PROCESS-COUNT": ["WS-COUNTERS", "PROCESS-COUNT"]
+            }
+        }
+
+    def test_procedure_division_key_present(self, orphan_analysis_data):
+        """Test that PROCEDURE DIVISION key appears in output."""
+        mapper = ParagraphVariablesMapper(orphan_analysis_data)
+        result = mapper.map()
+
+        assert "PROCEDURE DIVISION" in result["paragraphs"]
+        assert "MAIN-PARA" in result["paragraphs"]
+
+    def test_orphan_variables_captured(self, orphan_analysis_data):
+        """Test that variables modified outside paragraphs are captured."""
+        mapper = ParagraphVariablesMapper(orphan_analysis_data)
+        result = mapper.map()
+
+        proc_div_vars = result["paragraphs"]["PROCEDURE DIVISION"]
+        assert "INIT-FLAG" in proc_div_vars
+        assert "STARTUP-COUNTER" in proc_div_vars
+
+    def test_orphan_variable_details(self, orphan_analysis_data):
+        """Test that orphan variable details are correct."""
+        mapper = ParagraphVariablesMapper(orphan_analysis_data)
+        result = mapper.map()
+
+        init_flag = result["paragraphs"]["PROCEDURE DIVISION"]["INIT-FLAG"]
+        assert init_flag["defined_in_record"] == "WS-FLAGS"
+        assert init_flag["base_record"] == "WS-FLAGS"
+        assert "line 24" in init_flag["explanation"]
+
+    def test_orphan_included_in_summary(self, orphan_analysis_data):
+        """Test that PROCEDURE DIVISION is counted in summary."""
+        mapper = ParagraphVariablesMapper(orphan_analysis_data)
+        result = mapper.map()
+
+        # Should count PROCEDURE DIVISION + MAIN-PARA = 2
+        assert result["summary"]["total_paragraphs_with_changes"] == 2
+        # Should count unique variables: INIT-FLAG, STARTUP-COUNTER, PROCESS-COUNT = 3
+        assert result["summary"]["total_unique_variables"] == 3
+
+
 class TestWithRealFixtures:
     """Additional integration tests using real test fixtures."""
 
@@ -937,3 +1017,44 @@ class TestWithRealFixtures:
 
         assert "execution_time_seconds" in map_data
         assert map_data["execution_time_seconds"] >= 0
+
+    def test_orphan_modifications_with_real_program(self, tmp_path):
+        """Test that orphan modifications are captured with a real COBOL program."""
+        import subprocess
+        import sys
+
+        # Use the ORDERMGMT.cbl program which has orphan modifications
+        program_path = Path(__file__).parent.parent / "complex-cobol-source" / "ORDERMGMT.cbl"
+        copybook_path = Path(__file__).parent.parent / "complex-cobol-source" / "copybooks"
+
+        if not program_path.exists():
+            pytest.skip("ORDERMGMT.cbl test fixture not available")
+
+        result = subprocess.run(
+            [sys.executable, "-m", "src", "paragraph-variables-map",
+             str(program_path), "-c", str(copybook_path), "-o", str(tmp_path), "-q"],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent
+        )
+
+        assert result.returncode == 0
+
+        map_file = tmp_path / "ORDERMGMT-paragraph-variables.json"
+        assert map_file.exists()
+
+        with open(map_file, "r") as f:
+            map_data = json.load(f)
+
+        # Should have PROCEDURE DIVISION key with orphan modifications
+        assert "PROCEDURE DIVISION" in map_data["paragraphs"], \
+            "PROCEDURE DIVISION key should be present for orphan modifications"
+
+        # CUSTOMER-STATUS is modified at line 24 outside any paragraph
+        assert "CUSTOMER-STATUS" in map_data["paragraphs"]["PROCEDURE DIVISION"], \
+            "CUSTOMER-STATUS should be captured as orphan modification"
+
+        # Regular paragraphs should also be present
+        assert "INIT-CUSTOMER" in map_data["paragraphs"]
+        assert "PROCESS-CONTRACT" in map_data["paragraphs"]
+        assert "UPDATE-PAYMENT" in map_data["paragraphs"]

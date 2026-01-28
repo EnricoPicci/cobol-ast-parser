@@ -132,7 +132,11 @@ class CobolParser:
         Raises:
             ParseError: If parsing fails
         """
-        if self.use_generated and hasattr(self, "_antlr_available") and self._antlr_available:
+        if (
+            self.use_generated
+            and hasattr(self, "_antlr_available")
+            and self._antlr_available
+        ):
             return self._parse_with_antlr(source)
         else:
             return self._parse_simplified(source)
@@ -214,8 +218,12 @@ class SimplifiedParseTree:
     program_name: str = ""
     identification_division: dict = field(default_factory=dict)
     environment_division: dict = field(default_factory=dict)
-    data_division: "SimplifiedDataDivision" = field(default_factory=lambda: SimplifiedDataDivision())
-    procedure_division: "SimplifiedProcedureDivision" = field(default_factory=lambda: SimplifiedProcedureDivision())
+    data_division: "SimplifiedDataDivision" = field(
+        default_factory=lambda: SimplifiedDataDivision()
+    )
+    procedure_division: "SimplifiedProcedureDivision" = field(
+        default_factory=lambda: SimplifiedProcedureDivision()
+    )
     source_lines: List[str] = field(default_factory=list)
 
 
@@ -245,10 +253,18 @@ class SimplifiedDataItem:
 
 @dataclass
 class SimplifiedProcedureDivision:
-    """Simplified procedure division representation."""
+    """Simplified procedure division representation.
+
+    Attributes:
+        sections: List of sections in the procedure division.
+        paragraphs: List of top-level paragraphs (not inside any section).
+        orphan_statements: Statements that appear before any paragraph or section
+            in the PROCEDURE DIVISION. These are typically initialization statements.
+    """
 
     sections: List["SimplifiedSection"] = field(default_factory=list)
     paragraphs: List["SimplifiedParagraph"] = field(default_factory=list)
+    orphan_statements: List["SimplifiedStatement"] = field(default_factory=list)
 
 
 @dataclass
@@ -294,37 +310,118 @@ class SimplifiedCobolParser:
     # COBOL keywords that should not be captured as variable names
     COBOL_KEYWORDS = {
         # Data movement
-        "MOVE", "TO", "FROM", "CORRESPONDING", "CORR",
+        "MOVE",
+        "TO",
+        "FROM",
+        "CORRESPONDING",
+        "CORR",
         # Arithmetic
-        "ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "COMPUTE",
-        "GIVING", "REMAINDER", "ROUNDED", "BY", "INTO",
+        "ADD",
+        "SUBTRACT",
+        "MULTIPLY",
+        "DIVIDE",
+        "COMPUTE",
+        "GIVING",
+        "REMAINDER",
+        "ROUNDED",
+        "BY",
+        "INTO",
         # Control flow
-        "PERFORM", "VARYING", "UNTIL", "TIMES", "THRU", "THROUGH",
-        "IF", "ELSE", "END-IF", "THEN", "NOT", "AND", "OR",
-        "EVALUATE", "WHEN", "OTHER", "END-EVALUATE",
-        "GO", "GOTO",
+        "PERFORM",
+        "VARYING",
+        "UNTIL",
+        "TIMES",
+        "THRU",
+        "THROUGH",
+        "IF",
+        "ELSE",
+        "END-IF",
+        "THEN",
+        "NOT",
+        "AND",
+        "OR",
+        "EVALUATE",
+        "WHEN",
+        "OTHER",
+        "END-EVALUATE",
+        "GO",
+        "GOTO",
         # I/O
-        "DISPLAY", "ACCEPT", "READ", "WRITE", "REWRITE", "DELETE",
-        "OPEN", "CLOSE", "START", "STOP", "RUN",
+        "DISPLAY",
+        "ACCEPT",
+        "READ",
+        "WRITE",
+        "REWRITE",
+        "DELETE",
+        "OPEN",
+        "CLOSE",
+        "START",
+        "STOP",
+        "RUN",
         # File handling
-        "INPUT", "OUTPUT", "I-O", "EXTEND",
+        "INPUT",
+        "OUTPUT",
+        "I-O",
+        "EXTEND",
         # Procedure
-        "CALL", "USING", "RETURNING", "ON", "SIZE", "ERROR",
-        "OVERFLOW", "EXCEPTION",
+        "CALL",
+        "USING",
+        "RETURNING",
+        "ON",
+        "SIZE",
+        "ERROR",
+        "OVERFLOW",
+        "EXCEPTION",
         # String handling
-        "STRING", "UNSTRING", "INSPECT", "TALLYING", "REPLACING",
-        "CONVERTING", "DELIMITED", "POINTER", "COUNT",
+        "STRING",
+        "UNSTRING",
+        "INSPECT",
+        "TALLYING",
+        "REPLACING",
+        "CONVERTING",
+        "DELIMITED",
+        "POINTER",
+        "COUNT",
         # Data manipulation
-        "SET", "TRUE", "FALSE", "SEARCH", "ALL", "AT", "END",
-        "INITIALIZE", "WITH", "FILLER",
+        "SET",
+        "TRUE",
+        "FALSE",
+        "SEARCH",
+        "ALL",
+        "AT",
+        "END",
+        "INITIALIZE",
+        "WITH",
+        "FILLER",
         # Conditionals
-        "NUMERIC", "ALPHABETIC", "ALPHABETIC-LOWER", "ALPHABETIC-UPPER",
-        "POSITIVE", "NEGATIVE", "ZERO", "ZEROS", "ZEROES",
-        "SPACE", "SPACES", "HIGH-VALUE", "HIGH-VALUES",
-        "LOW-VALUE", "LOW-VALUES", "QUOTE", "QUOTES",
+        "NUMERIC",
+        "ALPHABETIC",
+        "ALPHABETIC-LOWER",
+        "ALPHABETIC-UPPER",
+        "POSITIVE",
+        "NEGATIVE",
+        "ZERO",
+        "ZEROS",
+        "ZEROES",
+        "SPACE",
+        "SPACES",
+        "HIGH-VALUE",
+        "HIGH-VALUES",
+        "LOW-VALUE",
+        "LOW-VALUES",
+        "QUOTE",
+        "QUOTES",
         # Misc
-        "CONTINUE", "EXIT", "NEXT", "SENTENCE",
-        "AFTER", "BEFORE", "INITIAL", "REFERENCE", "CONTENT", "VALUE",
+        "CONTINUE",
+        "EXIT",
+        "NEXT",
+        "SENTENCE",
+        "AFTER",
+        "BEFORE",
+        "INITIAL",
+        "REFERENCE",
+        "CONTENT",
+        "VALUE",
     }
 
     # Division patterns
@@ -448,13 +545,17 @@ class SimplifiedCobolParser:
         if "data" in divisions:
             data_start, data_end = divisions["data"]
             data_source = source[data_start:data_end]
-            tree.data_division = self._parse_data_division(data_source, data_start, tree.source_lines)
+            tree.data_division = self._parse_data_division(
+                data_source, data_start, tree.source_lines
+            )
 
         # Parse procedure division
         if "procedure" in divisions:
             proc_start, proc_end = divisions["procedure"]
             proc_source = source[proc_start:proc_end]
-            tree.procedure_division = self._parse_procedure_division(proc_source, proc_start, tree.source_lines)
+            tree.procedure_division = self._parse_procedure_division(
+                proc_source, proc_start, tree.source_lines
+            )
 
         return tree
 
@@ -519,7 +620,9 @@ class SimplifiedCobolParser:
                 end_pos = len(source)
 
             section_source = source[start_pos:end_pos]
-            items = self._parse_data_items(section_source, offset + start_pos, all_lines)
+            items = self._parse_data_items(
+                section_source, offset + start_pos, all_lines
+            )
             sections[section_name][1].extend(items)
 
         return data_div
@@ -549,7 +652,7 @@ class SimplifiedCobolParser:
 
             # Calculate line number
             pos = offset + match.start()
-            line_num = source[:match.start()].count("\n") + 1
+            line_num = source[: match.start()].count("\n") + 1
 
             items.append(
                 SimplifiedDataItem(
@@ -583,6 +686,14 @@ class SimplifiedCobolParser:
         ]
 
         if section_matches:
+            # Parse orphan statements before first section
+            first_section_start = section_matches[0].start()
+            if first_section_start > 0:
+                orphan_source = source[:first_section_start]
+                proc_div.orphan_statements = self._extract_statements(
+                    orphan_source, offset, all_lines
+                )
+
             # Parse with sections
             for i, match in enumerate(section_matches):
                 section_name = match.group(1).upper()
@@ -600,6 +711,15 @@ class SimplifiedCobolParser:
                 proc_div.sections.append(section)
         else:
             # No sections, just paragraphs
+            # Parse orphan statements before first paragraph
+            if paragraph_matches:
+                first_para_start = paragraph_matches[0].start()
+                if first_para_start > 0:
+                    orphan_source = source[:first_para_start]
+                    proc_div.orphan_statements = self._extract_statements(
+                        orphan_source, offset, all_lines
+                    )
+
             for i, match in enumerate(paragraph_matches):
                 para_name = match.group(1).upper()
                 para_start = match.end()
@@ -629,7 +749,9 @@ class SimplifiedCobolParser:
         if paragraph_matches:
             # Parse statements before first paragraph
             pre_para_source = source[: paragraph_matches[0].start()]
-            section.statements = self._extract_statements(pre_para_source, offset, all_lines)
+            section.statements = self._extract_statements(
+                pre_para_source, offset, all_lines
+            )
 
             # Parse each paragraph
             for i, match in enumerate(paragraph_matches):
@@ -753,6 +875,7 @@ class SimplifiedCobolParser:
     def _split_variable_list(self, text: str) -> List[str]:
         """Split a list of variable names, filtering out COBOL keywords."""
         import re
+
         # Split on commas and whitespace, filter empties
         parts = re.split(r"[,\s]+", text)
         results = []

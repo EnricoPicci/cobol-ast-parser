@@ -50,7 +50,8 @@ class ImpactAnalyzer:
     - Procedure analysis (where variables are modified)
 
     To produce a complete impact analysis showing which records
-    are affected by modifications in each section/paragraph.
+    are affected by modifications in each section/paragraph, as well as
+    orphan modifications (statements outside any paragraph/section).
     """
 
     def __init__(self, program: CobolProgram):
@@ -66,6 +67,7 @@ class ImpactAnalyzer:
 
         self._section_impacts: Dict[str, SectionParagraphImpact] = {}
         self._paragraph_impacts: Dict[str, SectionParagraphImpact] = {}
+        self._orphan_impact: Optional[SectionParagraphImpact] = None
         self._analyzed = False
 
     def analyze(self) -> None:
@@ -81,10 +83,27 @@ class ImpactAnalyzer:
         self.procedure_analyzer.analyze()
 
         # Build impact information
+        self._analyze_orphan_modifications()
         self._analyze_sections()
         self._analyze_paragraphs()
 
         self._analyzed = True
+
+    def _analyze_orphan_modifications(self) -> None:
+        """Analyze impact for orphan modifications.
+
+        Orphan modifications are variable modifications that occur in the
+        PROCEDURE DIVISION before any paragraph or section. These are stored
+        under the special name "PROCEDURE DIVISION" to ensure all modifications
+        are tracked in the analysis output.
+        """
+        if self.program.orphan_modifications:
+            impacts = self._analyze_modifications(self.program.orphan_modifications)
+            self._orphan_impact = SectionParagraphImpact(
+                name="PROCEDURE DIVISION",
+                is_section=False,
+                variable_impacts=impacts,
+            )
 
     def _analyze_sections(self) -> None:
         """Analyze impact for all sections."""
@@ -139,8 +158,8 @@ class ImpactAnalyzer:
                 affected = self.redefines_analyzer.get_affected_records(record.name)
                 affected_list = sorted(list(affected))
                 # Get all potential affected variables through subordinate REDEFINES
-                potential_affected_vars = self.redefines_analyzer.get_overlapping_variables(
-                    mod.variable_name
+                potential_affected_vars = (
+                    self.redefines_analyzer.get_overlapping_variables(mod.variable_name)
                 )
                 # Filter by actual byte-level overlap
                 affected_vars = self._filter_by_byte_overlap(
@@ -163,9 +182,7 @@ class ImpactAnalyzer:
         return impacts
 
     def _filter_by_byte_overlap(
-        self,
-        modified_var: str,
-        potential_affected: List[AffectedVariable]
+        self, modified_var: str, potential_affected: List[AffectedVariable]
     ) -> List[AffectedVariable]:
         """Filter affected variables to only those with actual byte overlap.
 
@@ -208,15 +225,19 @@ class ImpactAnalyzer:
             # So we compare offsets directly, ignoring record_name
             if self._regions_overlap(modified_region, other_region):
                 # Calculate accurate overlap_type based on byte positions
-                overlap_type = self._calculate_overlap_type(modified_region, other_region)
-                filtered.append(AffectedVariable(
-                    name=av.name,
-                    overlap_type=overlap_type,
-                    redefines_chain=av.redefines_chain,
-                    redefines_level=av.redefines_level,
-                    redefining_ancestor=av.redefining_ancestor,
-                    redefined_ancestor=av.redefined_ancestor,
-                ))
+                overlap_type = self._calculate_overlap_type(
+                    modified_region, other_region
+                )
+                filtered.append(
+                    AffectedVariable(
+                        name=av.name,
+                        overlap_type=overlap_type,
+                        redefines_chain=av.redefines_chain,
+                        redefines_level=av.redefines_level,
+                        redefining_ancestor=av.redefining_ancestor,
+                        redefined_ancestor=av.redefined_ancestor,
+                    )
+                )
 
         # Remove Level 01 REDEFINES records that only overlap via FILLER areas
         filtered = self._filter_redundant_level01_records(filtered)
@@ -224,8 +245,7 @@ class ImpactAnalyzer:
         return filtered
 
     def _filter_redundant_level01_records(
-        self,
-        affected_vars: List[AffectedVariable]
+        self, affected_vars: List[AffectedVariable]
     ) -> List[AffectedVariable]:
         """Remove Level 01 REDEFINES records that only overlap via FILLER areas.
 
@@ -293,7 +313,9 @@ class ImpactAnalyzer:
         """
         return r1.start_offset < r2.end_offset and r2.start_offset < r1.end_offset
 
-    def _calculate_overlap_type(self, modified: MemoryRegion, affected: MemoryRegion) -> str:
+    def _calculate_overlap_type(
+        self, modified: MemoryRegion, affected: MemoryRegion
+    ) -> str:
         """Calculate the type of overlap between two memory regions.
 
         Args:
@@ -303,13 +325,20 @@ class ImpactAnalyzer:
         Returns:
             Overlap type: "full", "partial", "contains", or "contained_by"
         """
-        if modified.start_offset == affected.start_offset and modified.size == affected.size:
+        if (
+            modified.start_offset == affected.start_offset
+            and modified.size == affected.size
+        ):
             return "full"
-        elif (modified.start_offset <= affected.start_offset and
-              modified.end_offset >= affected.end_offset):
+        elif (
+            modified.start_offset <= affected.start_offset
+            and modified.end_offset >= affected.end_offset
+        ):
             return "contains"
-        elif (affected.start_offset <= modified.start_offset and
-              affected.end_offset >= modified.end_offset):
+        elif (
+            affected.start_offset <= modified.start_offset
+            and affected.end_offset >= modified.end_offset
+        ):
             return "contained_by"
         else:
             return "partial"
@@ -328,7 +357,9 @@ class ImpactAnalyzer:
 
         return self._section_impacts.get(section_name.upper())
 
-    def get_paragraph_impact(self, paragraph_name: str) -> Optional[SectionParagraphImpact]:
+    def get_paragraph_impact(
+        self, paragraph_name: str
+    ) -> Optional[SectionParagraphImpact]:
         """Get impact information for a paragraph.
 
         Args:
@@ -439,20 +470,25 @@ class ImpactAnalyzer:
 
         sections_and_paragraphs = {}
 
+        # Add orphan modifications (statements outside any paragraph/section)
+        if self._orphan_impact and self._orphan_impact.variable_impacts:
+            sections_and_paragraphs["PROCEDURE DIVISION"] = [
+                self._format_variable_impact(vi)
+                for vi in self._orphan_impact.variable_impacts
+            ]
+
         # Add sections
         for section_name, impact in self._section_impacts.items():
             if impact.variable_impacts:
                 sections_and_paragraphs[section_name] = [
-                    self._format_variable_impact(vi)
-                    for vi in impact.variable_impacts
+                    self._format_variable_impact(vi) for vi in impact.variable_impacts
                 ]
 
         # Add paragraphs
         for para_name, impact in self._paragraph_impacts.items():
             if impact.variable_impacts:
                 sections_and_paragraphs[para_name] = [
-                    self._format_variable_impact(vi)
-                    for vi in impact.variable_impacts
+                    self._format_variable_impact(vi) for vi in impact.variable_impacts
                 ]
 
         # Get records with REDEFINES
@@ -462,9 +498,8 @@ class ImpactAnalyzer:
         # Build summary
         summary = {
             "total_sections": len(self.program.sections),
-            "total_paragraphs": len(self.program.paragraphs) + sum(
-                len(s.paragraphs) for s in self.program.sections
-            ),
+            "total_paragraphs": len(self.program.paragraphs)
+            + sum(len(s.paragraphs) for s in self.program.sections),
             "total_modifications": len(self.program.get_all_modifications()),
             "unique_modified_variables": len(
                 self.procedure_analyzer.get_modified_variables()
@@ -493,7 +528,7 @@ class ImpactAnalyzer:
             memory_regions[var_name] = {
                 "start_offset": region.start_offset,
                 "size": region.size,
-                "record_name": region.record_name
+                "record_name": region.record_name,
             }
         return memory_regions
 
@@ -540,7 +575,10 @@ class ImpactAnalyzer:
         result = {}
 
         # Process sections and paragraphs
-        for name, impact in {**self._section_impacts, **self._paragraph_impacts}.items():
+        for name, impact in {
+            **self._section_impacts,
+            **self._paragraph_impacts,
+        }.items():
             if not impact.variable_impacts:
                 continue
 

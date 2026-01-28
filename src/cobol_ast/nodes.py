@@ -88,7 +88,9 @@ class DataItem:
         """
         # Count only non-88-level children (88-level items are condition names, not data items)
         data_children = [c for c in self.children if c.level != 88]
-        return len(data_children) > 0 or (self.picture is None and self.level not in (66, 77, 88))
+        return len(data_children) > 0 or (
+            self.picture is None and self.level not in (66, 77, 88)
+        )
 
     @property
     def is_elementary(self) -> bool:
@@ -269,16 +271,30 @@ class CobolProgram:
 
     This is the top-level AST node containing all parsed
     information about a COBOL program.
+
+    Attributes:
+        name: Program name from PROGRAM-ID.
+        record_descriptions: Level 01 records indexed by name.
+        all_data_items: All data items indexed by name.
+        sections: List of PROCEDURE DIVISION sections.
+        paragraphs: Top-level paragraphs not inside any section.
+        orphan_modifications: Variable modifications that occur in the
+            PROCEDURE DIVISION before any paragraph or section. These are
+            captured separately to ensure all modifications are tracked.
+        source_lines: Original source lines of the program.
     """
 
     name: str
     record_descriptions: Dict[str, RecordDescription] = field(default_factory=dict)
     all_data_items: Dict[str, DataItem] = field(default_factory=dict)
     sections: List[Section] = field(default_factory=list)
-    paragraphs: List[Paragraph] = field(default_factory=list)  # Top-level paragraphs (no section)
+    paragraphs: List[Paragraph] = field(default_factory=list)
+    orphan_modifications: List[VariableModification] = field(default_factory=list)
     source_lines: List[str] = field(default_factory=list)
 
-    def get_record_for_variable(self, variable_name: str) -> Optional[RecordDescription]:
+    def get_record_for_variable(
+        self, variable_name: str
+    ) -> Optional[RecordDescription]:
         """Get the record description containing a variable.
 
         Args:
@@ -310,7 +326,9 @@ class CobolProgram:
                 return section
         return None
 
-    def get_paragraph(self, name: str, section_name: Optional[str] = None) -> Optional[Paragraph]:
+    def get_paragraph(
+        self, name: str, section_name: Optional[str] = None
+    ) -> Optional[Paragraph]:
         """Get a paragraph by name, optionally within a section.
 
         Args:
@@ -343,6 +361,9 @@ class CobolProgram:
     def get_all_modifications(self) -> List[VariableModification]:
         """Get all variable modifications in the program."""
         result = []
+
+        # Include orphan modifications (statements outside any paragraph/section)
+        result.extend(self.orphan_modifications)
 
         for section in self.sections:
             result.extend(section.all_modifications)

@@ -49,9 +49,16 @@ The analysis output provides a comprehensive, section-centric view of all variab
 
 An object where each key is a SECTION or PARAGRAPH name, and the value is an array of modification entries.
 
+**Special key: `PROCEDURE DIVISION`**
+
+If the COBOL program contains statements in the PROCEDURE DIVISION that are outside any PARAGRAPH or SECTION (often initialization code at the start), these modifications are captured under the special key `"PROCEDURE DIVISION"`.
+
 ```json
 {
   "sections_and_paragraphs": {
+    "PROCEDURE DIVISION": [
+      { /* orphan modification entry - outside any paragraph */ }
+    ],
     "3000-PROCESS-PAYMENT": [
       { /* modification entry */ },
       { /* modification entry */ }
@@ -250,9 +257,20 @@ The paragraph variables map output provides a paragraph-centric view showing whi
 
 An object where each key is a SECTION or PARAGRAPH name, and the value is an object mapping variable names to their record information and explanation.
 
+**Special key: `PROCEDURE DIVISION`**
+
+If the COBOL program contains statements in the PROCEDURE DIVISION that are outside any PARAGRAPH or SECTION (often initialization code at the start), these modifications are captured under the special key `"PROCEDURE DIVISION"`. This ensures all variable modifications are tracked, regardless of where they occur in the code.
+
 ```json
 {
   "paragraphs": {
+    "PROCEDURE DIVISION": {
+      "INIT-FLAG": {
+        "defined_in_record": "WS-FLAGS",
+        "base_record": "WS-FLAGS",
+        "explanation": "direct modification: MOVE at line 24"
+      }
+    },
     "3100-APPLY-PAYMENT": {
       "CUST-BALANCE": {
         "defined_in_record": "CUSTOMER-RECORD",
@@ -528,6 +546,13 @@ The `overlap_type` field describes the memory relationship between variables in 
   "analysis_date": "2026-01-25T14:02:58.528677",
   "execution_time_seconds": 0.0025,
   "paragraphs": {
+    "PROCEDURE DIVISION": {
+      "WS-INIT-FLAG": {
+        "defined_in_record": "WS-FLAGS",
+        "base_record": "WS-FLAGS",
+        "explanation": "direct modification: MOVE at line 95"
+      }
+    },
     "3100-APPLY-PAYMENT": {
       "CUST-BALANCE": {
         "defined_in_record": "CUSTOMER-RECORD",

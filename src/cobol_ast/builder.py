@@ -184,6 +184,12 @@ class ASTBuilder:
         self, proc_div: SimplifiedProcedureDivision, program: CobolProgram
     ):
         """Build sections and paragraphs from procedure division."""
+        # Process orphan statements (those not in any paragraph or section)
+        if proc_div.orphan_statements:
+            program.orphan_modifications = self._extract_modifications(
+                proc_div.orphan_statements, None, None
+            )
+
         # Process sections
         for ssection in proc_div.sections:
             section = self._build_section(ssection)
