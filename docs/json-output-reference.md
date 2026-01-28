@@ -296,10 +296,29 @@ If the COBOL program contains statements in the PROCEDURE DIVISION that are outs
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `defined_in_record` | string | Level 01 record that directly contains this variable |
+| `defined_in_record` | string | Level 01 record that directly contains this variable (see [FILLER REDEFINES Format](#filler-redefines-format)) |
 | `base_record` | string | Ultimate Level 01 record (follows REDEFINES chain to root) |
+| `position` | object | Byte position info with `start` and `end` (1-indexed, inclusive) |
 | `explanation` | string | Human-readable explanation of why this variable may change (see [Explanation Formats](#explanation-formats)) |
 | `77-level-var` | boolean | *(Only present if true)* Variable is a 77-level standalone item |
+
+##### FILLER REDEFINES Format
+
+When a variable is defined under a `FILLER REDEFINES` pattern (a common technique for creating overlay structures), the `defined_in_record` includes special formatting:
+
+- **`defined_in_record`**: Formatted as `"FILLER ({copybook} copybook)"` when the FILLER is from a copybook, or simply `"FILLER"` when from the main source
+
+**Example: Variable in FILLER REDEFINES from copybook:**
+```json
+{
+  "CUSTOMER-ID": {
+    "base_record": "ORDER-BUFFER",
+    "defined_in_record": "FILLER (CUSTINFO copybook)",
+    "position": { "start": 1, "end": 10 },
+    "explanation": "direct modification: MOVE at line 27"
+  }
+}
+```
 
 ##### Example Variable Entries
 
@@ -309,6 +328,7 @@ If the COBOL program contains statements in the PROCEDURE DIVISION that are outs
   "CUST-BALANCE": {
     "defined_in_record": "CUSTOMER-RECORD",
     "base_record": "CUSTOMER-RECORD",
+    "position": { "start": 45, "end": 54 },
     "explanation": "directly affected by ADD at line 185"
   }
 }
@@ -320,6 +340,7 @@ If the COBOL program contains statements in the PROCEDURE DIVISION that are outs
   "WS-TOTAL-AMOUNT": {
     "defined_in_record": "WS-TOTALS",
     "base_record": "WS-TOTALS",
+    "position": { "start": 1, "end": 15 },
     "explanation": "affected by multiple modifications at lines 142, 156, 189"
   }
 }
@@ -331,6 +352,7 @@ If the COBOL program contains statements in the PROCEDURE DIVISION that are outs
   "PAY-CASH": {
     "defined_in_record": "PAYMENT-DETAIL",
     "base_record": "TRANSACTION-RECORD",
+    "position": { "start": 25, "end": 34 },
     "explanation": "directly affected by MOVE at line 201; some modifications are due to REDEFINE (e.g., PAY-BANK-CODE at positions 15-24 overlaps TRAN-AMOUNT at positions 11-20)"
   }
 }
@@ -344,6 +366,7 @@ The `defined_in_record` shows that `PAY-CASH` is structurally within `PAYMENT-DE
   "WS-TOTAL-PAYMENTS": {
     "defined_in_record": "WS-TOTALS",
     "base_record": "WS-TOTALS",
+    "position": { "start": 16, "end": 30 },
     "explanation": "indirectly affected via ancestor WS-TOTALS modification at line 120"
   }
 }
@@ -355,6 +378,7 @@ The `defined_in_record` shows that `PAY-CASH` is structurally within `PAYMENT-DE
   "WS-STANDALONE": {
     "defined_in_record": "WS-STANDALONE",
     "base_record": "WS-STANDALONE",
+    "position": { "start": 1, "end": 10 },
     "77-level-var": true,
     "explanation": "directly affected by MOVE at line 95"
   }
@@ -550,6 +574,7 @@ The `overlap_type` field describes the memory relationship between variables in 
       "WS-INIT-FLAG": {
         "defined_in_record": "WS-FLAGS",
         "base_record": "WS-FLAGS",
+        "position": { "start": 1, "end": 1 },
         "explanation": "direct modification: MOVE at line 95"
       }
     },
@@ -557,16 +582,19 @@ The `overlap_type` field describes the memory relationship between variables in 
       "CUST-BALANCE": {
         "defined_in_record": "CUSTOMER-RECORD",
         "base_record": "CUSTOMER-RECORD",
+        "position": { "start": 45, "end": 54 },
         "explanation": "directly affected by ADD at line 185"
       },
       "PAY-CASH": {
         "defined_in_record": "PAYMENT-DETAIL",
         "base_record": "TRANSACTION-RECORD",
+        "position": { "start": 25, "end": 34 },
         "explanation": "directly affected by MOVE at line 201; some modifications are due to REDEFINE (e.g., PAY-BANK-CODE at positions 15-24 overlaps TRAN-AMOUNT at positions 11-20)"
       },
       "WS-STANDALONE": {
         "defined_in_record": "WS-STANDALONE",
         "base_record": "WS-STANDALONE",
+        "position": { "start": 1, "end": 10 },
         "77-level-var": true,
         "explanation": "directly affected by MOVE at line 195"
       }
@@ -575,16 +603,19 @@ The `overlap_type` field describes the memory relationship between variables in 
       "WS-TOTALS": {
         "defined_in_record": "WS-TOTALS",
         "base_record": "WS-TOTALS",
+        "position": { "start": 1, "end": 50 },
         "explanation": "directly affected by INITIALIZE at line 120"
       },
       "WS-TOTAL-PAYMENTS": {
         "defined_in_record": "WS-TOTALS",
         "base_record": "WS-TOTALS",
+        "position": { "start": 1, "end": 15 },
         "explanation": "indirectly affected via ancestor WS-TOTALS modification at line 120"
       },
       "WS-TOTAL-REFUNDS": {
         "defined_in_record": "WS-TOTALS",
         "base_record": "WS-TOTALS",
+        "position": { "start": 16, "end": 30 },
         "explanation": "indirectly affected via ancestor WS-TOTALS modification at line 120"
       }
     }

@@ -650,9 +650,9 @@ class SimplifiedCobolParser:
             occurs = int(match.group(5)) if match.group(5) else None
             value = match.group(6).strip() if match.group(6) else None
 
-            # Calculate line number
+            # Calculate line number using absolute position in full source
             pos = offset + match.start()
-            line_num = source[: match.start()].count("\n") + 1
+            line_num = self._get_line_number_at_offset(all_lines, pos)
 
             items.append(
                 SimplifiedDataItem(

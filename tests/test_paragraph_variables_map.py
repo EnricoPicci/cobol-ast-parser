@@ -299,6 +299,26 @@ class Test77LevelVariables:
                 # Nested variable: has parent in hierarchy
                 "WS-RECORD": ["WS-RECORD"],
                 "WS-NESTED-VAR": ["WS-RECORD", "WS-NESTED-VAR"]
+            },
+            "memory_regions": {
+                "WS-STANDALONE": {
+                    "start_offset": 0,
+                    "size": 10,
+                    "record_name": "WS-STANDALONE",
+                    "level": 77  # This marks it as a 77-level variable
+                },
+                "WS-RECORD": {
+                    "start_offset": 0,
+                    "size": 50,
+                    "record_name": "WS-RECORD",
+                    "level": 1
+                },
+                "WS-NESTED-VAR": {
+                    "start_offset": 10,
+                    "size": 20,
+                    "record_name": "WS-RECORD",
+                    "level": 5
+                }
             }
         }
 
@@ -1058,3 +1078,339 @@ class TestWithRealFixtures:
         assert "INIT-CUSTOMER" in map_data["paragraphs"]
         assert "PROCESS-CONTRACT" in map_data["paragraphs"]
         assert "UPDATE-PAYMENT" in map_data["paragraphs"]
+
+
+class TestFillerRedefinesPattern:
+    """Tests for FILLER REDEFINES pattern handling."""
+
+    @pytest.fixture
+    def filler_redefines_with_copybook_data(self):
+        """Create analysis data with FILLER REDEFINES pattern from copybook."""
+        return {
+            "program_name": "FILLER-COPYBOOK-TEST",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "sections_and_paragraphs": {
+                "PROCESS-ORDER": [
+                    {
+                        "variable": "CUSTOMER-ID",
+                        "modification_type": "MOVE",
+                        "line_number": 27,
+                        "affected_records": ["ORDER-BUFFER", "FILLER$1"]
+                    }
+                ]
+            },
+            "data_hierarchy": {
+                "ORDER-BUFFER": ["ORDER-BUFFER"],
+                "FILLER$1": ["FILLER$1"],
+                "CUSTOMER-ID": ["FILLER$1", "CUSTOMER-ID"]
+            },
+            "memory_regions": {
+                "CUSTOMER-ID": {
+                    "start_offset": 0,
+                    "size": 10,
+                    "record_name": "FILLER$1",
+                    "definition_line": 150  # Line in expanded source (copybook)
+                },
+                "ORDER-BUFFER": {
+                    "start_offset": 0,
+                    "size": 100,
+                    "record_name": "ORDER-BUFFER"
+                },
+                "FILLER$1": {
+                    "start_offset": 0,
+                    "size": 100,
+                    "record_name": "FILLER$1"
+                }
+            },
+            "_line_mapping": {
+                "150": {
+                    "original_line": 15,
+                    "is_copybook": True,
+                    "source_file": "CUSTINFO"
+                }
+            },
+            "_original_line_count": 50
+        }
+
+    def test_filler_with_copybook_shows_copybook_source(self, filler_redefines_with_copybook_data):
+        """Test that FILLER from copybook shows copybook name in defined_in_record."""
+        # Add REDEFINES relationship
+        filler_redefines_with_copybook_data["sections_and_paragraphs"]["PROCESS-ORDER"][0]["affected_variables"] = [
+            {
+                "name": "CUSTOMER-ID",
+                "overlap_type": "full",
+                "redefines_chain": "FILLER$1 REDEFINES ORDER-BUFFER",
+                "redefines_level": 1
+            }
+        ]
+
+        mapper = ParagraphVariablesMapper(filler_redefines_with_copybook_data)
+        result = mapper.map()
+
+        customer_id = result["paragraphs"]["PROCESS-ORDER"]["CUSTOMER-ID"]
+
+        # Should show copybook source in defined_in_record
+        assert customer_id["defined_in_record"] == "FILLER (CUSTINFO copybook)"
+        assert customer_id["base_record"] == "ORDER-BUFFER"
+
+    def test_filler_redefines_includes_position(self, filler_redefines_with_copybook_data):
+        """Test that FILLER REDEFINES includes position info."""
+        # Add REDEFINES relationship
+        filler_redefines_with_copybook_data["sections_and_paragraphs"]["PROCESS-ORDER"][0]["affected_variables"] = [
+            {
+                "name": "CUSTOMER-ID",
+                "overlap_type": "full",
+                "redefines_chain": "FILLER$1 REDEFINES ORDER-BUFFER",
+                "redefines_level": 1
+            }
+        ]
+
+        mapper = ParagraphVariablesMapper(filler_redefines_with_copybook_data)
+        result = mapper.map()
+
+        customer_id = result["paragraphs"]["PROCESS-ORDER"]["CUSTOMER-ID"]
+
+        # Should have position info
+        assert "position" in customer_id
+        assert customer_id["position"]["start"] == 1  # 1-indexed
+        assert customer_id["position"]["end"] == 10   # 1-indexed, inclusive
+
+
+class TestNormalRedefinesUnchanged:
+    """Tests that normal (non-FILLER) REDEFINES behavior is unchanged."""
+
+    @pytest.fixture
+    def normal_redefines_data(self):
+        """Create analysis data with normal named REDEFINES."""
+        return {
+            "program_name": "NORMAL-REDEFINES-TEST",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "sections_and_paragraphs": {
+                "MODIFY-PARA": [
+                    {
+                        "variable": "TRAN-CUSTOMER-ID",
+                        "modification_type": "MOVE",
+                        "line_number": 300,
+                        "affected_records": ["PAYMENT-DETAIL", "TRANSACTION-RECORD"],
+                        "affected_variables": [
+                            {
+                                "name": "PAY-CASH",
+                                "overlap_type": "direct_redefines_group",
+                                "redefines_chain": "PAYMENT-DETAIL REDEFINES TRANSACTION-RECORD",
+                                "redefines_level": 1
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_hierarchy": {
+                "TRANSACTION-RECORD": ["TRANSACTION-RECORD"],
+                "TRAN-CUSTOMER-ID": ["TRANSACTION-RECORD", "TRAN-CUSTOMER-ID"],
+                "PAYMENT-DETAIL": ["PAYMENT-DETAIL"],
+                "PAY-CASH": ["PAYMENT-DETAIL", "PAY-CASH"]
+            },
+            "memory_regions": {
+                "PAY-CASH": {
+                    "start_offset": 10,
+                    "size": 8,
+                    "record_name": "PAYMENT-DETAIL"
+                }
+            }
+        }
+
+    def test_normal_redefines_has_position(self, normal_redefines_data):
+        """Test that normal named REDEFINES also gets position info."""
+        mapper = ParagraphVariablesMapper(normal_redefines_data)
+        result = mapper.map()
+
+        pay_cash = result["paragraphs"]["MODIFY-PARA"]["PAY-CASH"]
+
+        # Should have position (all variables get position)
+        assert "position" in pay_cash
+        assert pay_cash["position"]["start"] == 11  # 1-indexed (offset 10 + 1)
+        assert pay_cash["position"]["end"] == 18    # 1-indexed, inclusive
+
+        # defined_in_record should be unchanged (not formatted as FILLER)
+        assert pay_cash["defined_in_record"] == "PAYMENT-DETAIL"
+        assert pay_cash["base_record"] == "TRANSACTION-RECORD"
+
+    def test_normal_redefines_still_works(self, normal_redefines_data):
+        """Test that normal REDEFINES resolution still works correctly."""
+        mapper = ParagraphVariablesMapper(normal_redefines_data)
+        result = mapper.map()
+
+        para_vars = result["paragraphs"]["MODIFY-PARA"]
+
+        # Direct modification
+        assert "TRAN-CUSTOMER-ID" in para_vars
+
+        # REDEFINES-affected variable
+        assert "PAY-CASH" in para_vars
+
+
+class TestFillerWithoutCopybook:
+    """Tests for FILLER patterns from main source (not copybook)."""
+
+    @pytest.fixture
+    def filler_main_source_data(self):
+        """Create analysis data with FILLER REDEFINES from main source."""
+        return {
+            "program_name": "FILLER-MAIN-TEST",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "sections_and_paragraphs": {
+                "PROCESS-DATA": [
+                    {
+                        "variable": "FIELD-A",
+                        "modification_type": "MOVE",
+                        "line_number": 100,
+                        "affected_records": ["MAIN-BUFFER", "FILLER$2"],
+                        "affected_variables": [
+                            {
+                                "name": "FIELD-A",
+                                "overlap_type": "full",
+                                "redefines_chain": "FILLER$2 REDEFINES MAIN-BUFFER",
+                                "redefines_level": 1
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_hierarchy": {
+                "MAIN-BUFFER": ["MAIN-BUFFER"],
+                "FILLER$2": ["FILLER$2"],
+                "FIELD-A": ["FILLER$2", "FIELD-A"]
+            },
+            "memory_regions": {
+                "FIELD-A": {
+                    "start_offset": 5,
+                    "size": 20,
+                    "record_name": "FILLER$2",
+                    "definition_line": 30  # Line in main source
+                }
+            },
+            "_line_mapping": {
+                "30": {
+                    "original_line": 30,
+                    "is_copybook": False,
+                    "source_file": "MAIN"
+                }
+            },
+            "_original_line_count": 100
+        }
+
+    def test_filler_without_copybook_shows_filler_only(self, filler_main_source_data):
+        """Test that FILLER from main source shows just 'FILLER'."""
+        mapper = ParagraphVariablesMapper(filler_main_source_data)
+        result = mapper.map()
+
+        field_a = result["paragraphs"]["PROCESS-DATA"]["FIELD-A"]
+
+        # Should show just "FILLER" without copybook suffix
+        assert field_a["defined_in_record"] == "FILLER"
+        assert field_a["base_record"] == "MAIN-BUFFER"
+
+    def test_filler_without_copybook_still_has_position(self, filler_main_source_data):
+        """Test that FILLER from main source still includes position."""
+        mapper = ParagraphVariablesMapper(filler_main_source_data)
+        result = mapper.map()
+
+        field_a = result["paragraphs"]["PROCESS-DATA"]["FIELD-A"]
+
+        # Should still have position info
+        assert "position" in field_a
+        assert field_a["position"]["start"] == 6   # 1-indexed (offset 5 + 1)
+        assert field_a["position"]["end"] == 25    # 1-indexed, inclusive (5 + 20)
+
+
+class TestFillerEdgeCases:
+    """Tests for edge cases with FILLER handling."""
+
+    def test_filler_without_line_mapping(self):
+        """Test FILLER when no line mapping exists."""
+        analysis_data = {
+            "program_name": "FILLER-NO-MAPPING",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "sections_and_paragraphs": {
+                "PARA-1": [
+                    {
+                        "variable": "VAR-X",
+                        "modification_type": "MOVE",
+                        "line_number": 50,
+                        "affected_records": ["BUFFER", "FILLER$3"],
+                        "affected_variables": [
+                            {
+                                "name": "VAR-X",
+                                "overlap_type": "full",
+                                "redefines_chain": "FILLER$3 REDEFINES BUFFER",
+                                "redefines_level": 1
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_hierarchy": {
+                "BUFFER": ["BUFFER"],
+                "FILLER$3": ["FILLER$3"],
+                "VAR-X": ["FILLER$3", "VAR-X"]
+            },
+            "memory_regions": {
+                "VAR-X": {
+                    "start_offset": 0,
+                    "size": 15,
+                    "record_name": "FILLER$3"
+                    # No definition_line
+                }
+            }
+            # No _line_mapping
+        }
+
+        mapper = ParagraphVariablesMapper(analysis_data)
+        result = mapper.map()
+
+        var_x = result["paragraphs"]["PARA-1"]["VAR-X"]
+
+        # Should fallback to just "FILLER" without copybook info
+        assert var_x["defined_in_record"] == "FILLER"
+        assert var_x["base_record"] == "BUFFER"
+
+    def test_filler_same_as_base_still_has_position(self):
+        """Test that FILLER without REDEFINES relationship still gets position."""
+        analysis_data = {
+            "program_name": "FILLER-NO-REDEFINES",
+            "analysis_date": "2026-01-25T10:00:00Z",
+            "sections_and_paragraphs": {
+                "PARA-1": [
+                    {
+                        "variable": "VAR-Y",
+                        "modification_type": "MOVE",
+                        "line_number": 60,
+                        "affected_records": ["FILLER$4"]
+                        # No affected_variables - no REDEFINES relationship
+                    }
+                ]
+            },
+            "data_hierarchy": {
+                "FILLER$4": ["FILLER$4"],
+                "VAR-Y": ["FILLER$4", "VAR-Y"]
+            },
+            "memory_regions": {
+                "VAR-Y": {
+                    "start_offset": 0,
+                    "size": 10,
+                    "record_name": "FILLER$4"
+                }
+            }
+        }
+
+        mapper = ParagraphVariablesMapper(analysis_data)
+        result = mapper.map()
+
+        var_y = result["paragraphs"]["PARA-1"]["VAR-Y"]
+
+        # All variables get position info now
+        assert "position" in var_y
+        assert var_y["position"]["start"] == 1   # 1-indexed
+        assert var_y["position"]["end"] == 10    # 1-indexed, inclusive
+
+        # Should still format FILLER name
+        assert var_y["defined_in_record"] == "FILLER"

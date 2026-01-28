@@ -190,9 +190,10 @@ class CopyResolver:
             if orig_idx < len(original_lines):
                 orig_line = original_lines[orig_idx]
                 # Skip COPY statements in original - they're replaced
+                # Don't reset current_copybook here - we need to keep tracking
+                # which copybook we're in for the expanded lines
                 if self.COPY_PATTERN.search(orig_line):
                     orig_idx += 1
-                    current_copybook = None
                     continue
 
                 # If lines match (approximately), we're in original source

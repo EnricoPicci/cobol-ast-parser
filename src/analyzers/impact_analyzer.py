@@ -521,7 +521,7 @@ class ImpactAnalyzer:
 
         Returns:
             Dictionary mapping variable names to their memory region info
-            (start_offset, size, record_name)
+            (start_offset, size, record_name, definition_line)
         """
         memory_regions = {}
         for var_name, region in self.data_analyzer._memory_regions.items():
@@ -530,6 +530,13 @@ class ImpactAnalyzer:
                 "size": region.size,
                 "record_name": region.record_name,
             }
+            # Add definition line and level for copybook source tracking and 77-level detection
+            item = self.program.all_data_items.get(var_name.upper())
+            if item:
+                if item.line_number:
+                    memory_regions[var_name]["definition_line"] = item.line_number
+                if item.level:
+                    memory_regions[var_name]["level"] = item.level
         return memory_regions
 
     def _format_variable_impact(self, vi: VariableImpact) -> Dict[str, Any]:

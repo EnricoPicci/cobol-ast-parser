@@ -104,7 +104,8 @@ class ParagraphVariablesMapper:
     def _is_77_level(self, var_name: str) -> bool:
         """Check if variable is a 77-level (standalone) item.
 
-        77-level variables have a hierarchy containing only themselves.
+        77-level variables are standalone items at level 77, not part of any
+        record structure. We check the actual level number from memory_regions.
 
         Args:
             var_name: Name of the variable to check
@@ -112,9 +113,10 @@ class ParagraphVariablesMapper:
         Returns:
             True if variable is a 77-level item
         """
-        hierarchy = self._data_hierarchy.get(var_name.upper(), [])
-        # 77-level vars have hierarchy containing only themselves
-        return len(hierarchy) == 1 and hierarchy[0].upper() == var_name.upper()
+        region = self._memory_regions.get(var_name.upper())
+        if region and region.get("level") == 77:
+            return True
+        return False
 
     def _is_filler(self, var_name: str) -> bool:
         """Check if variable is a FILLER item (internal placeholder).
@@ -203,6 +205,53 @@ class ParagraphVariablesMapper:
             return expanded_line
 
         return expanded_line
+
+    def _get_copybook_source(self, var_name: str) -> Optional[str]:
+        """Get copybook name if variable is defined in a copybook.
+
+        Args:
+            var_name: Name of the variable to check
+
+        Returns:
+            Copybook filename (without extension) if variable is from a copybook,
+            None otherwise
+        """
+        region = self._memory_regions.get(var_name.upper())
+        if not region:
+            return None
+
+        definition_line = region.get("definition_line")
+        if not definition_line:
+            return None
+
+        mapping = self._line_mapping.get(str(definition_line))
+        if mapping and mapping.get("is_copybook", False):
+            return mapping.get("source_file")
+        return None
+
+    def _format_defined_in_record(self, raw_record: str, var_name: str) -> str:
+        """Format defined_in_record, handling FILLER cases specially.
+
+        For FILLER records, attempts to include copybook source information.
+
+        Args:
+            raw_record: Raw record name (may be FILLER$n)
+            var_name: Name of the variable (used to look up copybook source)
+
+        Returns:
+            Formatted record name:
+            - Normal records: unchanged
+            - FILLER from copybook: "FILLER ({copybook} copybook)"
+            - FILLER from main source: "FILLER"
+        """
+        if not raw_record.upper().startswith("FILLER$"):
+            return raw_record  # Normal named record, no change
+
+        # It's a FILLER - check for copybook source
+        copybook = self._get_copybook_source(var_name)
+        if copybook:
+            return f"FILLER ({copybook} copybook)"
+        return "FILLER"
 
     def _collect_changed_variables(
         self,
@@ -415,8 +464,18 @@ class ParagraphVariablesMapper:
         """
         entry: Dict[str, Any] = {
             "base_record": info.base_record,
-            "defined_in_record": info.defined_in_record,
+            "defined_in_record": self._format_defined_in_record(
+                info.defined_in_record, info.variable_name
+            ),
         }
+
+        # Add position info for all variables (byte positions within record)
+        positions = self._get_positions(info.variable_name)
+        if positions:
+            entry["position"] = {
+                "start": positions[0],
+                "end": positions[1]
+            }
 
         if info.is_77_level:
             entry["77-level-var"] = True
