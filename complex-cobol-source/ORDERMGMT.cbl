@@ -1,0 +1,35 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ORDERMGMT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+
+       01  ORDER-BUFFER              PIC X(30000).
+       01  FILLER REDEFINES ORDER-BUFFER.
+         02  FILLER.
+             COPY CUSTINFO.
+         02  FILLER.
+             COPY CONTRACT.
+         02  FILLER.
+             COPY ADDRESS.
+         02  FILLER.
+             COPY PAYMENT.
+         02  FILLER OCCURS 50 TIMES.
+             COPY INVLINE.
+         02  FILLER OCCURS 20 TIMES.
+             COPY RELATED.
+
+       PROCEDURE DIVISION.
+
+           MOVE "A" TO CUSTOMER-STATUS.
+
+       INIT-CUSTOMER.
+           MOVE 1234567890 TO CUSTOMER-ID.
+
+       PROCESS-CONTRACT.
+           MOVE 20250115 TO CONTRACT-DATE.
+
+       UPDATE-PAYMENT.
+           MOVE 12 TO PAYMENT-FREQUENCY.
+
+           STOP RUN.
