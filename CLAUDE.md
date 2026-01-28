@@ -138,6 +138,7 @@ COBOL test files in `tests/fixtures/`:
 ### Documentation
 - Always update documentation when changing logic - keep docs in sync with code changes
 - Update docstrings when function behavior changes
+- Always update `docs/api-usage.md` when adding or changing API functions, options, or return types
 - Always update `docs/json-output-reference.md` when JSON output structure changes
 
 ### Code Style
