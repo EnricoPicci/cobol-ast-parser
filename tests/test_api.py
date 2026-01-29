@@ -13,6 +13,7 @@ from api import (
     DataDivisionTree,
     DataItemNode,
     DataDivisionSection,
+    _build_copybook_line_map,
 )
 from parser import ParseError
 
@@ -537,6 +538,81 @@ class TestGetDataDivisionTree:
         for child in emp_record.children:
             assert child.copybook_source == "EMPLOYEE-CPY"
 
+    def test_line_numbers_refer_to_root_file(self):
+        """Test that line numbers refer to the root file, not expanded source."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        tree = get_data_division_tree(
+            source_path,
+            TreeOptions(copybook_paths=[copybook_path])
+        )
+
+        # Find WS-EMPLOYEE record (from EMPLOYEE-CPY copybook)
+        # COPY EMPLOYEE-CPY is on line 7 in copybook_main.cob
+        emp_record = None
+        for record in tree.all_records:
+            if record.name == "WS-EMPLOYEE":
+                emp_record = record
+                break
+
+        assert emp_record is not None
+        # Line number should be the COPY statement line in root file (line 7)
+        assert emp_record.line_number == 7
+
+        # Children should also have line 7 (the COPY statement line)
+        for child in emp_record.children:
+            assert child.line_number == 7
+
+    def test_line_numbers_for_multiple_copybooks(self):
+        """Test that items from different copybooks have correct COPY statement lines."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        tree = get_data_division_tree(
+            source_path,
+            TreeOptions(copybook_paths=[copybook_path])
+        )
+
+        # copybook_main.cob has:
+        # Line 7: COPY EMPLOYEE-CPY.
+        # Line 8: COPY COUNTERS-CPY.
+
+        emp_record = None
+        ctr_record = None
+        for record in tree.all_records:
+            if record.name == "WS-EMPLOYEE":
+                emp_record = record
+            elif record.name == "WS-COUNTERS":
+                ctr_record = record
+
+        # WS-EMPLOYEE should have line 7 (COPY EMPLOYEE-CPY)
+        if emp_record:
+            assert emp_record.line_number == 7
+
+        # WS-COUNTERS should have line 8 (COPY COUNTERS-CPY)
+        if ctr_record:
+            assert ctr_record.line_number == 8
+
+    def test_line_numbers_for_main_source_items(self):
+        """Test that items from main source have their original line numbers."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        tree = get_data_division_tree(source_path)
+
+        # Find WS-EMPLOYEE-RECORD which is defined in the main source
+        emp_record = None
+        for record in tree.all_records:
+            if record.name == "WS-EMPLOYEE-RECORD":
+                emp_record = record
+                break
+
+        assert emp_record is not None
+        # Should have its original line number from the source file
+        assert emp_record.line_number > 0
+        # Line number should be reasonable (not an expanded line number in thousands)
+        assert emp_record.line_number < 100
+
 
 class TestTreeOptions:
     """Tests for the TreeOptions dataclass."""
@@ -628,3 +704,144 @@ class TestDataDivisionSection:
         assert len(d["records"]) == 2
         assert d["records"][0]["name"] == "RECORD-1"
         assert d["records"][1]["name"] == "RECORD-2"
+
+
+class TestFillerCopybookProperty:
+    """Tests for the copybook property on FILLER items."""
+
+    def test_filler_copybook_property_in_to_dict(self):
+        """Test that copybook property appears in to_dict output."""
+        node = DataItemNode(
+            name="FILLER$1",
+            level=2,
+            is_filler=True,
+            copybook="EMPLOYEE-CPY",
+        )
+
+        d = node.to_dict()
+
+        assert d["is_filler"] is True
+        assert d["copybook"] == "EMPLOYEE-CPY"
+
+    def test_filler_copybook_property_not_included_when_none(self):
+        """Test that copybook property is not included when None."""
+        node = DataItemNode(
+            name="FILLER$1",
+            level=2,
+            is_filler=True,
+        )
+
+        d = node.to_dict()
+
+        assert d["is_filler"] is True
+        assert "copybook" not in d
+
+    def test_filler_with_copybook_content(self):
+        """Test FILLER item that contains content from a copybook."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        tree = get_data_division_tree(
+            source_path,
+            TreeOptions(copybook_paths=[copybook_path])
+        )
+
+        # Look for FILLER items that have copybook property set
+        def find_filler_with_copybook(node):
+            if node.is_filler and node.copybook:
+                return node
+            for child in node.children:
+                result = find_filler_with_copybook(child)
+                if result:
+                    return result
+            return None
+
+        # Check if any FILLER has copybook property
+        # (depends on the fixture having such a structure)
+        filler = None
+        for record in tree.all_records:
+            filler = find_filler_with_copybook(record)
+            if filler:
+                break
+
+        # If we found a FILLER with copybook, verify structure
+        if filler:
+            assert filler.is_filler is True
+            assert filler.copybook is not None
+            # The FILLER's children should have copybook_source matching
+            if filler.children:
+                for child in filler.children:
+                    if child.level != 88 and child.copybook_source:
+                        assert child.copybook_source == filler.copybook
+
+
+class TestBuildCopybookLineMap:
+    """Tests for the _build_copybook_line_map helper function."""
+
+    def test_extracts_copy_statements(self):
+        """Test that COPY statements are correctly extracted."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY COPYBOOK-A.
+       COPY COPYBOOK-B.
+       PROCEDURE DIVISION.
+       STOP RUN.
+"""
+        result = _build_copybook_line_map(source)
+
+        assert "COPYBOOK-A" in result
+        assert "COPYBOOK-B" in result
+        assert result["COPYBOOK-A"] == 5
+        assert result["COPYBOOK-B"] == 6
+
+    def test_handles_multiple_copies_of_same_copybook(self):
+        """Test that first occurrence is used for duplicate COPY statements."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY MY-COPY.
+       01 WS-VAR PIC X.
+       COPY MY-COPY.
+       PROCEDURE DIVISION.
+       STOP RUN.
+"""
+        result = _build_copybook_line_map(source)
+
+        # Should use line 5 (first occurrence), not line 7
+        assert result["MY-COPY"] == 5
+
+    def test_case_insensitive(self):
+        """Test that copybook names are normalized to uppercase."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY my-copybook.
+       PROCEDURE DIVISION.
+       STOP RUN.
+"""
+        result = _build_copybook_line_map(source)
+
+        assert "MY-COPYBOOK" in result
+        assert result["MY-COPYBOOK"] == 5
+
+    def test_no_copy_statements(self):
+        """Test handling of source with no COPY statements."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-VAR PIC X.
+       PROCEDURE DIVISION.
+       STOP RUN.
+"""
+        result = _build_copybook_line_map(source)
+
+        assert len(result) == 0

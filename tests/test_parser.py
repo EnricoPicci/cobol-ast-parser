@@ -445,3 +445,130 @@ class TestTargetOnlyExtraction:
         # Only target (WS-TOTAL) should be captured
         assert "WS-TOTAL" in add_stmt.targets
         assert "WS-AMOUNT" not in add_stmt.targets
+
+
+class TestOccursParsing:
+    """Tests for OCCURS clause parsing including OCCURS n TIMES syntax."""
+
+    @pytest.fixture
+    def parser(self):
+        return SimplifiedCobolParser()
+
+    def test_occurs_basic(self, parser):
+        """Test basic OCCURS n clause."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. OCCURS-TEST.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-TABLE.
+          05 WS-ITEM OCCURS 10 PIC X(5).
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           STOP RUN.
+"""
+        tree = parser.parse(source)
+        items = {item.name: item for item in tree.data_division.working_storage}
+
+        assert "WS-ITEM" in items
+        assert items["WS-ITEM"].occurs == 10
+        assert items["WS-ITEM"].picture == "X(5)"
+
+    def test_occurs_times(self, parser):
+        """Test OCCURS n TIMES syntax."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. OCCURS-TIMES.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-TABLE.
+          05 WS-ITEM OCCURS 50 TIMES PIC X(10).
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           STOP RUN.
+"""
+        tree = parser.parse(source)
+        items = {item.name: item for item in tree.data_division.working_storage}
+
+        assert "WS-ITEM" in items
+        assert items["WS-ITEM"].occurs == 50
+        assert items["WS-ITEM"].picture == "X(10)"
+
+    def test_filler_occurs_times(self, parser):
+        """Test FILLER with OCCURS n TIMES."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. FILLER-OCCURS.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-TABLE.
+          02 FILLER OCCURS 50 TIMES.
+             05 WS-FIELD-A PIC X(5).
+             05 WS-FIELD-B PIC 9(3).
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           STOP RUN.
+"""
+        tree = parser.parse(source)
+        items = {item.name: item for item in tree.data_division.working_storage}
+
+        # Find the FILLER item (will have FILLER$n name)
+        filler_items = [i for name, i in items.items() if "FILLER" in name]
+        assert len(filler_items) >= 1
+        filler = filler_items[0]
+        assert filler.occurs == 50
+        assert filler.is_filler is True
+
+    def test_occurs_different_order(self, parser):
+        """Test OCCURS clause in different positions relative to PIC."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. OCCURS-ORDER.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-TABLE.
+          05 WS-ITEM-A PIC X(5) OCCURS 10.
+          05 WS-ITEM-B OCCURS 20 PIC 9(3).
+          05 WS-ITEM-C OCCURS 30 TIMES.
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           STOP RUN.
+"""
+        tree = parser.parse(source)
+        items = {item.name: item for item in tree.data_division.working_storage}
+
+        assert items["WS-ITEM-A"].occurs == 10
+        assert items["WS-ITEM-A"].picture == "X(5)"
+        assert items["WS-ITEM-B"].occurs == 20
+        assert items["WS-ITEM-B"].picture == "9(3)"
+        assert items["WS-ITEM-C"].occurs == 30
+
+
+class TestDataItemLineNumbers:
+    """Tests for accurate line number assignment to data items."""
+
+    @pytest.fixture
+    def parser(self):
+        return SimplifiedCobolParser()
+
+    def test_data_item_line_numbers(self, parser):
+        """Test that data items get correct line numbers."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. LINE-TEST.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-RECORD.
+          05 WS-FIELD-A PIC X(10).
+          05 WS-FIELD-B PIC X(10).
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           STOP RUN.
+"""
+        tree = parser.parse(source)
+        items = {item.name: item for item in tree.data_division.working_storage}
+
+        # Line numbers should be accurate (1-indexed)
+        assert items["WS-RECORD"].line_number == 5
+        assert items["WS-FIELD-A"].line_number == 6
+        assert items["WS-FIELD-B"].line_number == 7

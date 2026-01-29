@@ -267,6 +267,8 @@ class DataItemNode:
         is_filler: True if this is a FILLER item
         line_number: Line number in source file (after COPY expansion)
         copybook_source: Name of copybook file if this item came from a COPY statement
+        copybook: Name of copybook that provides the content for this item (for FILLER
+            items whose children come from a COPY statement)
         position: Memory position info (start, end, size) if calculable
         children: List of child DataItemNode objects
     """
@@ -282,6 +284,7 @@ class DataItemNode:
     is_filler: bool = False
     line_number: int = 0
     copybook_source: Optional[str] = None
+    copybook: Optional[str] = None
     position: Optional[Dict[str, int]] = None
     children: List["DataItemNode"] = field(default_factory=list)
 
@@ -313,6 +316,8 @@ class DataItemNode:
             result["line_number"] = self.line_number
         if self.copybook_source is not None:
             result["copybook_source"] = self.copybook_source
+        if self.copybook is not None:
+            result["copybook"] = self.copybook
         if self.position is not None:
             result["position"] = self.position
         if self.children:
@@ -373,11 +378,42 @@ class DataDivisionTree:
         return result
 
 
+def _build_copybook_line_map(original_source: str) -> Dict[str, int]:
+    """Build a map of copybook names to their COPY statement line numbers.
+
+    Scans the original source (before COPY resolution) to find all COPY
+    statements and map copybook names to their line numbers.
+
+    Args:
+        original_source: The original COBOL source before COPY resolution
+
+    Returns:
+        Dictionary mapping copybook names (uppercase) to line numbers
+    """
+    import re
+    copy_pattern = re.compile(
+        r"^\s*COPY\s+([A-Za-z0-9][-A-Za-z0-9]*)",
+        re.IGNORECASE | re.MULTILINE
+    )
+
+    copybook_lines: Dict[str, int] = {}
+    for line_num, line in enumerate(original_source.splitlines(), start=1):
+        match = copy_pattern.match(line.lstrip())
+        if match:
+            copybook_name = match.group(1).upper()
+            # Store the first occurrence (in case of multiple COPY of same copybook)
+            if copybook_name not in copybook_lines:
+                copybook_lines[copybook_name] = line_num
+
+    return copybook_lines
+
+
 def _transform_data_item(
     item: "DataItem",
     options: TreeOptions,
     memory_regions: Dict[str, "MemoryRegion"],
     line_mapping: Optional[Dict[str, Dict[str, Any]]],
+    copybook_line_map: Optional[Dict[str, int]] = None,
 ) -> Optional[DataItemNode]:
     """Transform a DataItem AST node to a DataItemNode tree node.
 
@@ -386,6 +422,7 @@ def _transform_data_item(
         options: Tree generation options
         memory_regions: Memory region lookup from DataStructureAnalyzer
         line_mapping: Line mapping from COPY expansion
+        copybook_line_map: Map of copybook names to their COPY statement line numbers
 
     Returns:
         DataItemNode if the item should be included, None otherwise
@@ -408,19 +445,48 @@ def _transform_data_item(
             "size": region.size,
         }
 
-    # Get copybook source from line mapping
+    # Determine copybook source and original line number in root file
     copybook_source = None
+    original_line_number = item.line_number  # Default to expanded line number
+
     if item.line_number and line_mapping:
         mapping = line_mapping.get(str(item.line_number))
-        if mapping and mapping.get("is_copybook"):
-            copybook_source = mapping.get("source_file")
+        if mapping:
+            if mapping.get("is_copybook"):
+                # Item is from a copybook
+                copybook_source = mapping.get("source_file")
+                # Use the COPY statement's line number in the root file
+                # First, try to look up the copybook in our map
+                if copybook_line_map and copybook_source:
+                    copy_line = copybook_line_map.get(copybook_source.upper())
+                    if copy_line:
+                        original_line_number = copy_line
+                    else:
+                        # Fallback: use the original_line from mapping
+                        # This is typically the COPY statement line for copybook content
+                        original_line_number = mapping.get("original_line", item.line_number)
+            else:
+                # Item is from the main source - use the original line number
+                original_line_number = mapping.get("original_line", item.line_number)
 
     # Recursively transform children
     children = []
     for child in item.children:
-        transformed = _transform_data_item(child, options, memory_regions, line_mapping)
+        transformed = _transform_data_item(
+            child, options, memory_regions, line_mapping, copybook_line_map
+        )
         if transformed:
             children.append(transformed)
+
+    # For FILLER items that don't come from a copybook themselves,
+    # check if their children come from a copybook and set the copybook property
+    copybook = None
+    if item.is_filler and copybook_source is None and children:
+        # Find the first non-88-level child that has a copybook_source
+        for child in children:
+            if child.level != 88 and child.copybook_source:
+                copybook = child.copybook_source
+                break
 
     return DataItemNode(
         name=item.name,
@@ -433,8 +499,9 @@ def _transform_data_item(
         redefines=item.redefines,
         is_group=item.is_group,
         is_filler=item.is_filler,
-        line_number=item.line_number,
+        line_number=original_line_number,
         copybook_source=copybook_source,
+        copybook=copybook,
         position=position,
         children=children,
     )
@@ -561,11 +628,15 @@ def get_data_division_tree(
     try:
         # Read source file
         source = source_path.read_text(encoding="utf-8", errors="replace")
+        original_source = source  # Keep original for copybook line mapping
         source_lines_count = len(source.splitlines())
 
         # Detect format
         source_lines = source.splitlines()
         source_format = detect_format(source_lines)
+
+        # Build copybook line map from original source (before COPY resolution)
+        copybook_line_map = _build_copybook_line_map(original_source)
 
         # Resolve COPY statements
         line_mapping = None
@@ -615,7 +686,7 @@ def get_data_division_tree(
 
         for record_name, record in program.record_descriptions.items():
             transformed = _transform_data_item(
-                record.root_item, options, memory_regions, line_mapping
+                record.root_item, options, memory_regions, line_mapping, copybook_line_map
             )
             if transformed:
                 all_records.append(transformed)

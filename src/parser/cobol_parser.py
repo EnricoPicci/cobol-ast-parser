@@ -438,14 +438,23 @@ class SimplifiedCobolParser:
     LINKAGE_SECTION = re.compile(r"LINKAGE\s+SECTION\s*\.", re.IGNORECASE)
     LOCAL_STORAGE = re.compile(r"LOCAL-STORAGE\s+SECTION\s*\.", re.IGNORECASE)
 
-    # Data item pattern
+    # Data item pattern - supports clauses in any order
+    # COBOL allows: REDEFINES, PIC, OCCURS, VALUE, USAGE in various orders
+    # Use [ \t]* instead of \s* at start to avoid matching across lines
     DATA_ITEM = re.compile(
-        r"^\s*(\d{1,2})\s+"  # Level number
+        r"^[ \t]*(\d{1,2})\s+"  # Level number (only match horizontal whitespace at start)
         r"([A-Za-z0-9][-A-Za-z0-9]*)"  # Data name
-        r"(?:\s+REDEFINES\s+([A-Za-z0-9][-A-Za-z0-9]*))?"  # Optional REDEFINES
-        r"(?:\s+PIC(?:TURE)?\s+(?:IS\s+)?([^\s.]+))?"  # Optional PICTURE
-        r"(?:\s+OCCURS\s+(\d+))?"  # Optional OCCURS
-        r"(?:\s+VALUE\s+(?:IS\s+)?([^.]+))?"  # Optional VALUE
+        r"((?:\s+(?:"
+        r"REDEFINES\s+[A-Za-z0-9][-A-Za-z0-9]*"  # REDEFINES clause
+        r"|PIC(?:TURE)?\s+(?:IS\s+)?[^\s.]+"  # PICTURE clause
+        r"|OCCURS\s+\d+(?:\s+TIMES)?"  # OCCURS clause (with optional TIMES)
+        r"|VALUE\s+(?:IS\s+)?[^.]*?"  # VALUE clause
+        r"|USAGE\s+(?:IS\s+)?[A-Za-z0-9-]+"  # USAGE clause
+        r"|COMP(?:-[0-9])?"  # COMP shorthand
+        r"|BINARY"  # BINARY
+        r"|PACKED-DECIMAL"  # PACKED-DECIMAL
+        r"|DISPLAY"  # DISPLAY
+        r"))*)"  # End of clauses group
         r"\s*\.",
         re.IGNORECASE | re.MULTILINE,
     )
@@ -627,6 +636,21 @@ class SimplifiedCobolParser:
 
         return data_div
 
+    # Helper patterns for extracting individual clauses
+    REDEFINES_EXTRACT = re.compile(
+        r"\bREDEFINES\s+([A-Za-z0-9][-A-Za-z0-9]*)", re.IGNORECASE
+    )
+    PICTURE_EXTRACT = re.compile(
+        r"\bPIC(?:TURE)?\s+(?:IS\s+)?([^\s.]+)", re.IGNORECASE
+    )
+    OCCURS_EXTRACT = re.compile(
+        r"\bOCCURS\s+(\d+)(?:\s+TIMES)?", re.IGNORECASE
+    )
+    VALUE_EXTRACT = re.compile(
+        r"\bVALUE\s+(?:IS\s+)?([^.]*?)(?=\s+(?:REDEFINES|PIC|OCCURS|USAGE|COMP|BINARY|PACKED|DISPLAY)\b|\s*$)",
+        re.IGNORECASE
+    )
+
     def _parse_data_items(
         self, source: str, offset: int, all_lines: List[str]
     ) -> List[SimplifiedDataItem]:
@@ -645,10 +669,21 @@ class SimplifiedCobolParser:
                 name = f"FILLER${filler_counter}"
                 is_filler = True
 
-            redefines = match.group(3).upper() if match.group(3) else None
-            picture = match.group(4) if match.group(4) else None
-            occurs = int(match.group(5)) if match.group(5) else None
-            value = match.group(6).strip() if match.group(6) else None
+            # Extract clauses from the captured clause group
+            clauses = match.group(3) if match.group(3) else ""
+
+            # Extract individual clause values
+            redefines_match = self.REDEFINES_EXTRACT.search(clauses)
+            redefines = redefines_match.group(1).upper() if redefines_match else None
+
+            picture_match = self.PICTURE_EXTRACT.search(clauses)
+            picture = picture_match.group(1) if picture_match else None
+
+            occurs_match = self.OCCURS_EXTRACT.search(clauses)
+            occurs = int(occurs_match.group(1)) if occurs_match else None
+
+            value_match = self.VALUE_EXTRACT.search(clauses)
+            value = value_match.group(1).strip() if value_match else None
 
             # Calculate line number using absolute position in full source
             pos = offset + match.start()
