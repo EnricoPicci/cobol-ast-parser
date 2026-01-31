@@ -134,6 +134,7 @@ COBOL test files in `tests/fixtures/`:
 ### Testing
 - Use pytest for all tests
 - Always add relevant tests when changing logic - any bug fix or feature change should include tests that verify the new behavior
+- When fixing a bug, add a regression test that fails before the fix and passes after the fix - this ensures the test actually catches the bug and prevents regressions
 
 ### Documentation
 - Always update documentation when changing logic - keep docs in sync with code changes
