@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from api import (
+from cobol_ast.api import (
     analyze_paragraph_variables,
     AnalysisOptions,
     AnalysisResult,

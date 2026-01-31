@@ -4,7 +4,7 @@ This module provides the programmatic interface for analyzing COBOL programs.
 Use these functions instead of calling CLI internals directly.
 
 Example:
-    from api import analyze_paragraph_variables, AnalysisOptions
+    from cobol_ast import analyze_paragraph_variables, AnalysisOptions
 
     result = analyze_paragraph_variables(
         source_path=Path("program.cob"),
@@ -93,7 +93,7 @@ def analyze_paragraph_variables(
         AnalysisError: If analysis fails for other reasons
 
     Example:
-        >>> from api import analyze_paragraph_variables, AnalysisOptions
+        >>> from cobol_ast import analyze_paragraph_variables, AnalysisOptions
         >>> from pathlib import Path
         >>>
         >>> # Simple usage with defaults
@@ -113,7 +113,7 @@ def analyze_paragraph_variables(
     import time
     from preprocessor import CopyResolver, detect_format, normalize_source
     from parser import CobolParser, ParseError
-    from cobol_ast import ASTBuilder
+    from . import ASTBuilder
     from analyzers import ImpactAnalyzer
     from output import ParagraphVariablesMapper
 
@@ -588,7 +588,7 @@ def get_data_division_tree(
         AnalysisError: If analysis fails for other reasons
 
     Example:
-        >>> from api import get_data_division_tree, TreeOptions
+        >>> from cobol_ast import get_data_division_tree, TreeOptions
         >>> from pathlib import Path
         >>>
         >>> # Simple usage with defaults
@@ -609,7 +609,7 @@ def get_data_division_tree(
     import time
     from preprocessor import CopyResolver, detect_format, normalize_source
     from parser import CobolParser, ParseError
-    from cobol_ast import ASTBuilder
+    from . import ASTBuilder
     from analyzers import DataStructureAnalyzer
 
     # Use defaults if no options provided

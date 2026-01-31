@@ -5,9 +5,14 @@ Public API:
     AnalysisOptions: Configuration options for analysis
     AnalysisResult: Result container with both JSON outputs
     AnalysisError: Exception raised when analysis fails
+    get_data_division_tree: Get hierarchical tree view of DATA DIVISION
+    TreeOptions: Configuration options for tree generation
+    DataDivisionTree: Result container for tree structure
+    DataItemNode: Node representing a data item in the tree
+    DataDivisionSection: DATA DIVISION section container
 
 Example:
-    >>> from src import analyze_paragraph_variables, AnalysisOptions
+    >>> from cobol_ast import analyze_paragraph_variables, AnalysisOptions
     >>> from pathlib import Path
     >>>
     >>> result = analyze_paragraph_variables(Path("myprogram.cob"))
@@ -15,11 +20,16 @@ Example:
     >>> print(result.paragraph_variables)  # Paragraph-variables map JSON
 """
 
-from .api import (
+from .cobol_ast.api import (
     analyze_paragraph_variables,
     AnalysisOptions,
     AnalysisResult,
     AnalysisError,
+    get_data_division_tree,
+    TreeOptions,
+    DataDivisionTree,
+    DataItemNode,
+    DataDivisionSection,
 )
 
 __version__ = "0.1.0"
@@ -29,4 +39,9 @@ __all__ = [
     "AnalysisOptions",
     "AnalysisResult",
     "AnalysisError",
+    "get_data_division_tree",
+    "TreeOptions",
+    "DataDivisionTree",
+    "DataItemNode",
+    "DataDivisionSection",
 ]

@@ -14,7 +14,7 @@ import yaml
 
 from parser import ParseError
 from output import JSONWriter
-from api import analyze_paragraph_variables, AnalysisOptions, AnalysisError
+from cobol_ast.api import analyze_paragraph_variables, AnalysisOptions, AnalysisError
 
 __version__ = "2.0.0"
 
