@@ -205,7 +205,11 @@ class CopyResolver:
                         is_copybook=False,
                     )
                     orig_idx += 1
-                    current_copybook = None
+                    # Only reset current_copybook when matching non-empty lines.
+                    # Empty lines can match between copybook content and original
+                    # source, causing incorrect state transitions.
+                    if resolved_line.strip():
+                        current_copybook = None
                 else:
                     # Line is from copybook
                     self._line_mapping[resolved_line_num] = LineMapping(

@@ -140,6 +140,33 @@ class TestCopyResolver:
         with pytest.raises(CopyNotFoundError):
             resolver.resolve(source)
 
+    def test_line_mapping_with_empty_lines_in_copybook(self, resolver):
+        """Test that empty lines in copybook content don't break line mapping.
+
+        Regression test for bug where an empty line in copybook content that
+        matched an empty line in the original source would reset the copybook
+        tracking, causing subsequent lines to be incorrectly mapped to "COPYBOOK"
+        instead of the actual copybook name.
+        """
+        # Source with COPY followed by empty line (which could match empty line in copybook)
+        source = """       01  WS-RECORD.
+           COPY EMPTYLINE-CPY.
+
+       01  WS-OTHER.
+           03  WS-FIELD            PIC X(10)."""
+
+        resolved = resolver.resolve(source, "TEST-MAIN.cbl")
+
+        # Check line mapping - all lines from the copybook should have
+        # source_file set to "EMPTYLINE-CPY", not "COPYBOOK"
+        for line_num, mapping in resolver.line_mapping.items():
+            if mapping.is_copybook:
+                assert mapping.source_file == "EMPTYLINE-CPY", (
+                    f"Line {line_num} has source_file='{mapping.source_file}' "
+                    f"but should be 'EMPTYLINE-CPY'. "
+                    f"Empty lines in copybook should not reset copybook tracking."
+                )
+
 
 class TestNormalizer:
     """Tests for source normalization."""
