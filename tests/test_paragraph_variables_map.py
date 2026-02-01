@@ -1132,8 +1132,8 @@ class TestFillerRedefinesPattern:
             "_original_line_count": 50
         }
 
-    def test_filler_with_copybook_shows_copybook_source(self, filler_redefines_with_copybook_data):
-        """Test that FILLER from copybook shows copybook name in defined_in_record."""
+    def test_filler_with_redefines_shows_redefined_record(self, filler_redefines_with_copybook_data):
+        """Test that FILLER shows what it redefines in defined_in_record."""
         # Add REDEFINES relationship
         filler_redefines_with_copybook_data["sections_and_paragraphs"]["PROCESS-ORDER"][0]["affected_variables"] = [
             {
@@ -1149,8 +1149,8 @@ class TestFillerRedefinesPattern:
 
         customer_id = result["paragraphs"]["PROCESS-ORDER"]["CUSTOMER-ID"]
 
-        # Should show copybook source in defined_in_record
-        assert customer_id["defined_in_record"] == "FILLER (CUSTINFO copybook)"
+        # Should show what FILLER redefines (takes priority over copybook source)
+        assert customer_id["defined_in_record"] == "FILLER (ORDER-BUFFER)"
         assert customer_id["base_record"] == "ORDER-BUFFER"
 
     def test_filler_redefines_includes_position(self, filler_redefines_with_copybook_data):
@@ -1298,15 +1298,15 @@ class TestFillerWithoutCopybook:
             "_original_line_count": 100
         }
 
-    def test_filler_without_copybook_shows_filler_only(self, filler_main_source_data):
-        """Test that FILLER from main source shows just 'FILLER'."""
+    def test_filler_with_redefines_shows_redefined_record(self, filler_main_source_data):
+        """Test that FILLER shows what it redefines in defined_in_record."""
         mapper = ParagraphVariablesMapper(filler_main_source_data)
         result = mapper.map()
 
         field_a = result["paragraphs"]["PROCESS-DATA"]["FIELD-A"]
 
-        # Should show just "FILLER" without copybook suffix
-        assert field_a["defined_in_record"] == "FILLER"
+        # Should show what FILLER redefines
+        assert field_a["defined_in_record"] == "FILLER (MAIN-BUFFER)"
         assert field_a["base_record"] == "MAIN-BUFFER"
 
     def test_filler_without_copybook_still_has_position(self, filler_main_source_data):
@@ -1369,8 +1369,8 @@ class TestFillerEdgeCases:
 
         var_x = result["paragraphs"]["PARA-1"]["VAR-X"]
 
-        # Should fallback to just "FILLER" without copybook info
-        assert var_x["defined_in_record"] == "FILLER"
+        # Should show what FILLER redefines (from redefines_chain)
+        assert var_x["defined_in_record"] == "FILLER (BUFFER)"
         assert var_x["base_record"] == "BUFFER"
 
     def test_filler_same_as_base_still_has_position(self):

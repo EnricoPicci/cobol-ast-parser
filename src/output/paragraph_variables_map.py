@@ -232,7 +232,8 @@ class ParagraphVariablesMapper:
     def _format_defined_in_record(self, raw_record: str, var_name: str) -> str:
         """Format defined_in_record, handling FILLER cases specially.
 
-        For FILLER records, attempts to include copybook source information.
+        For FILLER records, shows what the FILLER redefines (if applicable),
+        or falls back to copybook source information.
 
         Args:
             raw_record: Raw record name (may be FILLER$n)
@@ -241,13 +242,19 @@ class ParagraphVariablesMapper:
         Returns:
             Formatted record name:
             - Normal records: unchanged
+            - FILLER that redefines: "FILLER ({redefined_record})"
             - FILLER from copybook: "FILLER ({copybook} copybook)"
             - FILLER from main source: "FILLER"
         """
         if not raw_record.upper().startswith("FILLER$"):
             return raw_record  # Normal named record, no change
 
-        # It's a FILLER - check for copybook source
+        # It's a FILLER - first check if it redefines another record
+        redefined = self._redefines_graph.get(raw_record.upper())
+        if redefined:
+            return f"FILLER ({redefined})"
+
+        # Fallback: check for copybook source
         copybook = self._get_copybook_source(var_name)
         if copybook:
             return f"FILLER ({copybook} copybook)"
