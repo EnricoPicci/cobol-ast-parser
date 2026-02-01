@@ -125,6 +125,60 @@ Result dataclass containing both JSON outputs.
 | `execution_time_seconds` | `float` | Total processing time |
 | `source_info` | `dict \| None` | Source file metadata (included by default, `None` if `include_source_info=False`) |
 
+### JSON Output Structure
+
+The `AnalysisResult` contains two JSON outputs that provide different views of the analysis:
+
+#### `*-analysis.json` (Full Analysis)
+
+The `result.analysis` dict contains the complete analysis with all technical details. The key fields are:
+
+**`sections_and_paragraphs`**: Maps each section/paragraph name to a list of variable modifications that occur within it.
+
+Each modification object contains:
+- `variable`: Name of the modified variable
+- `affected_records`: List of Level 01 record names this variable belongs to
+- `modification_type`: The COBOL statement type (MOVE, COMPUTE, ADD, etc.)
+- `line_number`: Source line number (after COPY expansion)
+- `affected_variables` (optional): List of variables affected via REDEFINES memory overlap, each with:
+  - `name`: Variable name
+  - `overlap_type`: "full", "contains", or "contained_by"
+  - `redefines_chain`: Human-readable REDEFINES relationship
+  - `redefines_level`: COBOL level number of the REDEFINES
+
+**`data_hierarchy`**: Maps each variable name to its hierarchy path as a list from the Level 01 record down to the variable itself.
+
+```json
+"MS01-NOTA": ["AREA-MESSAGGI", "MS01-AREA-INTERFACCIA", "FILLER$2", "MS01-NOTA"]
+```
+
+**`memory_regions`**: Maps each variable to its memory layout within its record.
+
+Each entry contains:
+- `start_offset`: Byte offset from the start of the record (0-based)
+- `size`: Size in bytes
+- `record_name`: Name of the Level 01 record containing this variable
+- `definition_line`: Source line number where the variable is defined
+- `level`: COBOL level number (01-49, 66, 77, 88)
+
+#### `*-paragraph-variables.json` (Paragraph-Variables Map)
+
+The `result.paragraph_variables` dict provides a simplified, consumer-friendly view:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `program_name` | `str` | Name of the COBOL program |
+| `analysis_date` | `str` | ISO timestamp of when analysis was performed |
+| `execution_time_seconds` | `float` | Processing time |
+| `paragraphs` | `dict` | Maps paragraph names to their modified variables. Each variable entry contains: `base_record`, `defined_in_record`, optional `position` (start/end), and `explanation` (human-readable reason for modification) |
+| `summary` | `dict` | Statistics: `total_paragraphs_with_changes`, `total_unique_variables`, `variables_in_redefines_records`, `variables_via_ancestor_modification`, `level_77_variables` |
+| `source_info` | `dict \| None` | Source file metadata (if enabled) |
+
+This output is useful when you need:
+- A simple map of "which variables change in which paragraph"
+- Human-readable explanations of why variables are affected
+- Summary statistics for reporting
+
 ---
 
 ### `get_data_division_tree(source_path, options?)`
