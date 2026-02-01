@@ -297,24 +297,18 @@ If the COBOL program contains statements in the PROCEDURE DIVISION that are outs
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `defined_in_record` | string | Level 01 record that directly contains this variable (see [FILLER REDEFINES Format](#filler-redefines-format)) |
+| `defined_in_record` | string | Level 01 record that directly contains this variable. For FILLER records, uses raw format (e.g., `FILLER$1`) for consistent linking with `DataDivisionTree`. |
 | `base_record` | string | Ultimate Level 01 record (follows REDEFINES chain to root) |
 | `position` | object | Byte position info with `start` and `end` (1-indexed, inclusive) |
 | `explanation` | string | Human-readable explanation of why this variable may change (see [Explanation Formats](#explanation-formats)) |
 | `77-level-var` | boolean | *(Only present if true)* Variable is a 77-level standalone item |
 
-##### FILLER REDEFINES Format
-
-When a variable is defined under a `FILLER REDEFINES` pattern (a common technique for creating overlay structures), the `defined_in_record` includes special formatting:
-
-- **`defined_in_record`**: Formatted as `"FILLER ({copybook} copybook)"` when the FILLER is from a copybook, or simply `"FILLER"` when from the main source
-
-**Example: Variable in FILLER REDEFINES from copybook:**
+**Example: Variable in FILLER record:**
 ```json
 {
   "CUSTOMER-ID": {
     "base_record": "ORDER-BUFFER",
-    "defined_in_record": "FILLER (CUSTINFO copybook)",
+    "defined_in_record": "FILLER$1",
     "position": { "start": 1, "end": 10 },
     "explanation": "direct modification: MOVE at line 27"
   }
@@ -479,6 +473,89 @@ Variables may have explanations that combine multiple types:
 ```
 affected by multiple modifications at lines 142, 156; some modifications are due to REDEFINE (e.g., PAY-AMOUNT at positions 5-12 overlaps TRAN-CODE at positions 1-8)
 ```
+
+---
+
+## Variable Index (API Only)
+
+The `variable_index` is an inverted index available in the `AnalysisResult` returned by the `analyze_paragraph_variables()` API. It enables O(1) lookup from a `DataDivisionTree` node to the list of paragraphs that may modify that variable.
+
+**Note:** This index is only available via the API, not in the JSON file output.
+
+### Structure
+
+```python
+{
+    "defined_in_record": {
+        "start:end": {
+            "variable_name": "VAR-NAME",
+            "paragraphs": ["PARA-1", "PARA-2", ...]
+        }
+    }
+}
+```
+
+| Key Level | Type | Description |
+|-----------|------|-------------|
+| First level | string | The `defined_in_record` value (Level 01 record containing the variable) |
+| Second level | string | Position key in format `"start:end"` (1-indexed byte positions) |
+| `variable_name` | string | Name of the variable at this position |
+| `paragraphs` | array | List of paragraph/section names that may modify this variable |
+
+### Example
+
+```json
+{
+  "WS-EMPLOYEE-RECORD": {
+    "1:5": {
+      "variable_name": "WS-EMP-ID",
+      "paragraphs": ["INIT-PARA", "PROCESS-PARA"]
+    },
+    "6:35": {
+      "variable_name": "WS-EMP-NAME",
+      "paragraphs": ["UPDATE-NAME-PARA"]
+    }
+  },
+  "CUSTOMER-RECORD": {
+    "1:10": {
+      "variable_name": "CUST-ID",
+      "paragraphs": ["3100-APPLY-PAYMENT"]
+    }
+  }
+}
+```
+
+### Usage
+
+```python
+from pathlib import Path
+from src import get_data_division_tree, analyze_paragraph_variables
+
+# Get both data structures
+tree = get_data_division_tree(Path("program.cob"))
+result = analyze_paragraph_variables(Path("program.cob"))
+
+# Select a node from the tree (e.g., user clicks on WS-EMP-ID)
+node = selected_data_item_node
+
+# Look up modifying paragraphs
+if node.defined_in_record and node.position:
+    key = f"{node.position['start']}:{node.position['end']}"
+    entry = result.variable_index.get(node.defined_in_record, {}).get(key)
+    if entry:
+        print(f"Paragraphs that modify {entry['variable_name']}: {entry['paragraphs']}")
+```
+
+### Why `defined_in_record` Matters
+
+When two Level 01 records REDEFINE each other, they share memory but have different variables. Using `defined_in_record` ensures you only get modifications to the specific variable you selected:
+
+| Record | Variable | Position | Paragraphs |
+|--------|----------|----------|------------|
+| `CLIENT` | `CLIENT-NAME` | 1:30 | `["UPDATE-CLIENT"]` |
+| `CLIENT-CHINA` (REDEFINES CLIENT) | `MIDDLE-NAME` | 1:30 | `["PROCESS-CHINA"]` |
+
+Without `defined_in_record`, position alone (1:30) would be ambiguous.
 
 ---
 

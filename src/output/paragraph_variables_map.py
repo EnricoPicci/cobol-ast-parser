@@ -206,60 +206,6 @@ class ParagraphVariablesMapper:
 
         return expanded_line
 
-    def _get_copybook_source(self, var_name: str) -> Optional[str]:
-        """Get copybook name if variable is defined in a copybook.
-
-        Args:
-            var_name: Name of the variable to check
-
-        Returns:
-            Copybook filename (without extension) if variable is from a copybook,
-            None otherwise
-        """
-        region = self._memory_regions.get(var_name.upper())
-        if not region:
-            return None
-
-        definition_line = region.get("definition_line")
-        if not definition_line:
-            return None
-
-        mapping = self._line_mapping.get(str(definition_line))
-        if mapping and mapping.get("is_copybook", False):
-            return mapping.get("source_file")
-        return None
-
-    def _format_defined_in_record(self, raw_record: str, var_name: str) -> str:
-        """Format defined_in_record, handling FILLER cases specially.
-
-        For FILLER records, shows what the FILLER redefines (if applicable),
-        or falls back to copybook source information.
-
-        Args:
-            raw_record: Raw record name (may be FILLER$n)
-            var_name: Name of the variable (used to look up copybook source)
-
-        Returns:
-            Formatted record name:
-            - Normal records: unchanged
-            - FILLER that redefines: "FILLER ({redefined_record})"
-            - FILLER from copybook: "FILLER ({copybook} copybook)"
-            - FILLER from main source: "FILLER"
-        """
-        if not raw_record.upper().startswith("FILLER$"):
-            return raw_record  # Normal named record, no change
-
-        # It's a FILLER - first check if it redefines another record
-        redefined = self._redefines_graph.get(raw_record.upper())
-        if redefined:
-            return f"FILLER ({redefined})"
-
-        # Fallback: check for copybook source
-        copybook = self._get_copybook_source(var_name)
-        if copybook:
-            return f"FILLER ({copybook} copybook)"
-        return "FILLER"
-
     def _collect_changed_variables(
         self,
         section_name: str,
@@ -471,9 +417,7 @@ class ParagraphVariablesMapper:
         """
         entry: Dict[str, Any] = {
             "base_record": info.base_record,
-            "defined_in_record": self._format_defined_in_record(
-                info.defined_in_record, info.variable_name
-            ),
+            "defined_in_record": info.defined_in_record,
         }
 
         # Add position info for all variables (byte positions within record)

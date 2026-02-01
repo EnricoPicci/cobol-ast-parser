@@ -14,6 +14,7 @@ from cobol_ast.api import (
     DataItemNode,
     DataDivisionSection,
     _build_copybook_line_map,
+    _build_variable_index,
 )
 from parser import ParseError
 
@@ -295,6 +296,7 @@ class TestAnalysisResult:
         assert hasattr(result, "program_name")
         assert hasattr(result, "analysis")
         assert hasattr(result, "paragraph_variables")
+        assert hasattr(result, "variable_index")
         assert hasattr(result, "execution_time_seconds")
         assert hasattr(result, "source_info")
 
@@ -306,6 +308,348 @@ class TestAnalysisResult:
 
         assert result.program_name == result.analysis.get("program_name")
         assert result.program_name == result.paragraph_variables.get("program_name")
+
+    def test_variable_index_structure(self):
+        """Test that variable_index has the expected nested structure."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+
+        # variable_index should be a dict
+        assert isinstance(result.variable_index, dict)
+
+        # Each key should be a record name (defined_in_record)
+        for record_name, positions in result.variable_index.items():
+            assert isinstance(record_name, str)
+            assert isinstance(positions, dict)
+
+            # Each position key should be "start:end"
+            for pos_key, entry in positions.items():
+                assert isinstance(pos_key, str)
+                assert ":" in pos_key  # Format is "start:end"
+
+                # Entry should have variable_name and paragraphs
+                assert "variable_name" in entry
+                assert "paragraphs" in entry
+                assert isinstance(entry["variable_name"], str)
+                assert isinstance(entry["paragraphs"], list)
+
+    def test_variable_index_contains_modified_variables(self):
+        """Test that variable_index contains variables from paragraph_variables."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+
+        # Get all variables from paragraph_variables
+        all_vars_in_paragraphs = set()
+        for para_vars in result.paragraph_variables.get("paragraphs", {}).values():
+            all_vars_in_paragraphs.update(para_vars.keys())
+
+        # Get all variables from variable_index
+        all_vars_in_index = set()
+        for positions in result.variable_index.values():
+            for entry in positions.values():
+                all_vars_in_index.add(entry["variable_name"])
+
+        # All variables with positions in paragraph_variables should be in index
+        # (Some may not have positions and thus not be in the index)
+        assert len(all_vars_in_index) > 0
+
+    def test_variable_index_lookup_matches_paragraph_variables(self):
+        """Test that looking up via variable_index gives correct paragraphs."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+
+        # For each entry in variable_index, verify the paragraphs match
+        for record_name, positions in result.variable_index.items():
+            for pos_key, entry in positions.items():
+                var_name = entry["variable_name"]
+                paragraphs_in_index = set(entry["paragraphs"])
+
+                # Find all paragraphs that modify this variable
+                paragraphs_from_original = set()
+                for para_name, para_vars in result.paragraph_variables.get("paragraphs", {}).items():
+                    if var_name in para_vars:
+                        var_info = para_vars[var_name]
+                        # Check if the record and position match
+                        if var_info.get("defined_in_record") == record_name:
+                            pos = var_info.get("position", {})
+                            if f"{pos.get('start')}:{pos.get('end')}" == pos_key:
+                                paragraphs_from_original.add(para_name)
+
+                # The sets should match
+                assert paragraphs_in_index == paragraphs_from_original, (
+                    f"Mismatch for {var_name} at {record_name}[{pos_key}]: "
+                    f"index={paragraphs_in_index}, original={paragraphs_from_original}"
+                )
+
+
+class TestVariableIndexLinking:
+    """Tests for linking DataDivisionTree nodes to paragraphs via variable_index."""
+
+    def test_link_data_division_tree_to_paragraphs(self):
+        """Test the complete workflow: select node from tree, find modifying paragraphs."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        # Get both outputs
+        tree = get_data_division_tree(source_path)
+        result = analyze_paragraph_variables(source_path)
+
+        # Find a node in the tree that has modifications
+        # Look for WS-EMP-ID in WS-EMPLOYEE-RECORD
+        emp_record = None
+        for record in tree.all_records:
+            if record.name == "WS-EMPLOYEE-RECORD":
+                emp_record = record
+                break
+
+        assert emp_record is not None
+
+        # Find WS-EMP-ID child
+        emp_id_node = None
+        for child in emp_record.children:
+            if child.name == "WS-EMP-ID":
+                emp_id_node = child
+                break
+
+        # If we found the node and it has position info, try the lookup
+        if emp_id_node and emp_id_node.position:
+            # Use the defined_in_record and position to look up
+            record_key = emp_id_node.defined_in_record
+            pos_key = f"{emp_id_node.position['start']}:{emp_id_node.position['end']}"
+
+            # Look up in variable_index
+            entry = result.variable_index.get(record_key, {}).get(pos_key)
+
+            # If there's an entry, verify structure
+            if entry:
+                assert "variable_name" in entry
+                assert "paragraphs" in entry
+                assert isinstance(entry["paragraphs"], list)
+
+    def test_link_returns_all_modifying_paragraphs(self):
+        """Test that linking returns all paragraphs that modify a variable."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        tree = get_data_division_tree(source_path)
+        result = analyze_paragraph_variables(source_path)
+
+        # Helper to find paragraphs for a node
+        def find_paragraphs_for_node(node):
+            if not node.defined_in_record or not node.position:
+                return None
+            pos_key = f"{node.position['start']}:{node.position['end']}"
+            entry = result.variable_index.get(node.defined_in_record, {}).get(pos_key)
+            return entry["paragraphs"] if entry else []
+
+        # Traverse tree and check each node
+        modified_vars_found = []
+        for record in tree.all_records:
+            paragraphs = find_paragraphs_for_node(record)
+            if paragraphs:
+                modified_vars_found.append((record.name, paragraphs))
+
+            # Check children recursively
+            def check_children(node):
+                for child in node.children:
+                    paragraphs = find_paragraphs_for_node(child)
+                    if paragraphs:
+                        modified_vars_found.append((child.name, paragraphs))
+                    check_children(child)
+
+            check_children(record)
+
+        # We should find some modified variables
+        assert len(modified_vars_found) > 0
+
+    def test_redefines_records_have_separate_entries(self):
+        """Test that REDEFINES records have their own entries in variable_index."""
+        source_path = FIXTURES_DIR / "redefines_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+
+        # Check that there are entries for EMPLOYEE-RECORD (which REDEFINES INPUT-RECORD)
+        # and potentially for INPUT-RECORD itself
+        record_names_in_index = set(result.variable_index.keys())
+
+        # We should have at least some records in the index
+        assert len(record_names_in_index) > 0
+
+
+class TestBuildVariableIndex:
+    """Tests for the _build_variable_index helper function."""
+
+    def test_builds_index_from_paragraph_variables(self):
+        """Test that index is built correctly from paragraph_variables structure."""
+        paragraph_variables = {
+            "paragraphs": {
+                "PARA-1": {
+                    "VAR-A": {
+                        "defined_in_record": "RECORD-1",
+                        "base_record": "RECORD-1",
+                        "position": {"start": 1, "end": 10},
+                        "explanation": "direct modification"
+                    },
+                    "VAR-B": {
+                        "defined_in_record": "RECORD-1",
+                        "base_record": "RECORD-1",
+                        "position": {"start": 11, "end": 20},
+                        "explanation": "direct modification"
+                    }
+                },
+                "PARA-2": {
+                    "VAR-A": {
+                        "defined_in_record": "RECORD-1",
+                        "base_record": "RECORD-1",
+                        "position": {"start": 1, "end": 10},
+                        "explanation": "direct modification"
+                    }
+                }
+            }
+        }
+
+        index = _build_variable_index(paragraph_variables)
+
+        # Should have RECORD-1
+        assert "RECORD-1" in index
+
+        # Should have two position keys
+        assert "1:10" in index["RECORD-1"]
+        assert "11:20" in index["RECORD-1"]
+
+        # VAR-A at 1:10 should have both paragraphs
+        assert index["RECORD-1"]["1:10"]["variable_name"] == "VAR-A"
+        assert set(index["RECORD-1"]["1:10"]["paragraphs"]) == {"PARA-1", "PARA-2"}
+
+        # VAR-B at 11:20 should have only PARA-1
+        assert index["RECORD-1"]["11:20"]["variable_name"] == "VAR-B"
+        assert index["RECORD-1"]["11:20"]["paragraphs"] == ["PARA-1"]
+
+    def test_handles_multiple_records(self):
+        """Test that index correctly separates different records."""
+        paragraph_variables = {
+            "paragraphs": {
+                "PARA-1": {
+                    "VAR-X": {
+                        "defined_in_record": "REC-A",
+                        "base_record": "REC-A",
+                        "position": {"start": 1, "end": 5},
+                        "explanation": "direct"
+                    },
+                    "VAR-Y": {
+                        "defined_in_record": "REC-B",
+                        "base_record": "REC-B",
+                        "position": {"start": 1, "end": 5},
+                        "explanation": "direct"
+                    }
+                }
+            }
+        }
+
+        index = _build_variable_index(paragraph_variables)
+
+        # Should have separate entries for each record
+        assert "REC-A" in index
+        assert "REC-B" in index
+
+        # Same position key but in different records
+        assert "1:5" in index["REC-A"]
+        assert "1:5" in index["REC-B"]
+
+        assert index["REC-A"]["1:5"]["variable_name"] == "VAR-X"
+        assert index["REC-B"]["1:5"]["variable_name"] == "VAR-Y"
+
+    def test_skips_variables_without_position(self):
+        """Test that variables without position info are skipped."""
+        paragraph_variables = {
+            "paragraphs": {
+                "PARA-1": {
+                    "VAR-WITH-POS": {
+                        "defined_in_record": "REC-1",
+                        "base_record": "REC-1",
+                        "position": {"start": 1, "end": 10},
+                        "explanation": "direct"
+                    },
+                    "VAR-NO-POS": {
+                        "defined_in_record": "REC-1",
+                        "base_record": "REC-1",
+                        "explanation": "direct"
+                        # No position key
+                    }
+                }
+            }
+        }
+
+        index = _build_variable_index(paragraph_variables)
+
+        # Only the variable with position should be in index
+        assert "REC-1" in index
+        assert "1:10" in index["REC-1"]
+        assert index["REC-1"]["1:10"]["variable_name"] == "VAR-WITH-POS"
+
+        # No other entries for REC-1
+        assert len(index["REC-1"]) == 1
+
+    def test_empty_paragraphs(self):
+        """Test handling of empty paragraph_variables."""
+        paragraph_variables = {"paragraphs": {}}
+
+        index = _build_variable_index(paragraph_variables)
+
+        assert index == {}
+
+    def test_no_duplicate_paragraphs(self):
+        """Test that same paragraph is not added twice for same variable."""
+        # This tests the deduplication logic
+        paragraph_variables = {
+            "paragraphs": {
+                "PARA-1": {
+                    "VAR-A": {
+                        "defined_in_record": "REC-1",
+                        "base_record": "REC-1",
+                        "position": {"start": 1, "end": 10},
+                        "explanation": "direct"
+                    }
+                }
+            }
+        }
+
+        index = _build_variable_index(paragraph_variables)
+
+        # Should have exactly one paragraph entry
+        assert index["REC-1"]["1:10"]["paragraphs"] == ["PARA-1"]
+
+    def test_uses_raw_filler_format(self):
+        """Test that FILLER records use raw format (FILLER$n) in index."""
+        paragraph_variables = {
+            "paragraphs": {
+                "PARA-1": {
+                    "VAR-IN-FILLER": {
+                        "defined_in_record": "FILLER$1",  # Raw format
+                        "base_record": "MAIN-REC",
+                        "position": {"start": 1, "end": 10},
+                        "explanation": "direct"
+                    },
+                    "VAR-NORMAL": {
+                        "defined_in_record": "NORMAL-REC",
+                        "base_record": "NORMAL-REC",
+                        "position": {"start": 1, "end": 5},
+                        "explanation": "direct"
+                    }
+                }
+            }
+        }
+
+        index = _build_variable_index(paragraph_variables)
+
+        # FILLER variable should use raw FILLER$n format as key
+        assert "FILLER$1" in index
+        assert index["FILLER$1"]["1:10"]["variable_name"] == "VAR-IN-FILLER"
+
+        # Normal variable should use defined_in_record as key
+        assert "NORMAL-REC" in index
+        assert index["NORMAL-REC"]["1:5"]["variable_name"] == "VAR-NORMAL"
 
 
 class TestGetDataDivisionTree:

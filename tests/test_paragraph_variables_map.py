@@ -1132,8 +1132,8 @@ class TestFillerRedefinesPattern:
             "_original_line_count": 50
         }
 
-    def test_filler_with_redefines_shows_redefined_record(self, filler_redefines_with_copybook_data):
-        """Test that FILLER shows what it redefines in defined_in_record."""
+    def test_filler_with_redefines_shows_raw_record_name(self, filler_redefines_with_copybook_data):
+        """Test that FILLER uses raw record name (FILLER$n) in defined_in_record."""
         # Add REDEFINES relationship
         filler_redefines_with_copybook_data["sections_and_paragraphs"]["PROCESS-ORDER"][0]["affected_variables"] = [
             {
@@ -1149,8 +1149,8 @@ class TestFillerRedefinesPattern:
 
         customer_id = result["paragraphs"]["PROCESS-ORDER"]["CUSTOMER-ID"]
 
-        # Should show what FILLER redefines (takes priority over copybook source)
-        assert customer_id["defined_in_record"] == "FILLER (ORDER-BUFFER)"
+        # Should use raw FILLER$n format for consistent linking with DataDivisionTree
+        assert customer_id["defined_in_record"] == "FILLER$1"
         assert customer_id["base_record"] == "ORDER-BUFFER"
 
     def test_filler_redefines_includes_position(self, filler_redefines_with_copybook_data):
@@ -1298,15 +1298,15 @@ class TestFillerWithoutCopybook:
             "_original_line_count": 100
         }
 
-    def test_filler_with_redefines_shows_redefined_record(self, filler_main_source_data):
-        """Test that FILLER shows what it redefines in defined_in_record."""
+    def test_filler_with_redefines_shows_raw_record_name(self, filler_main_source_data):
+        """Test that FILLER uses raw record name (FILLER$n) in defined_in_record."""
         mapper = ParagraphVariablesMapper(filler_main_source_data)
         result = mapper.map()
 
         field_a = result["paragraphs"]["PROCESS-DATA"]["FIELD-A"]
 
-        # Should show what FILLER redefines
-        assert field_a["defined_in_record"] == "FILLER (MAIN-BUFFER)"
+        # Should use raw FILLER$n format for consistent linking with DataDivisionTree
+        assert field_a["defined_in_record"] == "FILLER$2"
         assert field_a["base_record"] == "MAIN-BUFFER"
 
     def test_filler_without_copybook_still_has_position(self, filler_main_source_data):
@@ -1369,8 +1369,8 @@ class TestFillerEdgeCases:
 
         var_x = result["paragraphs"]["PARA-1"]["VAR-X"]
 
-        # Should show what FILLER redefines (from redefines_chain)
-        assert var_x["defined_in_record"] == "FILLER (BUFFER)"
+        # Should use raw FILLER$n format for consistent linking with DataDivisionTree
+        assert var_x["defined_in_record"] == "FILLER$3"
         assert var_x["base_record"] == "BUFFER"
 
     def test_filler_same_as_base_still_has_position(self):
@@ -1412,5 +1412,5 @@ class TestFillerEdgeCases:
         assert var_y["position"]["start"] == 1   # 1-indexed
         assert var_y["position"]["end"] == 10    # 1-indexed, inclusive
 
-        # Should still format FILLER name
-        assert var_y["defined_in_record"] == "FILLER"
+        # Should use raw FILLER$n format for consistent linking with DataDivisionTree
+        assert var_y["defined_in_record"] == "FILLER$4"

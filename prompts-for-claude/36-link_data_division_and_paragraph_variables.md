@@ -398,3 +398,18 @@ You're right - DataItemNode has hierarchical structure but no direct defined_in_
   Client lookup becomes trivial:                                                                                  
   node = selected_data_item_node                                                                                  
   paragraphs = index[node.defined_in_record][f"{node.position.start}:{node.position.end}"]["paragraphs"]   
+
+  # Refinement
+  Now you have to adjust the api "analyze_paragraph_variables" so that it returns the "variable_index", as discussed before, compatible with the client lookup strategy defined:
+  Client lookup becomes trivial:                                                                                  
+  node = selected_data_item_node                                                                                  
+  paragraphs = index[node.defined_in_record][f"{node.position.start}:{node.position.end}"]["paragraphs"] 
+
+  # Refinement
+  variable_index has some keys derived from fillers that have the format like these:
+  - FILLER (COPYBOOK copybook)
+  - FILLER (WS-DATE)
+  This format does not work since DataDivisionTree has the format "defined_in_record": "FILLER$xyz".
+
+  Change the implementation of the logic that calculates variable_index so that the keys are in the format "FILLER$xyz".
+  Remove the logic that changes the format "FILLER$xyz" from anywhere in the api "analyze_paragraph_variables".

@@ -134,14 +134,88 @@ class AnalysisResult:
         program_name: Name of the analyzed COBOL program
         analysis: Full analysis dict (same as {program_name}-analysis.json)
         paragraph_variables: Mapped dict (same as {program_name}-paragraph-variables.json)
+        variable_index: Inverted index for linking DataDivisionTree nodes to paragraphs.
+            Structure: {defined_in_record: {"start:end": {"variable_name": str, "paragraphs": [str]}}}
+            Enables lookup: index[node.defined_in_record][f"{node.position.start}:{node.position.end}"]["paragraphs"]
         execution_time_seconds: Total execution time for both analysis and mapping
         source_info: Source file metadata (if include_source_info was True)
     """
     program_name: str
     analysis: Dict[str, Any]
     paragraph_variables: Dict[str, Any]
+    variable_index: Dict[str, Dict[str, Dict[str, Any]]]
     execution_time_seconds: float
     source_info: Optional[Dict[str, Any]] = None
+
+
+def _build_variable_index(
+    paragraph_variables: Dict[str, Any]
+) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """Build an inverted index from paragraph_variables for DataDivisionTree linking.
+
+    Creates an index structure that enables O(1) lookup from a DataDivisionTree node
+    to the list of paragraphs that may modify that variable.
+
+    Args:
+        paragraph_variables: The paragraph_variables output from ParagraphVariablesMapper
+
+    Returns:
+        Nested dict with structure:
+        {
+            defined_in_record: {
+                "start:end": {
+                    "variable_name": str,
+                    "paragraphs": [paragraph_name, ...]
+                }
+            }
+        }
+
+    Example usage:
+        >>> index = result.variable_index
+        >>> node = selected_data_item_node  # from DataDivisionTree
+        >>> key = f"{node.position['start']}:{node.position['end']}"
+        >>> entry = index.get(node.defined_in_record, {}).get(key)
+        >>> if entry:
+        ...     paragraphs = entry["paragraphs"]
+    """
+    index: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    paragraphs_data = paragraph_variables.get("paragraphs", {})
+
+    for para_name, variables in paragraphs_data.items():
+        for var_name, var_info in variables.items():
+            # Get the defined_in_record - this now always uses the raw format
+            # (e.g., FILLER$1) to match DataDivisionTree's defined_in_record
+            defined_in_record = var_info.get("defined_in_record", "")
+
+            # Get position - skip if no position info
+            position = var_info.get("position")
+            if not position:
+                continue
+
+            start = position.get("start")
+            end = position.get("end")
+            if start is None or end is None:
+                continue
+
+            # Build the position key
+            pos_key = f"{start}:{end}"
+
+            # Initialize nested dicts if needed
+            if defined_in_record not in index:
+                index[defined_in_record] = {}
+
+            if pos_key not in index[defined_in_record]:
+                index[defined_in_record][pos_key] = {
+                    "variable_name": var_name,
+                    "paragraphs": []
+                }
+
+            # Add this paragraph to the list (avoid duplicates)
+            if para_name not in index[defined_in_record][pos_key]["paragraphs"]:
+                index[defined_in_record][pos_key]["paragraphs"].append(para_name)
+
+    return index
 
 
 def analyze_paragraph_variables(
@@ -289,6 +363,9 @@ def analyze_paragraph_variables(
         if options.include_source_info and "source_info" in analysis_output:
             paragraph_variables_output["source_info"] = analysis_output["source_info"]
 
+        # Build variable index for DataDivisionTree linking
+        variable_index = _build_variable_index(paragraph_variables_output)
+
         # Calculate total execution time
         end_time = time.perf_counter()
         total_execution_time = end_time - start_time
@@ -300,6 +377,7 @@ def analyze_paragraph_variables(
             program_name=program.name,
             analysis=analysis_output,
             paragraph_variables=paragraph_variables_output,
+            variable_index=variable_index,
             execution_time_seconds=round(total_execution_time, 4),
             source_info=analysis_output.get("source_info"),
         )

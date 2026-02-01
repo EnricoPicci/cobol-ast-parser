@@ -115,15 +115,45 @@ Configuration dataclass for analysis options.
 
 ### `AnalysisResult`
 
-Result dataclass containing both JSON outputs.
+Result dataclass containing both JSON outputs and a linking index.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `program_name` | `str` | Name of the analyzed COBOL program |
 | `analysis` | `dict` | Full analysis (same as `{program_name}-analysis.json`) |
 | `paragraph_variables` | `dict` | Paragraph-variables map (same as `{program_name}-paragraph-variables.json`) |
+| `variable_index` | `dict` | Inverted index for linking `DataDivisionTree` nodes to paragraphs (see below) |
 | `execution_time_seconds` | `float` | Total processing time |
 | `source_info` | `dict \| None` | Source file metadata (included by default, `None` if `include_source_info=False`) |
+
+#### `variable_index` Structure
+
+The `variable_index` provides O(1) lookup from a `DataDivisionTree` node to the list of paragraphs that may modify that variable:
+
+```python
+{
+    "RECORD-NAME": {
+        "start:end": {
+            "variable_name": "VAR-NAME",
+            "paragraphs": ["PARA-1", "PARA-2", ...]
+        }
+    }
+}
+```
+
+**Lookup pattern:**
+```python
+# Given a DataItemNode from DataDivisionTree
+node = selected_data_item_node
+
+# Build the lookup key
+key = f"{node.position['start']}:{node.position['end']}"
+
+# Find modifying paragraphs
+entry = result.variable_index.get(node.defined_in_record, {}).get(key)
+if entry:
+    paragraphs = entry["paragraphs"]
+```
 
 ### JSON Output Structure
 
@@ -566,6 +596,92 @@ json_output = json.dumps(tree_dict, indent=2)
 
 # Write to file
 Path("data-division-tree.json").write_text(json_output)
+```
+
+---
+
+## Linking DataDivisionTree to Paragraphs
+
+A common use case is selecting a variable from the `DataDivisionTree` and finding which paragraphs may modify it. The `variable_index` in `AnalysisResult` enables this with O(1) lookup.
+
+### Complete Linking Example
+
+```python
+from pathlib import Path
+from src import get_data_division_tree, analyze_paragraph_variables, DataItemNode
+
+# Get both outputs for the same COBOL file
+source_path = Path("program.cob")
+tree = get_data_division_tree(source_path)
+result = analyze_paragraph_variables(source_path)
+
+def find_modifying_paragraphs(node: DataItemNode) -> list[str]:
+    """Find all paragraphs that may modify this variable."""
+    if not node.defined_in_record or not node.position:
+        return []
+
+    # Build the lookup key using defined_in_record and position
+    pos_key = f"{node.position['start']}:{node.position['end']}"
+
+    # Look up in variable_index
+    entry = result.variable_index.get(node.defined_in_record, {}).get(pos_key)
+    return entry["paragraphs"] if entry else []
+
+# Example: Find paragraphs that modify variables in WS-EMPLOYEE-RECORD
+for record in tree.all_records:
+    if record.name == "WS-EMPLOYEE-RECORD":
+        for child in record.children:
+            paragraphs = find_modifying_paragraphs(child)
+            if paragraphs:
+                print(f"{child.name}: modified in {', '.join(paragraphs)}")
+```
+
+### Why Use `defined_in_record`?
+
+When two Level 01 records REDEFINE each other, they share the same memory but have different variables:
+
+```cobol
+01 CLIENT.
+   05 CLIENT-NAME  PIC X(30).    *> Position 1-30
+
+01 CLIENT-CHINA REDEFINES CLIENT.
+   05 MIDDLE-NAME  PIC X(30).    *> Same position 1-30!
+```
+
+Using `defined_in_record` ensures you get only the explicit modifications to the variable you selected:
+
+- `CLIENT-NAME` in `CLIENT` → paragraphs that modify `CLIENT-NAME`
+- `MIDDLE-NAME` in `CLIENT-CHINA` → paragraphs that modify `MIDDLE-NAME`
+
+Without `defined_in_record`, position alone would match both (since they share memory).
+
+### Building a UI with Tree Selection
+
+```python
+from pathlib import Path
+from src import get_data_division_tree, analyze_paragraph_variables
+
+# Load both data structures once
+tree = get_data_division_tree(Path("program.cob"))
+result = analyze_paragraph_variables(Path("program.cob"))
+
+def on_variable_selected(node):
+    """Called when user selects a variable in the DataDivisionTree UI."""
+    if not node.position or not node.defined_in_record:
+        return {"variable": node.name, "paragraphs": [], "message": "No modification data"}
+
+    key = f"{node.position['start']}:{node.position['end']}"
+    entry = result.variable_index.get(node.defined_in_record, {}).get(key)
+
+    if entry:
+        return {
+            "variable": entry["variable_name"],
+            "record": node.defined_in_record,
+            "position": f"{node.position['start']}-{node.position['end']}",
+            "paragraphs": entry["paragraphs"]
+        }
+    else:
+        return {"variable": node.name, "paragraphs": [], "message": "Not modified"}
 ```
 
 ## Comparison: CLI vs API
