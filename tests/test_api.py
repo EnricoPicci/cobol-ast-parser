@@ -15,6 +15,9 @@ from cobol_ast.api import (
     DataDivisionSection,
     _build_copybook_line_map,
     _build_variable_index,
+    analyze_with_tree,
+    CombinedOptions,
+    CombinedResult,
 )
 from parser import ParseError
 
@@ -1491,3 +1494,266 @@ class TestBuildCopybookLineMap:
         result = _build_copybook_line_map(source)
 
         assert len(result) == 0
+
+
+class TestAnalyzeWithTree:
+    """Tests for the analyze_with_tree combined API function."""
+
+    def test_returns_combined_result(self):
+        """Test that analyze_with_tree returns a CombinedResult."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_with_tree(source_path)
+
+        assert isinstance(result, CombinedResult)
+        assert result.program_name == "SIMPLE-PROGRAM"
+        assert isinstance(result.data_division_tree, DataDivisionTree)
+        assert isinstance(result.analysis_result, AnalysisResult)
+        assert result.execution_time_seconds > 0
+
+    def test_data_division_tree_matches_separate_call(self):
+        """Test that DataDivisionTree from combined API matches separate API."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        # Get tree from combined API
+        combined = analyze_with_tree(source_path)
+        combined_tree = combined.data_division_tree
+
+        # Get tree from separate API
+        separate_tree = get_data_division_tree(source_path)
+
+        # Compare key attributes (excluding execution time which varies)
+        assert combined_tree.program_name == separate_tree.program_name
+        assert combined_tree.summary == separate_tree.summary
+        assert len(combined_tree.all_records) == len(separate_tree.all_records)
+        assert len(combined_tree.sections) == len(separate_tree.sections)
+
+        # Compare record names
+        combined_names = {r.name for r in combined_tree.all_records}
+        separate_names = {r.name for r in separate_tree.all_records}
+        assert combined_names == separate_names
+
+    def test_analysis_result_matches_separate_call(self):
+        """Test that AnalysisResult from combined API matches separate API."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        # Get result from combined API
+        combined = analyze_with_tree(source_path)
+        combined_analysis = combined.analysis_result
+
+        # Get result from separate API
+        separate_analysis = analyze_paragraph_variables(source_path)
+
+        # Compare key attributes (excluding execution time and analysis_date)
+        assert combined_analysis.program_name == separate_analysis.program_name
+
+        # Compare paragraph_variables structure (excluding volatile fields)
+        combined_paras = combined_analysis.paragraph_variables.get("paragraphs", {})
+        separate_paras = separate_analysis.paragraph_variables.get("paragraphs", {})
+        assert set(combined_paras.keys()) == set(separate_paras.keys())
+
+        # Compare variable_index
+        assert combined_analysis.variable_index == separate_analysis.variable_index
+
+    def test_variable_index_is_populated(self):
+        """Test that variable_index is properly populated in combined result."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_with_tree(source_path)
+
+        # variable_index should have entries
+        assert result.analysis_result.variable_index
+        assert isinstance(result.analysis_result.variable_index, dict)
+
+    def test_with_default_options(self):
+        """Test combined API with default options."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_with_tree(source_path)
+
+        # Source info should be included by default
+        assert result.data_division_tree.source_info is not None
+        assert result.analysis_result.source_info is not None
+
+    def test_with_custom_options(self):
+        """Test combined API with custom options."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+        options = CombinedOptions(
+            include_source_info=False,
+            include_filler=False,
+            include_88_levels=False,
+            include_redefines=False,
+        )
+
+        result = analyze_with_tree(source_path, options)
+
+        # Source info should be excluded
+        assert result.data_division_tree.source_info is None
+        assert result.analysis_result.source_info is None
+
+        # Check no FILLER items in tree
+        def has_filler(node):
+            if node.is_filler:
+                return True
+            for child in node.children:
+                if has_filler(child):
+                    return True
+            return False
+
+        for record in result.data_division_tree.all_records:
+            assert not has_filler(record)
+
+        # Check no 88-level items in tree
+        def has_88_level(node):
+            if node.level == 88:
+                return True
+            for child in node.children:
+                if has_88_level(child):
+                    return True
+            return False
+
+        for record in result.data_division_tree.all_records:
+            assert not has_88_level(record)
+
+    def test_file_not_found(self):
+        """Test that FileNotFoundError is raised for missing files."""
+        source_path = FIXTURES_DIR / "nonexistent.cob"
+
+        with pytest.raises(FileNotFoundError) as exc_info:
+            analyze_with_tree(source_path)
+
+        assert "nonexistent.cob" in str(exc_info.value)
+
+    def test_directory_instead_of_file(self):
+        """Test that FileNotFoundError is raised when path is a directory."""
+        with pytest.raises(FileNotFoundError) as exc_info:
+            analyze_with_tree(FIXTURES_DIR)
+
+        assert "not a file" in str(exc_info.value)
+
+    def test_with_copybooks(self):
+        """Test combined API with copybook resolution."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+        options = CombinedOptions(copybook_paths=[copybook_path])
+
+        result = analyze_with_tree(source_path, options)
+
+        # Tree should contain items from copybooks
+        record_names = {r.name for r in result.data_division_tree.all_records}
+        assert "WS-EMPLOYEE" in record_names
+
+        # Analysis should include copybook content
+        assert result.analysis_result.program_name is not None
+
+    def test_with_redefines_program(self):
+        """Test combined API with REDEFINES program."""
+        source_path = FIXTURES_DIR / "redefines_program.cob"
+
+        result = analyze_with_tree(source_path)
+
+        # Find EMPLOYEE-RECORD which redefines INPUT-RECORD
+        emp_record = None
+        for record in result.data_division_tree.all_records:
+            if record.name == "EMPLOYEE-RECORD":
+                emp_record = record
+                break
+
+        assert emp_record is not None
+        assert emp_record.redefines == "INPUT-RECORD"
+
+
+class TestCombinedOptions:
+    """Tests for the CombinedOptions dataclass."""
+
+    def test_default_values(self):
+        """Test that default values are set correctly."""
+        options = CombinedOptions()
+
+        assert options.copybook_paths is None
+        assert options.resolve_copies is True
+        assert options.include_redefines is True
+        assert options.include_ancestor_mods is True
+        assert options.include_source_info is True
+        assert options.include_filler is True
+        assert options.include_88_levels is True
+
+    def test_custom_values(self):
+        """Test setting custom values."""
+        options = CombinedOptions(
+            copybook_paths=[Path("/copybooks")],
+            resolve_copies=False,
+            include_redefines=False,
+            include_ancestor_mods=False,
+            include_source_info=False,
+            include_filler=False,
+            include_88_levels=False,
+        )
+
+        assert options.copybook_paths == [Path("/copybooks")]
+        assert options.resolve_copies is False
+        assert options.include_redefines is False
+        assert options.include_ancestor_mods is False
+        assert options.include_source_info is False
+        assert options.include_filler is False
+        assert options.include_88_levels is False
+
+    def test_to_analysis_options(self):
+        """Test conversion to AnalysisOptions."""
+        options = CombinedOptions(
+            copybook_paths=[Path("/copybooks")],
+            resolve_copies=False,
+            include_redefines=False,
+            include_ancestor_mods=False,
+            include_source_info=False,
+        )
+
+        analysis_options = options.to_analysis_options()
+
+        assert analysis_options.copybook_paths == [Path("/copybooks")]
+        assert analysis_options.resolve_copies is False
+        assert analysis_options.include_redefines is False
+        assert analysis_options.include_ancestor_mods is False
+        assert analysis_options.include_source_info is False
+
+    def test_to_tree_options(self):
+        """Test conversion to TreeOptions."""
+        options = CombinedOptions(
+            copybook_paths=[Path("/copybooks")],
+            resolve_copies=False,
+            include_filler=False,
+            include_88_levels=False,
+            include_source_info=False,
+        )
+
+        tree_options = options.to_tree_options()
+
+        assert tree_options.copybook_paths == [Path("/copybooks")]
+        assert tree_options.resolve_copies is False
+        assert tree_options.include_filler is False
+        assert tree_options.include_88_levels is False
+        assert tree_options.include_source_info is False
+
+
+class TestCombinedResult:
+    """Tests for the CombinedResult dataclass."""
+
+    def test_result_attributes(self):
+        """Test that CombinedResult has expected attributes."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_with_tree(source_path)
+
+        assert hasattr(result, "program_name")
+        assert hasattr(result, "data_division_tree")
+        assert hasattr(result, "analysis_result")
+        assert hasattr(result, "execution_time_seconds")
+
+    def test_program_name_consistency(self):
+        """Test that program_name is consistent across all components."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_with_tree(source_path)
+
+        assert result.program_name == result.data_division_tree.program_name
+        assert result.program_name == result.analysis_result.program_name

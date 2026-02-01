@@ -30,6 +30,9 @@ from .cobol_ast.api import (
     DataDivisionTree,
     DataItemNode,
     DataDivisionSection,
+    analyze_with_tree,
+    CombinedOptions,
+    CombinedResult,
 )
 
 __version__ = "0.1.0"
@@ -44,4 +47,7 @@ __all__ = [
     "DataDivisionTree",
     "DataItemNode",
     "DataDivisionSection",
+    "analyze_with_tree",
+    "CombinedOptions",
+    "CombinedResult",
 ]

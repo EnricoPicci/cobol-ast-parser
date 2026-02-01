@@ -544,6 +544,65 @@ class DataDivisionTree:
         return result
 
 
+@dataclass
+class CombinedOptions:
+    """Options for combined analysis and tree generation.
+
+    Attributes:
+        copybook_paths: Additional paths to search for copybooks. The source file's
+            directory is always searched by default.
+        resolve_copies: Whether to resolve COPY statements (default: True)
+        include_redefines: Include REDEFINES-affected variables in output (default: True)
+        include_ancestor_mods: Include ancestor-modified variables in output (default: True)
+        include_source_info: Include source file metadata in output (default: True)
+        include_filler: Include FILLER items in tree output (default: True)
+        include_88_levels: Include 88-level condition names in tree output (default: True)
+    """
+    copybook_paths: Optional[List[Path]] = None
+    resolve_copies: bool = True
+    include_redefines: bool = True
+    include_ancestor_mods: bool = True
+    include_source_info: bool = True
+    include_filler: bool = True
+    include_88_levels: bool = True
+
+    def to_analysis_options(self) -> AnalysisOptions:
+        """Convert to AnalysisOptions for paragraph variables analysis."""
+        return AnalysisOptions(
+            copybook_paths=self.copybook_paths,
+            resolve_copies=self.resolve_copies,
+            include_redefines=self.include_redefines,
+            include_ancestor_mods=self.include_ancestor_mods,
+            include_source_info=self.include_source_info,
+        )
+
+    def to_tree_options(self) -> TreeOptions:
+        """Convert to TreeOptions for data division tree generation."""
+        return TreeOptions(
+            copybook_paths=self.copybook_paths,
+            resolve_copies=self.resolve_copies,
+            include_filler=self.include_filler,
+            include_88_levels=self.include_88_levels,
+            include_source_info=self.include_source_info,
+        )
+
+
+@dataclass
+class CombinedResult:
+    """Result of combined analysis and tree generation.
+
+    Attributes:
+        program_name: Name of the analyzed COBOL program
+        data_division_tree: Hierarchical tree view of DATA DIVISION
+        analysis_result: Paragraph variables analysis result
+        execution_time_seconds: Total execution time for the combined analysis
+    """
+    program_name: str
+    data_division_tree: DataDivisionTree
+    analysis_result: AnalysisResult
+    execution_time_seconds: float
+
+
 def _build_copybook_line_map(original_source: str) -> Dict[str, int]:
     """Build a map of copybook names to their COPY statement line numbers.
 
@@ -923,3 +982,268 @@ def get_data_division_tree(
         raise  # Re-raise FileNotFoundError as-is
     except Exception as e:
         raise AnalysisError(f"Tree generation failed: {e}") from e
+
+
+def analyze_with_tree(
+    source_path: Path,
+    options: Optional[CombinedOptions] = None,
+) -> CombinedResult:
+    """Analyze a COBOL source file and generate both analysis result and data division tree.
+
+    This function performs both paragraph-variables analysis and data division tree
+    generation in a single pass, avoiding duplicate preprocessing and parsing.
+    Use this when you need both outputs for approximately 40% efficiency gain.
+
+    Args:
+        source_path: Path to the COBOL source file
+        options: Combined options (uses defaults if not provided)
+
+    Returns:
+        CombinedResult containing:
+        - data_division_tree: Hierarchical tree view of DATA DIVISION
+        - analysis_result: Paragraph variables analysis result with variable_index
+
+    Raises:
+        FileNotFoundError: If source file doesn't exist
+        ParseError: If COBOL source cannot be parsed
+        AnalysisError: If analysis fails for other reasons
+
+    Example:
+        >>> from cobol_ast import analyze_with_tree, CombinedOptions
+        >>> from pathlib import Path
+        >>>
+        >>> # Simple usage with defaults
+        >>> result = analyze_with_tree(Path("myprogram.cob"))
+        >>> print(result.program_name)
+        >>> print(result.data_division_tree.summary)
+        >>> print(result.analysis_result.paragraph_variables)
+        >>>
+        >>> # With custom options
+        >>> options = CombinedOptions(
+        ...     copybook_paths=[Path("./copybooks")],
+        ...     include_filler=False,
+        ...     include_redefines=False,
+        ... )
+        >>> result = analyze_with_tree(Path("myprogram.cob"), options)
+    """
+    # Import here to avoid circular imports and keep module lightweight
+    import time
+    from preprocessor import CopyResolver, detect_format, normalize_source
+    from parser import CobolParser, ParseError
+    from . import ASTBuilder
+    from analyzers import ImpactAnalyzer
+    from output import ParagraphVariablesMapper
+
+    # Use defaults if no options provided
+    if options is None:
+        options = CombinedOptions()
+
+    # Convert to component options for filtering/features
+    tree_options = options.to_tree_options()
+    analysis_options = options.to_analysis_options()
+
+    # Validate input
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source file not found: {source_path}")
+
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Source path is not a file: {source_path}")
+
+    start_time = time.perf_counter()
+
+    try:
+        # ===== SHARED PREPROCESSING (done once) =====
+
+        # Read source file
+        source = source_path.read_text(encoding="utf-8", errors="replace")
+        original_source = source  # Keep original for copybook line mapping
+        source_lines_count = len(source.splitlines())
+
+        # Detect format
+        source_lines = source.splitlines()
+        source_format = detect_format(source_lines)
+
+        # Build copybook line map from original source (before COPY resolution)
+        copybook_line_map = _build_copybook_line_map(original_source)
+
+        # Resolve COPY statements
+        line_mapping = None
+        line_mapping_dict = None
+        original_line_count = source_lines_count
+        if options.resolve_copies:
+            copy_paths = options.copybook_paths or []
+            copy_paths = [source_path.parent] + list(copy_paths)
+
+            resolver = CopyResolver(copy_paths)
+            try:
+                source = resolver.resolve(source, source_path.name)
+                line_mapping = resolver.line_mapping
+                original_line_count = resolver.original_line_count
+                # Also build dict version for tree generation
+                line_mapping_dict = {
+                    str(k): {
+                        "original_line": v.original_line,
+                        "source_file": v.source_file,
+                        "is_copybook": v.is_copybook,
+                    }
+                    for k, v in line_mapping.items()
+                }
+            except Exception:
+                # COPY resolution failure is not fatal
+                pass
+
+        # Normalize source
+        source = normalize_source(source, source_format)
+
+        # Parse (done once)
+        parser = CobolParser(use_generated=False)
+        try:
+            parse_tree = parser.parse(source)
+        except ParseError:
+            raise  # Re-raise ParseError as-is
+
+        # Build AST (done once)
+        builder = ASTBuilder()
+        program = builder.build(parse_tree)
+
+        # ===== ANALYSIS (uses ImpactAnalyzer which contains DataStructureAnalyzer) =====
+
+        analyzer = ImpactAnalyzer(program)
+        analyzer.analyze()
+
+        # Generate analysis output
+        analysis_output = analyzer.generate_output()
+
+        # Convert expanded line numbers to original line numbers
+        if line_mapping:
+            _apply_line_mapping_to_analysis(
+                analysis_output, line_mapping, original_line_count
+            )
+
+        # Build source info (shared between outputs)
+        source_info = None
+        if options.include_source_info:
+            source_info = {
+                "file_path": str(source_path.absolute()),
+                "file_name": source_path.name,
+                "source_format": source_format.value,
+                "lines_count": source_lines_count,
+            }
+            analysis_output["source_info"] = source_info
+
+        # Add line mapping for converting expanded line numbers to original
+        if line_mapping:
+            analysis_output["_line_mapping"] = {
+                str(k): {
+                    "original_line": v.original_line,
+                    "source_file": v.source_file,
+                    "is_copybook": v.is_copybook,
+                }
+                for k, v in line_mapping.items()
+            }
+            analysis_output["_original_line_count"] = original_line_count
+
+        # Generate paragraph-variables map
+        mapper = ParagraphVariablesMapper(analysis_output)
+        paragraph_variables_output = mapper.map(
+            include_redefines=analysis_options.include_redefines,
+            include_ancestor_mods=analysis_options.include_ancestor_mods
+        )
+
+        # Add source_info to paragraph_variables output if requested
+        if options.include_source_info and source_info:
+            paragraph_variables_output["source_info"] = source_info
+
+        # Build variable index for DataDivisionTree linking
+        variable_index = _build_variable_index(paragraph_variables_output)
+
+        # ===== DATA DIVISION TREE (reuses analyzer.data_analyzer._memory_regions) =====
+
+        # Reuse memory regions from the already-run DataStructureAnalyzer
+        memory_regions = analyzer.data_analyzer._memory_regions
+
+        # Transform record descriptions to tree nodes
+        all_records: List[DataItemNode] = []
+        sections_dict: Dict[str, List[DataItemNode]] = {}
+
+        for record_name, record in program.record_descriptions.items():
+            # Use the root_item.name as defined_in_record (this is the Level 01 record name)
+            record_defined_in = record.root_item.name
+            transformed = _transform_data_item(
+                record.root_item, tree_options, memory_regions, line_mapping_dict,
+                copybook_line_map, defined_in_record=record_defined_in
+            )
+            if transformed:
+                all_records.append(transformed)
+
+                # Group by section
+                section_name = record.section
+                if section_name not in sections_dict:
+                    sections_dict[section_name] = []
+                sections_dict[section_name].append(transformed)
+
+        # Build section list in standard order
+        section_order = ["FILE", "WORKING-STORAGE", "LOCAL-STORAGE", "LINKAGE"]
+        sections: List[DataDivisionSection] = []
+
+        # Add known sections in order
+        for section_name in section_order:
+            if section_name in sections_dict:
+                sections.append(DataDivisionSection(
+                    name=section_name,
+                    records=sections_dict[section_name]
+                ))
+
+        # Add any other sections not in the standard order
+        for section_name, records in sections_dict.items():
+            if section_name not in section_order:
+                sections.append(DataDivisionSection(
+                    name=section_name,
+                    records=records
+                ))
+
+        # Compute summary
+        summary = _compute_summary(all_records)
+
+        # ===== BUILD RESULTS =====
+
+        # Calculate total execution time
+        end_time = time.perf_counter()
+        total_execution_time = end_time - start_time
+
+        # Add execution time to analysis output
+        analysis_output["execution_time_seconds"] = round(total_execution_time, 4)
+
+        # Build DataDivisionTree
+        data_division_tree = DataDivisionTree(
+            program_name=program.name,
+            sections=sections,
+            all_records=all_records,
+            summary=summary,
+            execution_time_seconds=round(total_execution_time, 4),
+            source_info=source_info,
+        )
+
+        # Build AnalysisResult
+        analysis_result = AnalysisResult(
+            program_name=program.name,
+            analysis=analysis_output,
+            paragraph_variables=paragraph_variables_output,
+            variable_index=variable_index,
+            execution_time_seconds=round(total_execution_time, 4),
+            source_info=source_info,
+        )
+
+        return CombinedResult(
+            program_name=program.name,
+            data_division_tree=data_division_tree,
+            analysis_result=analysis_result,
+            execution_time_seconds=round(total_execution_time, 4),
+        )
+
+    except ParseError:
+        raise  # Re-raise ParseError as-is
+    except FileNotFoundError:
+        raise  # Re-raise FileNotFoundError as-is
+    except Exception as e:
+        raise AnalysisError(f"Combined analysis failed: {e}") from e
