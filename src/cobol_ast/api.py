@@ -351,6 +351,10 @@ class DataItemNode:
         copybook: Name of copybook that provides the content for this item (for FILLER
             items whose children come from a COPY statement)
         position: Memory position info (start, end, size) if calculable
+        defined_in_record: Name of the Level 01 record that contains this data item.
+            This enables linking with paragraph_variables output for variable lookup.
+            For Level 01 records, this equals their own name. For 77-level items,
+            this also equals their own name as they are standalone.
         children: List of child DataItemNode objects
     """
     name: str
@@ -367,6 +371,7 @@ class DataItemNode:
     copybook_source: Optional[str] = None
     copybook: Optional[str] = None
     position: Optional[Dict[str, int]] = None
+    defined_in_record: Optional[str] = None
     children: List["DataItemNode"] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -401,6 +406,8 @@ class DataItemNode:
             result["copybook"] = self.copybook
         if self.position is not None:
             result["position"] = self.position
+        if self.defined_in_record is not None:
+            result["defined_in_record"] = self.defined_in_record
         if self.children:
             result["children"] = [child.to_dict() for child in self.children]
 
@@ -495,6 +502,7 @@ def _transform_data_item(
     memory_regions: Dict[str, "MemoryRegion"],
     line_mapping: Optional[Dict[str, Dict[str, Any]]],
     copybook_line_map: Optional[Dict[str, int]] = None,
+    defined_in_record: Optional[str] = None,
 ) -> Optional[DataItemNode]:
     """Transform a DataItem AST node to a DataItemNode tree node.
 
@@ -504,6 +512,8 @@ def _transform_data_item(
         memory_regions: Memory region lookup from DataStructureAnalyzer
         line_mapping: Line mapping from COPY expansion
         copybook_line_map: Map of copybook names to their COPY statement line numbers
+        defined_in_record: Name of the Level 01 record containing this item.
+            For Level 01 and 77-level items, this should be the item's own name.
 
     Returns:
         DataItemNode if the item should be included, None otherwise
@@ -554,7 +564,8 @@ def _transform_data_item(
     children = []
     for child in item.children:
         transformed = _transform_data_item(
-            child, options, memory_regions, line_mapping, copybook_line_map
+            child, options, memory_regions, line_mapping, copybook_line_map,
+            defined_in_record
         )
         if transformed:
             children.append(transformed)
@@ -584,6 +595,7 @@ def _transform_data_item(
         copybook_source=copybook_source,
         copybook=copybook,
         position=position,
+        defined_in_record=defined_in_record,
         children=children,
     )
 
@@ -766,8 +778,11 @@ def get_data_division_tree(
         sections_dict: Dict[str, List[DataItemNode]] = {}
 
         for record_name, record in program.record_descriptions.items():
+            # Use the root_item.name as defined_in_record (this is the Level 01 record name)
+            record_defined_in = record.root_item.name
             transformed = _transform_data_item(
-                record.root_item, options, memory_regions, line_mapping, copybook_line_map
+                record.root_item, options, memory_regions, line_mapping, copybook_line_map,
+                defined_in_record=record_defined_in
             )
             if transformed:
                 all_records.append(transformed)

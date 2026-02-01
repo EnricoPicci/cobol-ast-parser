@@ -755,6 +755,137 @@ class TestGetDataDivisionTree:
         # Line number should be reasonable (not an expanded line number in thousands)
         assert emp_record.line_number < 100
 
+    def test_defined_in_record_for_level_01(self):
+        """Test that Level 01 records have defined_in_record equal to their own name."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        tree = get_data_division_tree(source_path)
+
+        # All Level 01 records should have defined_in_record equal to their name
+        for record in tree.all_records:
+            assert record.defined_in_record == record.name, (
+                f"Level 01 record {record.name} should have defined_in_record={record.name}, "
+                f"got {record.defined_in_record}"
+            )
+
+    def test_defined_in_record_for_nested_items(self):
+        """Test that nested items have defined_in_record equal to their parent Level 01."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        tree = get_data_division_tree(source_path)
+
+        # Find WS-EMPLOYEE-RECORD and check its children
+        emp_record = None
+        for record in tree.all_records:
+            if record.name == "WS-EMPLOYEE-RECORD":
+                emp_record = record
+                break
+
+        assert emp_record is not None
+
+        # All children should have defined_in_record = "WS-EMPLOYEE-RECORD"
+        def check_children(node, expected_record):
+            for child in node.children:
+                assert child.defined_in_record == expected_record, (
+                    f"Child {child.name} should have defined_in_record={expected_record}, "
+                    f"got {child.defined_in_record}"
+                )
+                check_children(child, expected_record)
+
+        check_children(emp_record, "WS-EMPLOYEE-RECORD")
+
+    def test_defined_in_record_for_redefines_items(self):
+        """Test that items in REDEFINES records have correct defined_in_record.
+
+        Items in a record that REDEFINEs another should have defined_in_record
+        equal to the REDEFINING record name, not the base record.
+        """
+        source_path = FIXTURES_DIR / "redefines_program.cob"
+
+        tree = get_data_division_tree(source_path)
+
+        # Find EMPLOYEE-RECORD which redefines INPUT-RECORD
+        emp_record = None
+        input_record = None
+        for record in tree.all_records:
+            if record.name == "EMPLOYEE-RECORD":
+                emp_record = record
+            elif record.name == "INPUT-RECORD":
+                input_record = record
+
+        assert emp_record is not None
+        assert input_record is not None
+        assert emp_record.redefines == "INPUT-RECORD"
+
+        # EMPLOYEE-RECORD itself should have defined_in_record = "EMPLOYEE-RECORD"
+        assert emp_record.defined_in_record == "EMPLOYEE-RECORD"
+
+        # Children of EMPLOYEE-RECORD should have defined_in_record = "EMPLOYEE-RECORD"
+        # NOT "INPUT-RECORD" (the base record)
+        def check_children(node, expected_record):
+            for child in node.children:
+                assert child.defined_in_record == expected_record, (
+                    f"Child {child.name} of REDEFINES record should have "
+                    f"defined_in_record={expected_record}, got {child.defined_in_record}"
+                )
+                check_children(child, expected_record)
+
+        check_children(emp_record, "EMPLOYEE-RECORD")
+
+    def test_defined_in_record_with_copybooks(self):
+        """Test that defined_in_record is correctly set for items from copybooks."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        tree = get_data_division_tree(
+            source_path,
+            TreeOptions(copybook_paths=[copybook_path])
+        )
+
+        # Find WS-EMPLOYEE record (from EMPLOYEE-CPY copybook)
+        emp_record = None
+        for record in tree.all_records:
+            if record.name == "WS-EMPLOYEE":
+                emp_record = record
+                break
+
+        assert emp_record is not None
+        assert emp_record.copybook_source == "EMPLOYEE-CPY"
+        assert emp_record.defined_in_record == "WS-EMPLOYEE"
+
+        # All children should also have defined_in_record = "WS-EMPLOYEE"
+        for child in emp_record.children:
+            assert child.defined_in_record == "WS-EMPLOYEE", (
+                f"Child {child.name} from copybook should have "
+                f"defined_in_record=WS-EMPLOYEE, got {child.defined_in_record}"
+            )
+
+    def test_defined_in_record_in_serialized_output(self):
+        """Test that defined_in_record appears in to_dict() serialized output."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        tree = get_data_division_tree(source_path)
+        tree_dict = tree.to_dict()
+
+        # Check that defined_in_record is in all_records
+        for record_dict in tree_dict["all_records"]:
+            assert "defined_in_record" in record_dict, (
+                f"Record {record_dict['name']} should have defined_in_record in serialized output"
+            )
+            # For Level 01, defined_in_record should equal name
+            assert record_dict["defined_in_record"] == record_dict["name"]
+
+            # Check children recursively
+            def check_children_dict(parent_dict, expected_record):
+                for child_dict in parent_dict.get("children", []):
+                    assert "defined_in_record" in child_dict, (
+                        f"Child {child_dict['name']} should have defined_in_record in serialized output"
+                    )
+                    assert child_dict["defined_in_record"] == expected_record
+                    check_children_dict(child_dict, expected_record)
+
+            check_children_dict(record_dict, record_dict["name"])
+
 
 class TestTreeOptions:
     """Tests for the TreeOptions dataclass."""
@@ -802,6 +933,7 @@ class TestDataItemNode:
         assert "usage" not in d
         assert "is_group" not in d
         assert "children" not in d
+        assert "defined_in_record" not in d
 
     def test_to_dict_with_optional_fields(self):
         """Test to_dict with optional fields populated."""
@@ -812,7 +944,8 @@ class TestDataItemNode:
             is_group=True,
             redefines="OTHER-ITEM",
             position={"start": 1, "end": 10, "size": 10},
-            children=[DataItemNode(name="CHILD", level=10)],
+            defined_in_record="PARENT-RECORD",
+            children=[DataItemNode(name="CHILD", level=10, defined_in_record="PARENT-RECORD")],
         )
 
         d = node.to_dict()
@@ -823,8 +956,35 @@ class TestDataItemNode:
         assert d["is_group"] is True
         assert d["redefines"] == "OTHER-ITEM"
         assert d["position"] == {"start": 1, "end": 10, "size": 10}
+        assert d["defined_in_record"] == "PARENT-RECORD"
         assert len(d["children"]) == 1
         assert d["children"][0]["name"] == "CHILD"
+        assert d["children"][0]["defined_in_record"] == "PARENT-RECORD"
+
+    def test_defined_in_record_included_when_set(self):
+        """Test that defined_in_record is included in to_dict when set."""
+        node = DataItemNode(
+            name="TEST-ITEM",
+            level=5,
+            defined_in_record="MY-RECORD",
+        )
+
+        d = node.to_dict()
+
+        assert "defined_in_record" in d
+        assert d["defined_in_record"] == "MY-RECORD"
+
+    def test_defined_in_record_not_included_when_none(self):
+        """Test that defined_in_record is not included in to_dict when None."""
+        node = DataItemNode(
+            name="TEST-ITEM",
+            level=5,
+            defined_in_record=None,
+        )
+
+        d = node.to_dict()
+
+        assert "defined_in_record" not in d
 
 
 class TestDataDivisionSection:

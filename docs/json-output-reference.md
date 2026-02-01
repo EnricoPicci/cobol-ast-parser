@@ -558,7 +558,30 @@ Each data item in the tree (including records and their subordinates) has these 
 | `line_number` | integer | No | Line number in source (after COPY expansion) |
 | `copybook_source` | string | No | Name of copybook if item came from COPY statement |
 | `position` | object | No | Memory position info (see below) |
+| `defined_in_record` | string | No | Name of the Level 01 record containing this item (see below) |
 | `children` | array | No | Child DataItemNode objects (only present if non-empty) |
+
+#### defined_in_record Field
+
+The `defined_in_record` field provides the name of the Level 01 record that directly contains this data item. This field enables linking between `DataDivisionTree` and `paragraph_variables` output:
+
+- For Level 01 records: equals the record's own name
+- For nested items: equals the parent Level 01 record's name
+- For items in REDEFINES records: equals the REDEFINING record name (not the base record)
+
+This field is particularly useful when you have two Level 01 records that REDEFINE each other (e.g., `CLIENT` and `CLIENT-CHINA REDEFINES CLIENT`). Each item's `defined_in_record` indicates which specific record structure it belongs to, allowing you to look up only the explicit modifications to that variable in `paragraph_variables`.
+
+**Example:** To find paragraphs that modify a variable from `DataDivisionTree`:
+```python
+# Given a DataItemNode from the tree
+node = selected_data_item_node
+
+# Build lookup key
+key = f"{node.position['start']}:{node.position['end']}"
+
+# Look up in paragraph_variables index (keyed by defined_in_record)
+paragraphs = variable_index[node.defined_in_record][key]["paragraphs"]
+```
 
 #### Position Object
 
@@ -581,6 +604,7 @@ Each data item in the tree (including records and their subordinates) has these 
     "end": 54,
     "size": 54
   },
+  "defined_in_record": "WS-EMPLOYEE-RECORD",
   "children": [
     {
       "name": "WS-EMP-ID",
@@ -591,7 +615,8 @@ Each data item in the tree (including records and their subordinates) has these 
         "start": 1,
         "end": 5,
         "size": 5
-      }
+      },
+      "defined_in_record": "WS-EMPLOYEE-RECORD"
     },
     {
       "name": "WS-EMP-NAME",
@@ -602,7 +627,8 @@ Each data item in the tree (including records and their subordinates) has these 
         "start": 6,
         "end": 35,
         "size": 30
-      }
+      },
+      "defined_in_record": "WS-EMPLOYEE-RECORD"
     }
   ]
 }
@@ -653,6 +679,7 @@ Each data item in the tree (including records and their subordinates) has these 
     "end": 100,
     "size": 100
   },
+  "defined_in_record": "EMPLOYEE-RECORD",
   "children": [ ... ]
 }
 ```
@@ -671,6 +698,7 @@ Each data item in the tree (including records and their subordinates) has these 
     "end": 35,
     "size": 35
   },
+  "defined_in_record": "WS-EMPLOYEE",
   "children": [
     {
       "name": "WS-EMP-ID",
@@ -682,7 +710,8 @@ Each data item in the tree (including records and their subordinates) has these 
         "start": 1,
         "end": 5,
         "size": 5
-      }
+      },
+      "defined_in_record": "WS-EMPLOYEE"
     }
   ]
 }
