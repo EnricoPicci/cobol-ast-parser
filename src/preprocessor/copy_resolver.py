@@ -149,12 +149,15 @@ class CopyResolver:
         resolved_lines = resolved_source.splitlines()
 
         # Find all COPY statement locations in original source
+        # Use a simpler pattern here that doesn't require the trailing period,
+        # since multi-line COPY statements (with REPLACING) have the period
+        # on a later line.
+        copy_location_pattern = re.compile(r'\bCOPY\s+([A-Za-z0-9_-]+)', re.IGNORECASE)
         copy_locations: Dict[int, str] = {}  # original_line -> copybook_name
         for i, line in enumerate(original_lines, 1):
-            if self.COPY_PATTERN.search(line):
-                match = self.COPY_PATTERN.search(line)
-                if match:
-                    copy_locations[i] = match.group(1).upper()
+            match = copy_location_pattern.search(line)
+            if match:
+                copy_locations[i] = match.group(1).upper()
 
         # Track position in both sources
         orig_idx = 0
@@ -167,16 +170,23 @@ class CopyResolver:
             resolved_line = resolved_lines[resolved_idx]
 
             # Check if this is a COPY resolution comment
+            # The marker "* COPY X resolved" appears BEFORE the copybook content,
+            # so we use it to set the context for subsequent lines.
             if resolved_line.strip().startswith("* COPY") and "resolved" in resolved_line:
                 # Extract copybook name from comment
                 parts = resolved_line.strip().split()
                 if len(parts) >= 3:
-                    current_copybook = parts[2]
+                    new_copybook = parts[2]
                     # Find which original COPY statement this corresponds to
+                    new_copybook_start_line = copybook_start_line
                     for orig_line_num, copybook_name in copy_locations.items():
-                        if copybook_name == current_copybook and orig_line_num > copybook_start_line:
-                            copybook_start_line = orig_line_num
+                        if copybook_name == new_copybook and orig_line_num > copybook_start_line:
+                            new_copybook_start_line = orig_line_num
                             break
+
+                    current_copybook = new_copybook
+                    copybook_start_line = new_copybook_start_line
+
                 self._line_mapping[resolved_line_num] = LineMapping(
                     expanded_line=resolved_line_num,
                     original_line=copybook_start_line,
@@ -211,13 +221,69 @@ class CopyResolver:
                     if resolved_line.strip():
                         current_copybook = None
                 else:
-                    # Line is from copybook
-                    self._line_mapping[resolved_line_num] = LineMapping(
-                        expanded_line=resolved_line_num,
-                        original_line=copybook_start_line if copybook_start_line else 1,
-                        source_file=current_copybook or "COPYBOOK",
-                        is_copybook=True,
-                    )
+                    # Lines don't match - could be copybook content, or we're out of sync
+                    # Look both forward and backward in the original source to see if
+                    # the resolved line appears within a reasonable window
+                    found_match = False
+                    if resolved_line.strip():  # Only search for non-empty lines
+                        # First look forward
+                        lookahead_limit = min(50, len(original_lines) - orig_idx)
+                        for lookahead in range(1, lookahead_limit):
+                            check_idx = orig_idx + lookahead
+                            if check_idx >= len(original_lines):
+                                break
+                            check_line = original_lines[check_idx]
+                            # Skip COPY statements when looking ahead
+                            if self.COPY_PATTERN.search(check_line):
+                                continue
+                            if self._lines_match(resolved_line, check_line):
+                                # Found the line ahead - sync up and use this position
+                                orig_idx = check_idx
+                                self._line_mapping[resolved_line_num] = LineMapping(
+                                    expanded_line=resolved_line_num,
+                                    original_line=orig_idx + 1,
+                                    source_file=self._main_source_name,
+                                    is_copybook=False,
+                                )
+                                orig_idx += 1
+                                current_copybook = None
+                                found_match = True
+                                break
+
+                        # If not found forward, also look backward (orig_idx may have
+                        # jumped ahead due to sync issues with copybook content)
+                        if not found_match:
+                            lookback_limit = min(100, orig_idx)
+                            for lookback in range(1, lookback_limit):
+                                check_idx = orig_idx - lookback
+                                if check_idx < 0:
+                                    break
+                                check_line = original_lines[check_idx]
+                                # Skip COPY statements
+                                if self.COPY_PATTERN.search(check_line):
+                                    continue
+                                if self._lines_match(resolved_line, check_line):
+                                    # Found the line behind - use this position
+                                    # but don't change orig_idx (we might need to
+                                    # continue processing from current position)
+                                    self._line_mapping[resolved_line_num] = LineMapping(
+                                        expanded_line=resolved_line_num,
+                                        original_line=check_idx + 1,
+                                        source_file=self._main_source_name,
+                                        is_copybook=False,
+                                    )
+                                    current_copybook = None
+                                    found_match = True
+                                    break
+
+                    if not found_match:
+                        # Line is from copybook
+                        self._line_mapping[resolved_line_num] = LineMapping(
+                            expanded_line=resolved_line_num,
+                            original_line=copybook_start_line if copybook_start_line else 1,
+                            source_file=current_copybook or "COPYBOOK",
+                            is_copybook=True,
+                        )
             else:
                 # All remaining lines are from copybook
                 self._line_mapping[resolved_line_num] = LineMapping(

@@ -164,6 +164,93 @@ class TestAnalyzePararagraphVariables:
         assert summary_without.get("variables_in_redefines_records", 0) <= \
                summary_with.get("variables_in_redefines_records", 0)
 
+    def test_line_numbers_are_original_not_expanded(self):
+        """Test that line numbers refer to original source, not expanded source."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        options = AnalysisOptions(
+            copybook_paths=[copybook_path],
+        )
+        result = analyze_paragraph_variables(source_path, options)
+
+        # Get the original source line count
+        original_line_count = len(source_path.read_text().splitlines())
+
+        # Check line_number in sections_and_paragraphs
+        for section_name, modifications in result.analysis.get("sections_and_paragraphs", {}).items():
+            for mod in modifications:
+                line_num = mod.get("line_number")
+                assert line_num is not None, f"Missing line_number in {section_name}"
+                # Line number should be within original source file range
+                assert line_num <= original_line_count, (
+                    f"Line number {line_num} exceeds original source line count "
+                    f"({original_line_count}) for {mod.get('variable')} in {section_name}"
+                )
+
+        # Check definition_line in memory_regions
+        for var_name, region_info in result.analysis.get("memory_regions", {}).items():
+            if "definition_line" in region_info:
+                line_num = region_info["definition_line"]
+                # Definition line should be within original source file range
+                assert line_num <= original_line_count, (
+                    f"Definition line {line_num} exceeds original source line count "
+                    f"({original_line_count}) for variable {var_name}"
+                )
+
+    def test_exact_line_numbers_for_paragraph_modifications(self):
+        """Test that line numbers for modifications match exact source locations.
+
+        Regression test to ensure line_number in sections_and_paragraphs
+        correctly maps to the original source file line where the modification
+        statement appears.
+
+        Uses all_modifications.cob which has known line numbers:
+        - Line 34: MOVE 100 TO WS-NUM-A (in TEST-MOVE-PARA)
+        - Line 39: COMPUTE WS-NUM-C = WS-NUM-A + WS-NUM-B (in TEST-COMPUTE-PARA)
+        - Line 43: ADD 10 TO WS-NUM-A (in TEST-ADD-PARA)
+        """
+        source_path = FIXTURES_DIR / "all_modifications.cob"
+        result = analyze_paragraph_variables(source_path)
+
+        sections_and_paragraphs = result.analysis.get("sections_and_paragraphs", {})
+
+        # Find TEST-MOVE-PARA modifications
+        test_move_mods = sections_and_paragraphs.get("TEST-MOVE-PARA", [])
+        move_to_num_a = next(
+            (m for m in test_move_mods
+             if m["variable"] == "WS-NUM-A" and m["modification_type"] == "MOVE"),
+            None
+        )
+        assert move_to_num_a is not None, "MOVE to WS-NUM-A not found in TEST-MOVE-PARA"
+        assert move_to_num_a["line_number"] == 34, (
+            f"MOVE to WS-NUM-A should be at line 34, got {move_to_num_a['line_number']}"
+        )
+
+        # Find TEST-COMPUTE-PARA modifications
+        test_compute_mods = sections_and_paragraphs.get("TEST-COMPUTE-PARA", [])
+        compute_num_c = next(
+            (m for m in test_compute_mods
+             if m["variable"] == "WS-NUM-C" and m["modification_type"] == "COMPUTE"),
+            None
+        )
+        assert compute_num_c is not None, "COMPUTE to WS-NUM-C not found in TEST-COMPUTE-PARA"
+        assert compute_num_c["line_number"] == 39, (
+            f"COMPUTE to WS-NUM-C should be at line 39, got {compute_num_c['line_number']}"
+        )
+
+        # Find TEST-ADD-PARA modifications
+        test_add_mods = sections_and_paragraphs.get("TEST-ADD-PARA", [])
+        add_to_num_a = next(
+            (m for m in test_add_mods
+             if m["variable"] == "WS-NUM-A" and m["modification_type"] == "ADD"),
+            None
+        )
+        assert add_to_num_a is not None, "ADD to WS-NUM-A not found in TEST-ADD-PARA"
+        assert add_to_num_a["line_number"] == 43, (
+            f"ADD to WS-NUM-A should be at line 43, got {add_to_num_a['line_number']}"
+        )
+
 
 class TestAnalysisOptions:
     """Tests for the AnalysisOptions dataclass."""
@@ -593,6 +680,61 @@ class TestGetDataDivisionTree:
         # WS-COUNTERS should have line 8 (COPY COUNTERS-CPY)
         if ctr_record:
             assert ctr_record.line_number == 8
+
+    def test_line_numbers_for_multiline_copy_with_replacing(self):
+        """Test that multi-line COPY statements with REPLACING map to correct line.
+
+        Regression test for bug where COPY statements spanning multiple lines
+        (e.g., COPY ... REPLACING ... on subsequent lines) were not being
+        detected because the regex required a trailing period on the same line.
+        Items from such copybooks should map to the line where COPY starts.
+        """
+        source_path = FIXTURES_DIR / "multiline_copy_program.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        tree = get_data_division_tree(
+            source_path,
+            TreeOptions(copybook_paths=[copybook_path])
+        )
+
+        # multiline_copy_program.cob has:
+        # Line 6: 01 WS-SIMPLE-ITEM (main source)
+        # Line 7: COPY MULTILINE-CPY
+        # Line 8:     REPLACING ==ORIGINAL-RECORD==
+        # Line 9:            BY ==REPLACED-RECORD==.
+        # Line 10: 01 WS-ANOTHER-ITEM (main source)
+
+        replaced_record = None
+        simple_item = None
+        another_item = None
+        for record in tree.all_records:
+            if record.name == "REPLACED-RECORD":
+                replaced_record = record
+            elif record.name == "WS-SIMPLE-ITEM":
+                simple_item = record
+            elif record.name == "WS-ANOTHER-ITEM":
+                another_item = record
+
+        # REPLACED-RECORD comes from copybook, should have line 7 (COPY statement)
+        assert replaced_record is not None, "REPLACED-RECORD not found in tree"
+        assert replaced_record.line_number == 7, (
+            f"REPLACED-RECORD should be at line 7 (COPY statement), "
+            f"got {replaced_record.line_number}"
+        )
+
+        # Children of REPLACED-RECORD should also have line 7
+        for child in replaced_record.children:
+            assert child.line_number == 7, (
+                f"Child {child.name} should be at line 7, got {child.line_number}"
+            )
+
+        # WS-SIMPLE-ITEM is from main source, should be at line 6
+        assert simple_item is not None
+        assert simple_item.line_number == 6
+
+        # WS-ANOTHER-ITEM is from main source, should be at line 10
+        assert another_item is not None
+        assert another_item.line_number == 10
 
     def test_line_numbers_for_main_source_items(self):
         """Test that items from main source have their original line numbers."""

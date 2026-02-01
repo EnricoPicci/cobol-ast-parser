@@ -1,0 +1,14 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. MULTILINECOPY.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-SIMPLE-ITEM          PIC X(10).
+           COPY MULTILINE-CPY
+           REPLACING ==ORIGINAL-RECORD==
+                  BY ==REPLACED-RECORD==.
+       01  WS-ANOTHER-ITEM         PIC 9(5).
+
+       PROCEDURE DIVISION.
+           MOVE "TEST" TO WS-SIMPLE-ITEM.
+           STOP RUN.

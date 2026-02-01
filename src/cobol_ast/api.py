@@ -23,6 +23,81 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 
 
+def _convert_to_original_line(
+    expanded_line: int,
+    line_mapping: Dict[int, Any],
+    original_line_count: int,
+) -> int:
+    """Convert an expanded line number to the original source line number.
+
+    When COPY statements are resolved, line numbers in the expanded source
+    may not match the original source file. This function converts expanded
+    line numbers back to original line numbers.
+
+    Args:
+        expanded_line: Line number in the expanded (COPY-resolved) source
+        line_mapping: Dictionary mapping expanded line numbers to original info
+        original_line_count: Number of lines in the original source file
+
+    Returns:
+        Original line number in the source file
+    """
+    if not line_mapping:
+        return expanded_line
+
+    # Look up the mapping
+    mapping_info = line_mapping.get(expanded_line)
+    if mapping_info:
+        return mapping_info.original_line
+
+    # Fallback: if line is beyond original count, it's likely from copybook
+    # Try to find the nearest mapped line going backwards
+    if original_line_count > 0 and expanded_line > original_line_count:
+        for line_num in range(expanded_line, 0, -1):
+            mapping_info = line_mapping.get(line_num)
+            if mapping_info and not mapping_info.is_copybook:
+                return mapping_info.original_line
+
+    return expanded_line
+
+
+def _apply_line_mapping_to_analysis(
+    analysis_output: Dict[str, Any],
+    line_mapping: Dict[int, Any],
+    original_line_count: int,
+) -> None:
+    """Apply line mapping conversion to analysis output in-place.
+
+    Converts expanded line numbers to original line numbers for:
+    - "line_number" in sections_and_paragraphs modifications
+    - "definition_line" in memory_regions
+
+    Args:
+        analysis_output: The analysis output dictionary to modify
+        line_mapping: Dictionary mapping expanded line numbers to original info
+        original_line_count: Number of lines in the original source file
+    """
+    if not line_mapping:
+        return
+
+    # Convert line_number in sections_and_paragraphs
+    sections_and_paragraphs = analysis_output.get("sections_and_paragraphs", {})
+    for section_name, modifications in sections_and_paragraphs.items():
+        for mod in modifications:
+            if "line_number" in mod:
+                mod["line_number"] = _convert_to_original_line(
+                    mod["line_number"], line_mapping, original_line_count
+                )
+
+    # Convert definition_line in memory_regions
+    memory_regions = analysis_output.get("memory_regions", {})
+    for var_name, region_info in memory_regions.items():
+        if "definition_line" in region_info:
+            region_info["definition_line"] = _convert_to_original_line(
+                region_info["definition_line"], line_mapping, original_line_count
+            )
+
+
 class AnalysisError(Exception):
     """Raised when COBOL analysis fails."""
     pass
@@ -175,6 +250,12 @@ def analyze_paragraph_variables(
 
         # Generate analysis output
         analysis_output = analyzer.generate_output()
+
+        # Convert expanded line numbers to original line numbers
+        if line_mapping:
+            _apply_line_mapping_to_analysis(
+                analysis_output, line_mapping, original_line_count
+            )
 
         # Add source file info if requested
         if options.include_source_info:
