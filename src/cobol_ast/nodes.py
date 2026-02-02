@@ -220,7 +220,9 @@ class VariableAccess:
     """
 
     variable_name: str
-    access_context: str  # e.g., "MOVE_SOURCE", "COMPUTE_EXPRESSION", "CONDITION", "DISPLAY"
+    access_context: (
+        str  # e.g., "MOVE_SOURCE", "COMPUTE_EXPRESSION", "CONDITION", "DISPLAY"
+    )
     line_number: int
     statement_text: str = ""
     section_name: Optional[str] = None
@@ -401,7 +403,14 @@ class CobolProgram:
         return None
 
     def get_all_modifications(self) -> List[VariableModification]:
-        """Get all variable modifications in the program."""
+        """Get all variable modifications in the program.
+
+        Results are cached to avoid rebuilding the list on repeated calls.
+        """
+        # Return cached result if available
+        if hasattr(self, "_cached_all_modifications"):
+            return self._cached_all_modifications
+
         result = []
 
         # Include orphan modifications (statements outside any paragraph/section)
@@ -413,6 +422,8 @@ class CobolProgram:
         for para in self.paragraphs:
             result.extend(para.modifications)
 
+        # Cache the result
+        object.__setattr__(self, "_cached_all_modifications", result)
         return result
 
     def get_modifications_by_variable(self) -> Dict[str, List[VariableModification]]:
@@ -427,7 +438,14 @@ class CobolProgram:
         return result
 
     def get_all_accesses(self) -> List[VariableAccess]:
-        """Get all variable accesses in the program."""
+        """Get all variable accesses in the program.
+
+        Results are cached to avoid rebuilding the list on repeated calls.
+        """
+        # Return cached result if available
+        if hasattr(self, "_cached_all_accesses"):
+            return self._cached_all_accesses
+
         result: List[VariableAccess] = []
 
         # Include orphan accesses (statements outside any paragraph/section)
@@ -439,6 +457,8 @@ class CobolProgram:
         for para in self.paragraphs:
             result.extend(para.accesses)
 
+        # Cache the result
+        object.__setattr__(self, "_cached_all_accesses", result)
         return result
 
     def get_accesses_by_variable(self) -> Dict[str, List[VariableAccess]]:

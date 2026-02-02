@@ -149,14 +149,12 @@ class TestAnalyzePararagraphVariables:
 
         # With redefines
         result_with = analyze_paragraph_variables(
-            source_path,
-            AnalysisOptions(include_redefines=True)
+            source_path, AnalysisOptions(include_redefines=True)
         )
 
         # Without redefines
         result_without = analyze_paragraph_variables(
-            source_path,
-            AnalysisOptions(include_redefines=False)
+            source_path, AnalysisOptions(include_redefines=False)
         )
 
         # The summary should show different counts
@@ -165,8 +163,9 @@ class TestAnalyzePararagraphVariables:
 
         # Variables in redefines records should be 0 when excluded
         # (or at least different from when included)
-        assert summary_without.get("variables_in_redefines_records", 0) <= \
-               summary_with.get("variables_in_redefines_records", 0)
+        assert summary_without.get(
+            "variables_in_redefines_records", 0
+        ) <= summary_with.get("variables_in_redefines_records", 0)
 
     def test_line_numbers_are_original_not_expanded(self):
         """Test that line numbers refer to original source, not expanded source."""
@@ -182,7 +181,9 @@ class TestAnalyzePararagraphVariables:
         original_line_count = len(source_path.read_text().splitlines())
 
         # Check line_number in sections_and_paragraphs
-        for section_name, modifications in result.analysis.get("sections_and_paragraphs", {}).items():
+        for section_name, modifications in result.analysis.get(
+            "sections_and_paragraphs", {}
+        ).items():
             for mod in modifications:
                 line_num = mod.get("line_number")
                 assert line_num is not None, f"Missing line_number in {section_name}"
@@ -222,38 +223,49 @@ class TestAnalyzePararagraphVariables:
         # Find TEST-MOVE-PARA modifications
         test_move_mods = sections_and_paragraphs.get("TEST-MOVE-PARA", [])
         move_to_num_a = next(
-            (m for m in test_move_mods
-             if m["variable"] == "WS-NUM-A" and m["modification_type"] == "MOVE"),
-            None
+            (
+                m
+                for m in test_move_mods
+                if m["variable"] == "WS-NUM-A" and m["modification_type"] == "MOVE"
+            ),
+            None,
         )
         assert move_to_num_a is not None, "MOVE to WS-NUM-A not found in TEST-MOVE-PARA"
-        assert move_to_num_a["line_number"] == 34, (
-            f"MOVE to WS-NUM-A should be at line 34, got {move_to_num_a['line_number']}"
-        )
+        assert (
+            move_to_num_a["line_number"] == 34
+        ), f"MOVE to WS-NUM-A should be at line 34, got {move_to_num_a['line_number']}"
 
         # Find TEST-COMPUTE-PARA modifications
         test_compute_mods = sections_and_paragraphs.get("TEST-COMPUTE-PARA", [])
         compute_num_c = next(
-            (m for m in test_compute_mods
-             if m["variable"] == "WS-NUM-C" and m["modification_type"] == "COMPUTE"),
-            None
+            (
+                m
+                for m in test_compute_mods
+                if m["variable"] == "WS-NUM-C" and m["modification_type"] == "COMPUTE"
+            ),
+            None,
         )
-        assert compute_num_c is not None, "COMPUTE to WS-NUM-C not found in TEST-COMPUTE-PARA"
-        assert compute_num_c["line_number"] == 39, (
-            f"COMPUTE to WS-NUM-C should be at line 39, got {compute_num_c['line_number']}"
-        )
+        assert (
+            compute_num_c is not None
+        ), "COMPUTE to WS-NUM-C not found in TEST-COMPUTE-PARA"
+        assert (
+            compute_num_c["line_number"] == 39
+        ), f"COMPUTE to WS-NUM-C should be at line 39, got {compute_num_c['line_number']}"
 
         # Find TEST-ADD-PARA modifications
         test_add_mods = sections_and_paragraphs.get("TEST-ADD-PARA", [])
         add_to_num_a = next(
-            (m for m in test_add_mods
-             if m["variable"] == "WS-NUM-A" and m["modification_type"] == "ADD"),
-            None
+            (
+                m
+                for m in test_add_mods
+                if m["variable"] == "WS-NUM-A" and m["modification_type"] == "ADD"
+            ),
+            None,
         )
         assert add_to_num_a is not None, "ADD to WS-NUM-A not found in TEST-ADD-PARA"
-        assert add_to_num_a["line_number"] == 43, (
-            f"ADD to WS-NUM-A should be at line 43, got {add_to_num_a['line_number']}"
-        )
+        assert (
+            add_to_num_a["line_number"] == 43
+        ), f"ADD to WS-NUM-A should be at line 43, got {add_to_num_a['line_number']}"
 
 
 class TestAnalysisOptions:
@@ -374,7 +386,9 @@ class TestAnalysisResult:
 
                 # Find all paragraphs that modify this variable
                 modifying_from_original = set()
-                for para_name, para_vars in result.paragraph_variables.get("paragraphs", {}).items():
+                for para_name, para_vars in result.paragraph_variables.get(
+                    "paragraphs", {}
+                ).items():
                     if var_name in para_vars:
                         var_info = para_vars[var_name]
                         # Check if the record and position match
@@ -499,15 +513,15 @@ class TestBuildVariableIndex:
                         "base_record": "RECORD-1",
                         "position": {"start": 1, "end": 10},
                         "modification_lines": [10],
-                        "explanation": "direct modification"
+                        "explanation": "direct modification",
                     },
                     "VAR-B": {
                         "defined_in_record": "RECORD-1",
                         "base_record": "RECORD-1",
                         "position": {"start": 11, "end": 20},
                         "modification_lines": [15],
-                        "explanation": "direct modification"
-                    }
+                        "explanation": "direct modification",
+                    },
                 },
                 "PARA-2": {
                     "VAR-A": {
@@ -515,9 +529,9 @@ class TestBuildVariableIndex:
                         "base_record": "RECORD-1",
                         "position": {"start": 1, "end": 10},
                         "modification_lines": [20],
-                        "explanation": "direct modification"
+                        "explanation": "direct modification",
                     }
-                }
+                },
             }
         }
 
@@ -532,7 +546,10 @@ class TestBuildVariableIndex:
 
         # VAR-A at 1:10 should have both paragraphs as modifying
         assert index["RECORD-1"]["1:10"]["variable_name"] == "VAR-A"
-        assert set(index["RECORD-1"]["1:10"]["modifying_paragraphs"]) == {"PARA-1", "PARA-2"}
+        assert set(index["RECORD-1"]["1:10"]["modifying_paragraphs"]) == {
+            "PARA-1",
+            "PARA-2",
+        }
         assert index["RECORD-1"]["1:10"]["accessing_paragraphs"] == []
 
         # VAR-B at 11:20 should have only PARA-1 as modifying
@@ -550,15 +567,15 @@ class TestBuildVariableIndex:
                         "base_record": "REC-A",
                         "position": {"start": 1, "end": 5},
                         "modification_lines": [10],
-                        "explanation": "direct"
+                        "explanation": "direct",
                     },
                     "VAR-Y": {
                         "defined_in_record": "REC-B",
                         "base_record": "REC-B",
                         "position": {"start": 1, "end": 5},
                         "modification_lines": [15],
-                        "explanation": "direct"
-                    }
+                        "explanation": "direct",
+                    },
                 }
             }
         }
@@ -586,15 +603,15 @@ class TestBuildVariableIndex:
                         "base_record": "REC-1",
                         "position": {"start": 1, "end": 10},
                         "modification_lines": [10],
-                        "explanation": "direct"
+                        "explanation": "direct",
                     },
                     "VAR-NO-POS": {
                         "defined_in_record": "REC-1",
                         "base_record": "REC-1",
                         "modification_lines": [15],
-                        "explanation": "direct"
+                        "explanation": "direct",
                         # No position key
-                    }
+                    },
                 }
             }
         }
@@ -628,7 +645,7 @@ class TestBuildVariableIndex:
                         "base_record": "REC-1",
                         "position": {"start": 1, "end": 10},
                         "modification_lines": [10],
-                        "explanation": "direct"
+                        "explanation": "direct",
                     }
                 }
             }
@@ -650,15 +667,15 @@ class TestBuildVariableIndex:
                         "base_record": "MAIN-REC",
                         "position": {"start": 1, "end": 10},
                         "modification_lines": [10],
-                        "explanation": "direct"
+                        "explanation": "direct",
                     },
                     "VAR-NORMAL": {
                         "defined_in_record": "NORMAL-REC",
                         "base_record": "NORMAL-REC",
                         "position": {"start": 1, "end": 5},
                         "modification_lines": [15],
-                        "explanation": "direct"
-                    }
+                        "explanation": "direct",
+                    },
                 }
             }
         }
@@ -759,10 +776,7 @@ class TestGetDataDivisionTree:
         """Test that 88-level items can be excluded."""
         source_path = FIXTURES_DIR / "simple_program.cob"
 
-        tree = get_data_division_tree(
-            source_path,
-            TreeOptions(include_88_levels=False)
-        )
+        tree = get_data_division_tree(source_path, TreeOptions(include_88_levels=False))
 
         # Find WS-FLAGS record
         flags_record = None
@@ -806,10 +820,7 @@ class TestGetDataDivisionTree:
         """Test that FILLER items can be excluded."""
         source_path = FIXTURES_DIR / "redefines_program.cob"
 
-        tree = get_data_division_tree(
-            source_path,
-            TreeOptions(include_filler=False)
-        )
+        tree = get_data_division_tree(source_path, TreeOptions(include_filler=False))
 
         # Look for FILLER in any record
         def has_filler(node):
@@ -907,8 +918,7 @@ class TestGetDataDivisionTree:
         source_path = FIXTURES_DIR / "simple_program.cob"
 
         tree = get_data_division_tree(
-            source_path,
-            TreeOptions(include_source_info=False)
+            source_path, TreeOptions(include_source_info=False)
         )
 
         assert tree.source_info is None
@@ -948,6 +958,7 @@ class TestGetDataDivisionTree:
 
         # Should be JSON serializable
         import json
+
         json_str = json.dumps(tree_dict)
         assert len(json_str) > 0
 
@@ -973,8 +984,7 @@ class TestGetDataDivisionTree:
         copybook_path = FIXTURES_DIR / "copybooks"
 
         tree = get_data_division_tree(
-            source_path,
-            TreeOptions(copybook_paths=[copybook_path])
+            source_path, TreeOptions(copybook_paths=[copybook_path])
         )
 
         # Find WS-EMPLOYEE record (from EMPLOYEE-CPY copybook)
@@ -997,8 +1007,7 @@ class TestGetDataDivisionTree:
         copybook_path = FIXTURES_DIR / "copybooks"
 
         tree = get_data_division_tree(
-            source_path,
-            TreeOptions(copybook_paths=[copybook_path])
+            source_path, TreeOptions(copybook_paths=[copybook_path])
         )
 
         # Find WS-EMPLOYEE record (from EMPLOYEE-CPY copybook)
@@ -1023,8 +1032,7 @@ class TestGetDataDivisionTree:
         copybook_path = FIXTURES_DIR / "copybooks"
 
         tree = get_data_division_tree(
-            source_path,
-            TreeOptions(copybook_paths=[copybook_path])
+            source_path, TreeOptions(copybook_paths=[copybook_path])
         )
 
         # copybook_main.cob has:
@@ -1059,8 +1067,7 @@ class TestGetDataDivisionTree:
         copybook_path = FIXTURES_DIR / "copybooks"
 
         tree = get_data_division_tree(
-            source_path,
-            TreeOptions(copybook_paths=[copybook_path])
+            source_path, TreeOptions(copybook_paths=[copybook_path])
         )
 
         # multiline_copy_program.cob has:
@@ -1090,9 +1097,9 @@ class TestGetDataDivisionTree:
 
         # Children of REPLACED-RECORD should also have line 7
         for child in replaced_record.children:
-            assert child.line_number == 7, (
-                f"Child {child.name} should be at line 7, got {child.line_number}"
-            )
+            assert (
+                child.line_number == 7
+            ), f"Child {child.name} should be at line 7, got {child.line_number}"
 
         # WS-SIMPLE-ITEM is from main source, should be at line 6
         assert simple_item is not None
@@ -1204,8 +1211,7 @@ class TestGetDataDivisionTree:
         copybook_path = FIXTURES_DIR / "copybooks"
 
         tree = get_data_division_tree(
-            source_path,
-            TreeOptions(copybook_paths=[copybook_path])
+            source_path, TreeOptions(copybook_paths=[copybook_path])
         )
 
         # Find WS-EMPLOYEE record (from EMPLOYEE-CPY copybook)
@@ -1235,18 +1241,18 @@ class TestGetDataDivisionTree:
 
         # Check that defined_in_record is in all_records
         for record_dict in tree_dict["all_records"]:
-            assert "defined_in_record" in record_dict, (
-                f"Record {record_dict['name']} should have defined_in_record in serialized output"
-            )
+            assert (
+                "defined_in_record" in record_dict
+            ), f"Record {record_dict['name']} should have defined_in_record in serialized output"
             # For Level 01, defined_in_record should equal name
             assert record_dict["defined_in_record"] == record_dict["name"]
 
             # Check children recursively
             def check_children_dict(parent_dict, expected_record):
                 for child_dict in parent_dict.get("children", []):
-                    assert "defined_in_record" in child_dict, (
-                        f"Child {child_dict['name']} should have defined_in_record in serialized output"
-                    )
+                    assert (
+                        "defined_in_record" in child_dict
+                    ), f"Child {child_dict['name']} should have defined_in_record in serialized output"
                     assert child_dict["defined_in_record"] == expected_record
                     check_children_dict(child_dict, expected_record)
 
@@ -1311,7 +1317,9 @@ class TestDataItemNode:
             redefines="OTHER-ITEM",
             position={"start": 1, "end": 10, "size": 10},
             defined_in_record="PARENT-RECORD",
-            children=[DataItemNode(name="CHILD", level=10, defined_in_record="PARENT-RECORD")],
+            children=[
+                DataItemNode(name="CHILD", level=10, defined_in_record="PARENT-RECORD")
+            ],
         )
 
         d = node.to_dict()
@@ -1363,7 +1371,7 @@ class TestDataDivisionSection:
             records=[
                 DataItemNode(name="RECORD-1", level=1),
                 DataItemNode(name="RECORD-2", level=1),
-            ]
+            ],
         )
 
         d = section.to_dict()
@@ -1410,8 +1418,7 @@ class TestFillerCopybookProperty:
         copybook_path = FIXTURES_DIR / "copybooks"
 
         tree = get_data_division_tree(
-            source_path,
-            TreeOptions(copybook_paths=[copybook_path])
+            source_path, TreeOptions(copybook_paths=[copybook_path])
         )
 
         # Look for FILLER items that have copybook property set
@@ -1892,7 +1899,7 @@ class TestVariableAccessTracking:
                         "position": {"start": 1, "end": 10},
                         "modification_lines": [10],
                         "access_lines": [15, 20],
-                        "explanation": "modified and accessed"
+                        "explanation": "modified and accessed",
                     }
                 },
                 "PARA-2": {
@@ -1901,9 +1908,9 @@ class TestVariableAccessTracking:
                         "base_record": "REC-1",
                         "position": {"start": 1, "end": 10},
                         "access_lines": [25],  # Only accessed, not modified
-                        "explanation": "accessed only"
+                        "explanation": "accessed only",
                     }
-                }
+                },
             }
         }
 
@@ -1916,3 +1923,447 @@ class TestVariableAccessTracking:
         # PARA-1 modifies and accesses, PARA-2 only accesses
         assert entry["modifying_paragraphs"] == ["PARA-1"]
         assert set(entry["accessing_paragraphs"]) == {"PARA-1", "PARA-2"}
+
+
+class TestComprehensiveAccessTracking:
+    """Tests for comprehensive variable access (read) tracking."""
+
+    def test_subscript_variable_tracked(self):
+        """WS-TABLE(IND-APPO) should track IND-APPO as accessed."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        # Test the subscript extraction method directly
+        subscripts = parser._extract_subscript_variables("WS-TABLE(IND-APPO)")
+        assert "IND-APPO" in subscripts
+
+        subscripts = parser._extract_subscript_variables("WS-TABLE(IND-1, IND-2)")
+        assert "IND-1" in subscripts
+        assert "IND-2" in subscripts
+
+    def test_multi_dimensional_subscript(self):
+        """WS-TABLE(IND-1 IND-2) should track both IND-1 and IND-2."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        # Space-separated subscripts
+        subscripts = parser._extract_subscript_variables("WS-TABLE(IND-1 IND-2)")
+        assert "IND-1" in subscripts
+        assert "IND-2" in subscripts
+
+        # Numeric subscripts should be ignored
+        subscripts = parser._extract_subscript_variables("WS-TABLE(1)")
+        assert len(subscripts) == 0
+
+    def test_subscript_extraction_filters_keywords(self):
+        """Subscript extraction should filter COBOL keywords."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        # Test that keywords in subscripts are filtered
+        subscripts = parser._extract_subscript_variables("WS-TABLE(IND-1 ALL)")
+        assert "IND-1" in subscripts
+        assert "ALL" not in subscripts
+
+    def test_if_full_condition_tracking(self):
+        """IF A > B AND C = D should track A, B, C, D as sources."""
+        from parser.cobol_parser import SimplifiedCobolParser, SimplifiedStatement
+
+        parser = SimplifiedCobolParser()
+
+        # Create a test source with a multi-variable IF condition
+        source = """
+           IF WS-AMOUNT > WS-LIMIT AND WS-FLAG = WS-STATUS
+              MOVE WS-VALUE TO WS-RESULT
+           END-IF.
+        """
+
+        statements = []
+        parser._extract_if_full_condition(source, 0, source.splitlines(), statements)
+
+        # Should have extracted an IF statement
+        if_stmts = [s for s in statements if s.statement_type == "IF"]
+        assert len(if_stmts) >= 1
+
+        # The IF should have multiple sources
+        all_sources = []
+        for stmt in if_stmts:
+            all_sources.extend(stmt.sources)
+
+        assert "WS-AMOUNT" in all_sources
+        assert "WS-LIMIT" in all_sources
+        assert "WS-FLAG" in all_sources
+        assert "WS-STATUS" in all_sources
+
+    def test_perform_varying_tracking(self):
+        """PERFORM VARYING I FROM START BY STEP UNTIL I > MAX tracks START, STEP, MAX."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        source = """
+           PERFORM PROCESS-DATA VARYING WS-INDEX FROM WS-START BY WS-STEP
+                                UNTIL WS-INDEX > WS-MAX
+           END-PERFORM.
+        """
+
+        statements = []
+        parser._extract_perform_varying(source, 0, source.splitlines(), statements)
+
+        # Should have at least one PERFORM_VARYING statement
+        varying_stmts = [s for s in statements if s.statement_type == "PERFORM_VARYING"]
+        assert len(varying_stmts) >= 1
+
+        # Check that FROM, BY, and UNTIL variables are captured
+        all_sources = []
+        for stmt in varying_stmts:
+            all_sources.extend(stmt.sources)
+
+        assert "WS-START" in all_sources
+        assert "WS-STEP" in all_sources
+        assert "WS-MAX" in all_sources
+
+    def test_call_using_tracking(self):
+        """CALL PGM USING A B C tracks A, B, C as sources."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        source = """
+           CALL 'SUBPGM' USING WS-PARAM1 WS-PARAM2 WS-PARAM3.
+        """
+
+        statements = []
+        parser._extract_call_using(source, 0, source.splitlines(), statements)
+
+        # Should have a CALL statement
+        call_stmts = [s for s in statements if s.statement_type == "CALL"]
+        assert len(call_stmts) >= 1
+
+        # Check that parameters are captured as sources
+        all_sources = []
+        for stmt in call_stmts:
+            all_sources.extend(stmt.sources)
+
+        assert "WS-PARAM1" in all_sources
+        assert "WS-PARAM2" in all_sources
+        assert "WS-PARAM3" in all_sources
+
+    def test_evaluate_when_tracking(self):
+        """EVALUATE X WHEN Y = 'A' tracks X, Y as sources."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        source = """
+           EVALUATE WS-CODE
+               WHEN WS-VALUE-A
+                  MOVE 1 TO WS-RESULT
+               WHEN WS-VALUE-B
+                  MOVE 2 TO WS-RESULT
+               WHEN OTHER
+                  MOVE 0 TO WS-RESULT
+           END-EVALUATE.
+        """
+
+        statements = []
+        parser._extract_evaluate_full(source, 0, source.splitlines(), statements)
+
+        # Should have an EVALUATE statement
+        eval_stmts = [s for s in statements if s.statement_type == "EVALUATE"]
+        assert len(eval_stmts) >= 1
+
+        # Check that subject and WHEN values are captured
+        all_sources = []
+        for stmt in eval_stmts:
+            all_sources.extend(stmt.sources)
+
+        assert "WS-CODE" in all_sources
+        assert "WS-VALUE-A" in all_sources
+        assert "WS-VALUE-B" in all_sources
+        # OTHER is a keyword and should not be included
+        assert "OTHER" not in all_sources
+
+    def test_move_with_subscript_tracks_index(self):
+        """MOVE A TO B(IND) should track IND as a source (read)."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        # Test _extract_move_sources directly using a regex match
+        import re
+
+        move_pattern = re.compile(
+            r"\bMOVE\s+(.+?)\s+TO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?(?:[ \t]*,[ \t]*[A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?)*)[ \t]*[.\n]",
+            re.IGNORECASE,
+        )
+
+        text = "MOVE WS-VALUE TO WS-TABLE(WS-INDEX)."
+        match = move_pattern.match(text)
+        assert match is not None
+
+        sources = parser._extract_move_sources(match)
+
+        assert "WS-VALUE" in sources
+        assert "WS-INDEX" in sources
+
+    def test_compute_with_subscript_tracks_index(self):
+        """COMPUTE A(IND) = B + C should track IND as read."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        # Test _extract_compute_sources directly using a regex match
+        import re
+
+        compute_pattern = re.compile(
+            r"\bCOMPUTE\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)\s*=\s*([^.]+)",
+            re.IGNORECASE,
+        )
+
+        text = "COMPUTE WS-TABLE(WS-INDEX) = WS-A + WS-B"
+        match = compute_pattern.match(text)
+        assert match is not None
+
+        sources = parser._extract_compute_sources(match)
+
+        assert "WS-A" in sources
+        assert "WS-B" in sources
+        assert "WS-INDEX" in sources
+
+    def test_display_with_subscript_tracks_index(self):
+        """DISPLAY WS-TABLE(IND) should track IND as read."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        # Test extraction via _extract_read_only_statements
+        source = "DISPLAY WS-TABLE(WS-INDEX)."
+        statements = []
+        parser._extract_read_only_statements(source, 0, source.splitlines(), statements)
+
+        display_stmts = [s for s in statements if s.statement_type == "DISPLAY"]
+        assert len(display_stmts) >= 1
+
+        all_sources = []
+        for stmt in display_stmts:
+            all_sources.extend(stmt.sources)
+
+        assert "WS-TABLE" in all_sources
+        assert "WS-INDEX" in all_sources
+
+    def test_remove_subscript_with_extraction(self):
+        """Test _remove_subscript_with_extraction returns both base name and subscript vars."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        base, subscripts = parser._remove_subscript_with_extraction("WS-TABLE(IND-1)")
+        assert base == "WS-TABLE"
+        assert "IND-1" in subscripts
+
+        base, subscripts = parser._remove_subscript_with_extraction(
+            "WS-TABLE(IND-1, IND-2)"
+        )
+        assert base == "WS-TABLE"
+        assert "IND-1" in subscripts
+        assert "IND-2" in subscripts
+
+        base, subscripts = parser._remove_subscript_with_extraction("WS-SIMPLE")
+        assert base == "WS-SIMPLE"
+        assert len(subscripts) == 0
+
+
+class TestNewStatementPatterns:
+    """Tests for newly added statement patterns (GIVING, REMAINDER, WRITE FROM, etc.)."""
+
+    def test_add_giving_pattern(self):
+        """ADD A TO B GIVING C - C is target, A and B are sources."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.ADD_GIVING_STMT.search("ADD WS-A TO WS-B GIVING WS-C.")
+        assert match is not None
+
+        targets = parser._extract_giving_target(match)
+        sources = parser._extract_giving_sources(match)
+
+        assert "WS-C" in targets
+        assert "WS-A" in sources
+        assert "WS-B" in sources
+
+    def test_subtract_giving_pattern(self):
+        """SUBTRACT A FROM B GIVING C - C is target, A and B are sources."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.SUBTRACT_GIVING_STMT.search(
+            "SUBTRACT WS-X FROM WS-Y GIVING WS-Z."
+        )
+        assert match is not None
+
+        targets = parser._extract_giving_target(match)
+        sources = parser._extract_giving_sources(match)
+
+        assert "WS-Z" in targets
+        assert "WS-X" in sources
+        assert "WS-Y" in sources
+
+    def test_multiply_giving_pattern(self):
+        """MULTIPLY A BY B GIVING C - C is target, A and B are sources."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.MULTIPLY_GIVING_STMT.search(
+            "MULTIPLY WS-RATE BY WS-QTY GIVING WS-TOTAL."
+        )
+        assert match is not None
+
+        targets = parser._extract_giving_target(match)
+        sources = parser._extract_giving_sources(match)
+
+        assert "WS-TOTAL" in targets
+        assert "WS-RATE" in sources
+        assert "WS-QTY" in sources
+
+    def test_divide_giving_pattern(self):
+        """DIVIDE A BY B GIVING Q - Q is target, A and B are sources."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.DIVIDE_GIVING_STMT.search(
+            "DIVIDE WS-TOTAL BY WS-COUNT GIVING WS-AVG."
+        )
+        assert match is not None
+
+        targets = parser._extract_divide_giving_targets(match)
+        sources = parser._extract_giving_sources(match)
+
+        assert "WS-AVG" in targets
+        assert "WS-TOTAL" in sources
+        assert "WS-COUNT" in sources
+
+    def test_divide_giving_remainder_pattern(self):
+        """DIVIDE A BY B GIVING Q REMAINDER R - Q and R are targets."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.DIVIDE_GIVING_STMT.search(
+            "DIVIDE WS-NUM BY WS-DIV GIVING WS-QUOT REMAINDER WS-REM."
+        )
+        assert match is not None
+
+        targets = parser._extract_divide_giving_targets(match)
+        sources = parser._extract_giving_sources(match)
+
+        assert "WS-QUOT" in targets
+        assert "WS-REM" in targets
+        assert len(targets) == 2
+        assert "WS-NUM" in sources
+        assert "WS-DIV" in sources
+
+    def test_write_from_pattern(self):
+        """WRITE REC FROM WS-BUF - REC is target, WS-BUF is source."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.WRITE_FROM_STMT.search("WRITE OUTPUT-REC FROM WS-BUFFER.")
+        assert match is not None
+
+        targets = parser._extract_single_target(match)
+        sources = parser._extract_from_source(match)
+
+        assert "OUTPUT-REC" in targets
+        assert "WS-BUFFER" in sources
+
+    def test_rewrite_from_pattern(self):
+        """REWRITE REC FROM WS-BUF - REC is target, WS-BUF is source."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.REWRITE_FROM_STMT.search(
+            "REWRITE CUSTOMER-RECORD FROM WS-WORK-CUSTOMER."
+        )
+        assert match is not None
+
+        targets = parser._extract_single_target(match)
+        sources = parser._extract_from_source(match)
+
+        assert "CUSTOMER-RECORD" in targets
+        assert "WS-WORK-CUSTOMER" in sources
+
+    def test_return_into_pattern(self):
+        """RETURN FILE INTO WS-REC - WS-REC is target."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.RETURN_INTO_STMT.search("RETURN SORT-FILE INTO WS-RECORD.")
+        assert match is not None
+
+        targets = parser._extract_read_targets(match)
+
+        assert "WS-RECORD" in targets
+
+    def test_move_corresponding_pattern(self):
+        """MOVE CORRESPONDING REC-A TO REC-B - REC-B is target, REC-A is source."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.MOVE_CORR_STMT.search(
+            "MOVE CORRESPONDING WS-INPUT TO WS-OUTPUT."
+        )
+        assert match is not None
+
+        targets = parser._extract_corr_targets(match)
+        sources = parser._extract_corr_sources(match)
+
+        assert "WS-OUTPUT" in targets
+        assert "WS-INPUT" in sources
+
+    def test_move_corr_shorthand_pattern(self):
+        """MOVE CORR REC-A TO REC-B - same as CORRESPONDING."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.MOVE_CORR_STMT.search("MOVE CORR WS-REC-A TO WS-REC-B.")
+        assert match is not None
+
+        targets = parser._extract_corr_targets(match)
+        sources = parser._extract_corr_sources(match)
+
+        assert "WS-REC-B" in targets
+        assert "WS-REC-A" in sources
+
+    def test_giving_with_subscripts(self):
+        """ADD A(I) TO B(J) GIVING C(K) - subscript variables are sources."""
+        from parser.cobol_parser import SimplifiedCobolParser
+
+        parser = SimplifiedCobolParser()
+
+        match = parser.ADD_GIVING_STMT.search(
+            "ADD WS-A(IND-1) TO WS-B(IND-2) GIVING WS-C(IND-3)."
+        )
+        assert match is not None
+
+        sources = parser._extract_giving_sources(match)
+
+        # Main variables
+        assert "WS-A" in sources
+        assert "WS-B" in sources
+        # Subscript variables should also be tracked as sources
+        assert "IND-1" in sources
+        assert "IND-2" in sources
+        assert "IND-3" in sources
