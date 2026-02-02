@@ -500,11 +500,30 @@ class SimplifiedCobolParser:
     )
 
     # Statement patterns (for modification tracking)
-    # MOVE pattern - only allow comma-separated targets to avoid multi-line issues
-    # Use [ \t] instead of \s to avoid matching newlines in target list
+    # Variable name pattern - excludes COBOL keywords via negative lookahead
+    # This prevents capturing keywords like MOVE, ADD, TO as variable names
+    _VAR_NAME = (
+        r"(?!(?:MOVE|COMPUTE|ADD|SUBTRACT|MULTIPLY|DIVIDE|PERFORM|IF|ELSE|THEN|"
+        r"END-IF|END-PERFORM|END-EVALUATE|END-CALL|DISPLAY|STOP|GO|GOBACK|CALL|"
+        r"TO|FROM|INTO|BY|GIVING|USING|RETURNING|READ|WRITE|OPEN|CLOSE|"
+        r"INITIALIZE|SET|STRING|UNSTRING|INSPECT|ACCEPT|RETURN|SEARCH|EVALUATE|"
+        r"EXIT|CONTINUE|WHEN|WITH|NOT|ON|AT|AFTER|BEFORE|UPON|REPLACING|"
+        r"TALLYING|DELIMITED|POINTER|OVERFLOW|SIZE|ERROR|INVALID|END|"
+        r"WORKING-STORAGE|LINKAGE|FILE|PROCEDURE|DATA|IDENTIFICATION)\b)"
+        r"[A-Za-z0-9][-A-Za-z0-9]*"
+    )
+    # Terminator pattern - stops at period or newline followed by COBOL statement keyword
+    _STMT_TERM = (
+        r"(?:\s*\.|"
+        r"(?=\s*\n\s*(?:MOVE|COMPUTE|ADD|SUBTRACT|MULTIPLY|DIVIDE|PERFORM|IF|"
+        r"DISPLAY|CALL|GO|GOBACK|STOP|READ|WRITE|OPEN|CLOSE|INITIALIZE|SET|"
+        r"STRING|UNSTRING|INSPECT|ACCEPT|RETURN|SEARCH|EVALUATE|EXIT|CONTINUE)\b))"
+    )
+    # MOVE pattern - supports multi-line targets with period termination
+    # or single-line targets terminated by next statement keyword
     MOVE_STMT = re.compile(
-        r"\bMOVE\s+(.+?)\s+TO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?(?:[ \t]*,[ \t]*[A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?)*)[ \t]*[.\n]",
-        re.IGNORECASE,
+        rf"\bMOVE\s+(.+?)\s+TO\s+({_VAR_NAME}(?:\s*\([^)]+\))?(?:[\s,]+{_VAR_NAME}(?:\s*\([^)]+\))?)*){_STMT_TERM}",
+        re.IGNORECASE | re.DOTALL,
     )
     COMPUTE_STMT = re.compile(
         r"\bCOMPUTE\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)\s*=\s*([^.]+)",
@@ -534,10 +553,18 @@ class SimplifiedCobolParser:
         r"\bREAD\s+([A-Za-z0-9][-A-Za-z0-9]*)\s+INTO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)",
         re.IGNORECASE,
     )
-    # INITIALIZE pattern - only allow comma-separated targets
+    # INITIALIZE pattern - supports multi-line targets
+    # Terminates at period, REPLACING/WITH clauses, or next statement keyword
+    _INIT_TERM = (
+        r"(?:\s*\.|"
+        r"(?=\s+(?:REPLACING|WITH)\b)|"
+        r"(?=\s*\n\s*(?:MOVE|COMPUTE|ADD|SUBTRACT|MULTIPLY|DIVIDE|PERFORM|IF|"
+        r"DISPLAY|CALL|GO|GOBACK|STOP|READ|WRITE|OPEN|CLOSE|INITIALIZE|SET|"
+        r"STRING|UNSTRING|INSPECT|ACCEPT|RETURN|SEARCH|EVALUATE|EXIT|CONTINUE)\b))"
+    )
     INITIALIZE_STMT = re.compile(
-        r"\bINITIALIZE\s+([A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?(?:[ \t]*,[ \t]*[A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?)*)",
-        re.IGNORECASE,
+        rf"\bINITIALIZE\s+({_VAR_NAME}(?:\s*\([^)]+\))?(?:[\s,]+{_VAR_NAME}(?:\s*\([^)]+\))?)*){_INIT_TERM}",
+        re.IGNORECASE | re.DOTALL,
     )
     SET_STMT = re.compile(
         r"\bSET\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)\s+TO\s+",
@@ -547,9 +574,17 @@ class SimplifiedCobolParser:
         r"\bSTRING\s+.+?\s+INTO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)",
         re.IGNORECASE | re.DOTALL,
     )
-    # UNSTRING pattern - only allow comma-separated targets
+    # UNSTRING pattern - supports multi-line targets after INTO
+    # Terminates at period, POINTER/TALLYING/OVERFLOW clauses, or next statement keyword
+    _UNSTR_TERM = (
+        r"(?:\s*\.|"
+        r"(?=\s+(?:WITH|POINTER|TALLYING|ON\s+OVERFLOW|NOT\s+ON|END-UNSTRING|DELIMITER)\b)|"
+        r"(?=\s*\n\s*(?:MOVE|COMPUTE|ADD|SUBTRACT|MULTIPLY|DIVIDE|PERFORM|IF|"
+        r"DISPLAY|CALL|GO|GOBACK|STOP|READ|WRITE|OPEN|CLOSE|INITIALIZE|SET|"
+        r"STRING|UNSTRING|INSPECT|ACCEPT|RETURN|SEARCH|EVALUATE|EXIT|CONTINUE)\b))"
+    )
     UNSTRING_STMT = re.compile(
-        r"\bUNSTRING\s+.+?\s+INTO\s+([A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?(?:[ \t]*,[ \t]*[A-Za-z0-9][-A-Za-z0-9]*(?:[ \t]*\([^)]+\))?)*)",
+        rf"\bUNSTRING\s+.+?\s+INTO\s+({_VAR_NAME}(?:\s*\([^)]+\))?(?:[\s,]+{_VAR_NAME}(?:\s*\([^)]+\))?)*){_UNSTR_TERM}",
         re.IGNORECASE | re.DOTALL,
     )
     INSPECT_STMT = re.compile(
