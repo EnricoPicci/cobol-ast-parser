@@ -10,6 +10,7 @@ COBOL parser. It handles:
 from typing import Optional, List, Any
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 import sys
 
 
@@ -305,8 +306,6 @@ class SimplifiedCobolParser:
     cannot be installed.
     """
 
-    import re
-
     # COBOL keywords that should not be captured as variable names
     COBOL_KEYWORDS = {
         # Data movement
@@ -480,7 +479,7 @@ class SimplifiedCobolParser:
         re.IGNORECASE,
     )
     COMPUTE_STMT = re.compile(
-        r"\bCOMPUTE\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)\s*=",
+        r"\bCOMPUTE\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)\s*=\s*([^.]+)",
         re.IGNORECASE,
     )
     ADD_STMT = re.compile(
@@ -527,6 +526,25 @@ class SimplifiedCobolParser:
     )
     INSPECT_STMT = re.compile(
         r"\bINSPECT\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)\s+(?:TALLYING|REPLACING|CONVERTING)",
+        re.IGNORECASE,
+    )
+
+    # Patterns for statements that read variables (access tracking)
+    # DISPLAY can have literals and variables mixed, we'll extract variables from the full match
+    DISPLAY_STMT = re.compile(
+        r"\bDISPLAY\s+(.+?)(?:\s*\.|\s+(?:WITH|UPON|NO|END-DISPLAY)|\s*$)",
+        re.IGNORECASE,
+    )
+    IF_CONDITION = re.compile(
+        r"\bIF\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)",
+        re.IGNORECASE,
+    )
+    EVALUATE_STMT = re.compile(
+        r"\bEVALUATE\s+([A-Za-z0-9][-A-Za-z0-9]*(?:\s*\([^)]+\))?)",
+        re.IGNORECASE,
+    )
+    PERFORM_UNTIL = re.compile(
+        r"\bPERFORM\s+[A-Za-z0-9][-A-Za-z0-9]*\s+(?:THRU|THROUGH\s+[A-Za-z0-9][-A-Za-z0-9]*\s+)?(?:VARYING\s+[A-Za-z0-9][-A-Za-z0-9]*\s+FROM\s+)?(?:UNTIL\s+)?([A-Za-z0-9][-A-Za-z0-9]*)",
         re.IGNORECASE,
     )
 
@@ -840,29 +858,31 @@ class SimplifiedCobolParser:
     def _extract_statements(
         self, source: str, offset: int, all_lines: List[str]
     ) -> List[SimplifiedStatement]:
-        """Extract modifying statements from source."""
+        """Extract modifying statements and their source variables from source."""
         statements = []
 
-        # Statement patterns and their types
+        # Statement patterns: (pattern, stmt_type, target_extractor, source_extractor)
+        # source_extractor can be None if the statement doesn't read variables
         patterns = [
-            (self.MOVE_STMT, "MOVE", self._extract_move_targets),
-            (self.COMPUTE_STMT, "COMPUTE", self._extract_single_target),
-            (self.ADD_STMT, "ADD", self._extract_arithmetic_targets),
-            (self.SUBTRACT_STMT, "SUBTRACT", self._extract_arithmetic_targets),
-            (self.MULTIPLY_STMT, "MULTIPLY", self._extract_arithmetic_targets),
-            (self.DIVIDE_STMT, "DIVIDE", self._extract_arithmetic_targets),
-            (self.ACCEPT_STMT, "ACCEPT", self._extract_single_target),
-            (self.READ_STMT, "READ", self._extract_read_targets),
-            (self.INITIALIZE_STMT, "INITIALIZE", self._extract_multi_targets),
-            (self.SET_STMT, "SET", self._extract_single_target),
-            (self.STRING_STMT, "STRING", self._extract_single_target),
-            (self.UNSTRING_STMT, "UNSTRING", self._extract_multi_targets),
-            (self.INSPECT_STMT, "INSPECT", self._extract_single_target),
+            (self.MOVE_STMT, "MOVE", self._extract_move_targets, self._extract_move_sources),
+            (self.COMPUTE_STMT, "COMPUTE", self._extract_single_target, self._extract_compute_sources),
+            (self.ADD_STMT, "ADD", self._extract_arithmetic_targets, self._extract_arithmetic_sources),
+            (self.SUBTRACT_STMT, "SUBTRACT", self._extract_arithmetic_targets, self._extract_arithmetic_sources),
+            (self.MULTIPLY_STMT, "MULTIPLY", self._extract_arithmetic_targets, self._extract_arithmetic_sources),
+            (self.DIVIDE_STMT, "DIVIDE", self._extract_arithmetic_targets, self._extract_arithmetic_sources),
+            (self.ACCEPT_STMT, "ACCEPT", self._extract_single_target, None),  # ACCEPT doesn't read
+            (self.READ_STMT, "READ", self._extract_read_targets, None),  # READ doesn't read variables
+            (self.INITIALIZE_STMT, "INITIALIZE", self._extract_multi_targets, None),  # INITIALIZE doesn't read
+            (self.SET_STMT, "SET", self._extract_single_target, self._extract_set_sources),
+            (self.STRING_STMT, "STRING", self._extract_single_target, self._extract_string_sources),
+            (self.UNSTRING_STMT, "UNSTRING", self._extract_multi_targets, self._extract_unstring_sources),
+            (self.INSPECT_STMT, "INSPECT", self._extract_single_target, None),  # INSPECT target is also read
         ]
 
-        for pattern, stmt_type, extractor in patterns:
+        for pattern, stmt_type, target_extractor, source_extractor in patterns:
             for match in pattern.finditer(source):
-                targets = extractor(match)
+                targets = target_extractor(match)
+                sources = source_extractor(match) if source_extractor else []
                 # Calculate actual line number using offset from original source
                 char_pos = offset + match.start()
                 line_num = self._get_line_number_at_offset(all_lines, char_pos)
@@ -872,9 +892,13 @@ class SimplifiedCobolParser:
                         statement_type=stmt_type,
                         text=match.group(0).strip(),
                         targets=targets,
+                        sources=sources,
                         line_number=line_num,
                     )
                 )
+
+        # Extract read-only statements (DISPLAY, IF conditions, EVALUATE, etc.)
+        self._extract_read_only_statements(source, offset, all_lines, statements)
 
         return statements
 
@@ -882,6 +906,11 @@ class SimplifiedCobolParser:
         """Extract targets from MOVE statement."""
         targets_str = match.group(2)
         return self._split_variable_list(targets_str)
+
+    def _extract_move_sources(self, match) -> List[str]:
+        """Extract source from MOVE statement."""
+        source_str = match.group(1)
+        return self._extract_variables_from_expression(source_str)
 
     def _extract_single_target(self, match) -> List[str]:
         """Extract single target from statement."""
@@ -896,6 +925,11 @@ class SimplifiedCobolParser:
         target = self._remove_subscript(target)
         return [target.upper()]
 
+    def _extract_arithmetic_sources(self, match) -> List[str]:
+        """Extract sources from arithmetic statements (ADD/SUBTRACT/MULTIPLY/DIVIDE)."""
+        source_str = match.group(1)
+        return self._split_variable_list(source_str)
+
     def _extract_read_targets(self, match) -> List[str]:
         """Extract targets from READ statement."""
         target = match.group(2).strip()
@@ -907,10 +941,128 @@ class SimplifiedCobolParser:
         targets_str = match.group(1)
         return self._split_variable_list(targets_str)
 
+    def _extract_compute_sources(self, match) -> List[str]:
+        """Extract sources from COMPUTE statement (right side of =)."""
+        # Group 2 contains the expression after the =
+        expr = match.group(2) if match.lastindex >= 2 else ""
+        return self._extract_variables_from_expression(expr)
+
+    def _extract_set_sources(self, match) -> List[str]:
+        """Extract source from SET statement."""
+        full_text = match.group(0)
+        # SET X TO Y - extract Y
+        to_match = re.search(r'\bTO\s+([A-Za-z0-9][-A-Za-z0-9]*)', full_text, re.IGNORECASE)
+        if to_match:
+            return self._split_variable_list(to_match.group(1))
+        return []
+
+    def _extract_string_sources(self, match) -> List[str]:
+        """Extract sources from STRING statement."""
+        full_text = match.group(0)
+        # STRING A B C INTO X - extract everything before INTO
+        into_pos = full_text.upper().find(' INTO ')
+        if into_pos >= 0:
+            sources_part = full_text[7:into_pos]  # Skip "STRING "
+            return self._extract_variables_from_expression(sources_part)
+        return []
+
+    def _extract_unstring_sources(self, match) -> List[str]:
+        """Extract source from UNSTRING statement."""
+        full_text = match.group(0)
+        # UNSTRING X INTO Y Z - X is the source
+        unstring_match = re.match(r'\bUNSTRING\s+([A-Za-z0-9][-A-Za-z0-9]*)', full_text, re.IGNORECASE)
+        if unstring_match:
+            source = self._remove_subscript(unstring_match.group(1))
+            if source.upper() not in self.COBOL_KEYWORDS:
+                return [source.upper()]
+        return []
+
+    def _extract_variables_from_expression(self, expr: str) -> List[str]:
+        """Extract variable names from an expression, filtering literals and keywords."""
+        # First, remove string literals (content between quotes)
+        # Remove double-quoted strings
+        expr_no_strings = re.sub(r'"[^"]*"', ' ', expr)
+        # Remove single-quoted strings
+        expr_no_strings = re.sub(r"'[^']*'", ' ', expr_no_strings)
+
+        # Find all potential variable names (alphanumeric with hyphens)
+        var_pattern = re.compile(r'\b([A-Za-z][A-Za-z0-9-]*)\b')
+        variables = []
+        for match in var_pattern.finditer(expr_no_strings):
+            var = match.group(1).upper()
+            # Filter out COBOL keywords and literals
+            if var not in self.COBOL_KEYWORDS and not self._is_literal_value(var):
+                variables.append(var)
+        return variables
+
+    def _is_literal_value(self, text: str) -> bool:
+        """Check if text is a literal value."""
+        text = text.strip().upper()
+        # Numeric literals
+        if text.lstrip('-+').replace('.', '').isdigit():
+            return True
+        # Figurative constants
+        figuratives = {
+            'ZERO', 'ZEROS', 'ZEROES', 'SPACE', 'SPACES',
+            'HIGH-VALUE', 'HIGH-VALUES', 'LOW-VALUE', 'LOW-VALUES',
+            'QUOTE', 'QUOTES', 'NULL', 'NULLS', 'ALL', 'TRUE', 'FALSE'
+        }
+        return text in figuratives
+
+    def _extract_read_only_statements(
+        self, source: str, offset: int, all_lines: List[str], statements: List[SimplifiedStatement]
+    ) -> None:
+        """Extract statements that only read variables (DISPLAY, IF, EVALUATE, PERFORM)."""
+        # DISPLAY statements - extract variables from the display content
+        for match in self.DISPLAY_STMT.finditer(source):
+            sources = self._extract_variables_from_expression(match.group(1))
+            if sources:
+                char_pos = offset + match.start()
+                line_num = self._get_line_number_at_offset(all_lines, char_pos)
+                statements.append(
+                    SimplifiedStatement(
+                        statement_type="DISPLAY",
+                        text=match.group(0).strip(),
+                        targets=[],  # DISPLAY doesn't modify
+                        sources=sources,
+                        line_number=line_num,
+                    )
+                )
+
+        # IF conditions - extract the first variable being tested
+        for match in self.IF_CONDITION.finditer(source):
+            var = self._remove_subscript(match.group(1))
+            if var.upper() not in self.COBOL_KEYWORDS:
+                char_pos = offset + match.start()
+                line_num = self._get_line_number_at_offset(all_lines, char_pos)
+                statements.append(
+                    SimplifiedStatement(
+                        statement_type="IF",
+                        text=match.group(0).strip(),
+                        targets=[],
+                        sources=[var.upper()],
+                        line_number=line_num,
+                    )
+                )
+
+        # EVALUATE statements
+        for match in self.EVALUATE_STMT.finditer(source):
+            var = self._remove_subscript(match.group(1))
+            if var.upper() not in self.COBOL_KEYWORDS:
+                char_pos = offset + match.start()
+                line_num = self._get_line_number_at_offset(all_lines, char_pos)
+                statements.append(
+                    SimplifiedStatement(
+                        statement_type="EVALUATE",
+                        text=match.group(0).strip(),
+                        targets=[],
+                        sources=[var.upper()],
+                        line_number=line_num,
+                    )
+                )
+
     def _split_variable_list(self, text: str) -> List[str]:
         """Split a list of variable names, filtering out COBOL keywords."""
-        import re
-
         # Split on commas and whitespace, filter empties
         parts = re.split(r"[,\s]+", text)
         results = []

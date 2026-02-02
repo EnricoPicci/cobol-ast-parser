@@ -212,6 +212,25 @@ class VariableModification:
 
 
 @dataclass
+class VariableAccess:
+    """Records a variable access (read) in procedure code.
+
+    Tracks when a variable is read/accessed without being modified,
+    such as being used as a source in MOVE, in conditions, or displayed.
+    """
+
+    variable_name: str
+    access_context: str  # e.g., "MOVE_SOURCE", "COMPUTE_EXPRESSION", "CONDITION", "DISPLAY"
+    line_number: int
+    statement_text: str = ""
+    section_name: Optional[str] = None
+    paragraph_name: Optional[str] = None
+
+    def __hash__(self):
+        return hash((self.variable_name, self.access_context, self.line_number))
+
+
+@dataclass
 class Paragraph:
     """Represents a COBOL paragraph.
 
@@ -221,6 +240,7 @@ class Paragraph:
 
     name: str
     modifications: List[VariableModification] = field(default_factory=list)
+    accesses: List[VariableAccess] = field(default_factory=list)
     line_number: int = 0
     parent_section: Optional[str] = None
 
@@ -228,6 +248,11 @@ class Paragraph:
     def modified_variables(self) -> Set[str]:
         """Get set of all variables modified in this paragraph."""
         return {mod.variable_name for mod in self.modifications}
+
+    @property
+    def accessed_variables(self) -> Set[str]:
+        """Get set of all variables accessed (read) in this paragraph."""
+        return {acc.variable_name for acc in self.accesses}
 
 
 @dataclass
@@ -241,6 +266,7 @@ class Section:
     name: str
     paragraphs: List[Paragraph] = field(default_factory=list)
     standalone_modifications: List[VariableModification] = field(default_factory=list)
+    standalone_accesses: List[VariableAccess] = field(default_factory=list)
     line_number: int = 0
 
     @property
@@ -252,9 +278,22 @@ class Section:
         return result
 
     @property
+    def all_accesses(self) -> List[VariableAccess]:
+        """Get all accesses in this section and its paragraphs."""
+        result = list(self.standalone_accesses)
+        for para in self.paragraphs:
+            result.extend(para.accesses)
+        return result
+
+    @property
     def modified_variables(self) -> Set[str]:
         """Get set of all variables modified in this section."""
         return {mod.variable_name for mod in self.all_modifications}
+
+    @property
+    def accessed_variables(self) -> Set[str]:
+        """Get set of all variables accessed in this section."""
+        return {acc.variable_name for acc in self.all_accesses}
 
     def get_paragraph(self, name: str) -> Optional[Paragraph]:
         """Get a paragraph by name."""
@@ -281,6 +320,8 @@ class CobolProgram:
         orphan_modifications: Variable modifications that occur in the
             PROCEDURE DIVISION before any paragraph or section. These are
             captured separately to ensure all modifications are tracked.
+        orphan_accesses: Variable accesses that occur in the
+            PROCEDURE DIVISION before any paragraph or section.
         source_lines: Original source lines of the program.
     """
 
@@ -290,6 +331,7 @@ class CobolProgram:
     sections: List[Section] = field(default_factory=list)
     paragraphs: List[Paragraph] = field(default_factory=list)
     orphan_modifications: List[VariableModification] = field(default_factory=list)
+    orphan_accesses: List[VariableAccess] = field(default_factory=list)
     source_lines: List[str] = field(default_factory=list)
 
     def get_record_for_variable(
@@ -381,5 +423,31 @@ class CobolProgram:
             if mod.variable_name not in result:
                 result[mod.variable_name] = []
             result[mod.variable_name].append(mod)
+
+        return result
+
+    def get_all_accesses(self) -> List[VariableAccess]:
+        """Get all variable accesses in the program."""
+        result: List[VariableAccess] = []
+
+        # Include orphan accesses (statements outside any paragraph/section)
+        result.extend(self.orphan_accesses)
+
+        for section in self.sections:
+            result.extend(section.all_accesses)
+
+        for para in self.paragraphs:
+            result.extend(para.accesses)
+
+        return result
+
+    def get_accesses_by_variable(self) -> Dict[str, List[VariableAccess]]:
+        """Get accesses grouped by variable name."""
+        result: Dict[str, List[VariableAccess]] = {}
+
+        for acc in self.get_all_accesses():
+            if acc.variable_name not in result:
+                result[acc.variable_name] = []
+            result[acc.variable_name].append(acc)
 
         return result

@@ -19,10 +19,17 @@ class VariableChangeInfo:
     modification_lines: Set[int] = field(default_factory=set)
     modification_types: Set[str] = field(default_factory=set)
 
+    # All access tracking (reads)
+    access_lines: Set[int] = field(default_factory=set)
+    access_contexts: Set[str] = field(default_factory=set)
+
     # Change type flags
     has_direct_modification: bool = False
     has_redefines_modification: bool = False
     has_ancestor_modification: bool = False
+
+    # Access type flags
+    has_direct_access: bool = False
 
     # REDEFINES example (one example for explanation)
     # Keys: source_var, source_start, source_end, source_record,
@@ -48,6 +55,9 @@ class ParagraphVariablesMapper:
         self._memory_regions = analysis_data.get("memory_regions", {})
         self._line_mapping = analysis_data.get("_line_mapping", {})
         self._original_line_count = analysis_data.get("_original_line_count", 0)
+        self._sections_and_paragraphs_accesses = analysis_data.get(
+            "sections_and_paragraphs_accesses", {}
+        )
         self._redefines_graph = self._build_redefines_graph()
 
     def _build_redefines_graph(self) -> Dict[str, str]:
@@ -214,10 +224,12 @@ class ParagraphVariablesMapper:
     ) -> Dict[str, VariableChangeInfo]:
         """Collect all changed variables for a section/paragraph with explanation metadata.
 
-        Collects from three sources:
+        Collects modifications from three sources:
         - Direct: mod["variable"]
         - REDEFINES: mod["affected_variables"][*]["name"]
         - Ancestor: children of modified groups
+
+        Also collects accesses (reads) from sections_and_paragraphs_accesses.
 
         Args:
             section_name: Name of the section/paragraph
@@ -285,6 +297,22 @@ class ParagraphVariablesMapper:
                         # Store ancestor name if not set
                         if info.ancestor_name is None:
                             info.ancestor_name = direct_var
+
+        # Collect accesses (reads) for this section/paragraph
+        accesses = self._sections_and_paragraphs_accesses.get(section_name, [])
+        for acc in accesses:
+            var_name = acc.get("variable", "").upper()
+            line_number = acc.get("line_number", 0)
+            access_context = acc.get("access_context", "UNKNOWN")
+
+            if var_name and not self._is_filler(var_name):
+                if var_name not in variables:
+                    variables[var_name] = self._create_variable_info(var_name)
+
+                info = variables[var_name]
+                info.has_direct_access = True
+                info.access_lines.add(line_number)
+                info.access_contexts.add(access_context)
 
         return variables
 
@@ -431,6 +459,18 @@ class ParagraphVariablesMapper:
         if info.is_77_level:
             entry["77-level-var"] = True
 
+        # Add modification lines (converted to original line numbers)
+        if info.modification_lines:
+            entry["modification_lines"] = sorted(set(
+                self._get_original_line(line) for line in info.modification_lines
+            ))
+
+        # Add access lines (converted to original line numbers)
+        if info.access_lines:
+            entry["access_lines"] = sorted(set(
+                self._get_original_line(line) for line in info.access_lines
+            ))
+
         entry["explanation"] = self._build_explanation(info)
 
         return entry
@@ -456,17 +496,22 @@ class ParagraphVariablesMapper:
         redefines_vars: Set[str] = set()
         ancestor_mod_vars: Set[str] = set()
         level_77_vars: Set[str] = set()
+        accessed_vars: Set[str] = set()
+        modified_vars: Set[str] = set()
 
+        # Collect all section names from both modifications and accesses
         sections_and_paragraphs = self.analysis_data.get("sections_and_paragraphs", {})
+        all_section_names = set(sections_and_paragraphs.keys())
+        all_section_names.update(self._sections_and_paragraphs_accesses.keys())
 
-        for section_name in sections_and_paragraphs:
+        for section_name in all_section_names:
             variable_infos = self._collect_changed_variables(
                 section_name,
                 include_redefines=include_redefines,
                 include_ancestor_mods=include_ancestor_mods
             )
 
-            if variable_infos:  # Only include paragraphs with changes
+            if variable_infos:  # Only include paragraphs with changes or accesses
                 # Convert VariableChangeInfo objects to output format
                 variables_output: Dict[str, Dict[str, Any]] = {}
                 for var_name, info in variable_infos.items():
@@ -480,6 +525,10 @@ class ParagraphVariablesMapper:
                         level_77_vars.add(var_name)
                     if info.has_ancestor_modification and not info.has_direct_modification:
                         ancestor_mod_vars.add(var_name)
+                    if info.has_direct_access:
+                        accessed_vars.add(var_name)
+                    if info.has_direct_modification or info.has_redefines_modification or info.has_ancestor_modification:
+                        modified_vars.add(var_name)
 
                 paragraphs[section_name] = variables_output
 
@@ -492,6 +541,8 @@ class ParagraphVariablesMapper:
             redefines_vars,
             ancestor_mod_vars,
             level_77_vars,
+            accessed_vars,
+            modified_vars,
             execution_time
         )
 
@@ -502,6 +553,8 @@ class ParagraphVariablesMapper:
         redefines_vars: Set[str],
         ancestor_mod_vars: Set[str],
         level_77_vars: Set[str],
+        accessed_vars: Set[str],
+        modified_vars: Set[str],
         execution_time: float
     ) -> Dict[str, Any]:
         """Build the final output dictionary.
@@ -512,6 +565,8 @@ class ParagraphVariablesMapper:
             redefines_vars: Set of variables in REDEFINES records
             ancestor_mod_vars: Set of variables modified via ancestor
             level_77_vars: Set of 77-level variables
+            accessed_vars: Set of variables that are accessed (read)
+            modified_vars: Set of variables that are modified
             execution_time: Time taken to perform the mapping
 
         Returns:
@@ -525,6 +580,8 @@ class ParagraphVariablesMapper:
             "summary": {
                 "total_paragraphs_with_changes": len(paragraphs),
                 "total_unique_variables": len(total_unique_vars),
+                "unique_modified_variables": len(modified_vars),
+                "unique_accessed_variables": len(accessed_vars),
                 "variables_in_redefines_records": len(redefines_vars),
                 "variables_via_ancestor_modification": len(ancestor_mod_vars),
                 "level_77_variables": len(level_77_vars)

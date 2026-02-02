@@ -300,6 +300,8 @@ If the COBOL program contains statements in the PROCEDURE DIVISION that are outs
 | `defined_in_record` | string | Level 01 record that directly contains this variable. For FILLER records, uses raw format (e.g., `FILLER$1`) for consistent linking with `DataDivisionTree`. |
 | `base_record` | string | Ultimate Level 01 record (follows REDEFINES chain to root) |
 | `position` | object | Byte position info with `start` and `end` (1-indexed, inclusive) |
+| `modification_lines` | array | *(Optional)* List of line numbers where this variable is modified |
+| `access_lines` | array | *(Optional)* List of line numbers where this variable is accessed (read) |
 | `explanation` | string | Human-readable explanation of why this variable may change (see [Explanation Formats](#explanation-formats)) |
 | `77-level-var` | boolean | *(Only present if true)* Variable is a 77-level standalone item |
 
@@ -390,6 +392,8 @@ Statistical overview of the mapping results.
 |----------|------|-------------|
 | `total_paragraphs_with_changes` | integer | Number of paragraphs/sections that have variable changes |
 | `total_unique_variables` | integer | Count of distinct variable names across all paragraphs |
+| `unique_modified_variables` | integer | Count of distinct variable names that are modified (written to) |
+| `unique_accessed_variables` | integer | Count of distinct variable names that are accessed (read from) |
 | `variables_in_redefines_records` | integer | Count of variables where `defined_in_record` differs from `base_record` |
 | `variables_via_ancestor_modification` | integer | Count of variables included because an ancestor group was modified |
 | `level_77_variables` | integer | Count of 77-level standalone variables |
@@ -401,6 +405,8 @@ Statistical overview of the mapping results.
   "summary": {
     "total_paragraphs_with_changes": 15,
     "total_unique_variables": 42,
+    "unique_modified_variables": 38,
+    "unique_accessed_variables": 25,
     "variables_in_redefines_records": 8,
     "variables_via_ancestor_modification": 5,
     "level_77_variables": 2
@@ -478,7 +484,7 @@ affected by multiple modifications at lines 142, 156; some modifications are due
 
 ## Variable Index (API Only)
 
-The `variable_index` is an inverted index available in the `AnalysisResult` returned by the `analyze_paragraph_variables()` API. It enables O(1) lookup from a `DataDivisionTree` node to the list of paragraphs that may modify that variable.
+The `variable_index` is an inverted index available in the `AnalysisResult` returned by the `analyze_paragraph_variables()` API. It enables O(1) lookup from a `DataDivisionTree` node to the list of paragraphs that may modify or access that variable.
 
 **Note:** This index is only available via the API, not in the JSON file output.
 
@@ -489,7 +495,8 @@ The `variable_index` is an inverted index available in the `AnalysisResult` retu
     "defined_in_record": {
         "start:end": {
             "variable_name": "VAR-NAME",
-            "paragraphs": ["PARA-1", "PARA-2", ...]
+            "modifying_paragraphs": ["PARA-1", "PARA-2", ...],
+            "accessing_paragraphs": ["PARA-3", "PARA-4", ...]
         }
     }
 }
@@ -500,7 +507,8 @@ The `variable_index` is an inverted index available in the `AnalysisResult` retu
 | First level | string | The `defined_in_record` value (Level 01 record containing the variable) |
 | Second level | string | Position key in format `"start:end"` (1-indexed byte positions) |
 | `variable_name` | string | Name of the variable at this position |
-| `paragraphs` | array | List of paragraph/section names that may modify this variable |
+| `modifying_paragraphs` | array | List of paragraph/section names that may modify (write to) this variable |
+| `accessing_paragraphs` | array | List of paragraph/section names that may access (read from) this variable |
 
 ### Example
 
@@ -509,17 +517,20 @@ The `variable_index` is an inverted index available in the `AnalysisResult` retu
   "WS-EMPLOYEE-RECORD": {
     "1:5": {
       "variable_name": "WS-EMP-ID",
-      "paragraphs": ["INIT-PARA", "PROCESS-PARA"]
+      "modifying_paragraphs": ["INIT-PARA", "PROCESS-PARA"],
+      "accessing_paragraphs": ["DISPLAY-PARA", "VALIDATE-PARA"]
     },
     "6:35": {
       "variable_name": "WS-EMP-NAME",
-      "paragraphs": ["UPDATE-NAME-PARA"]
+      "modifying_paragraphs": ["UPDATE-NAME-PARA"],
+      "accessing_paragraphs": ["PRINT-PARA"]
     }
   },
   "CUSTOMER-RECORD": {
     "1:10": {
       "variable_name": "CUST-ID",
-      "paragraphs": ["3100-APPLY-PAYMENT"]
+      "modifying_paragraphs": ["3100-APPLY-PAYMENT"],
+      "accessing_paragraphs": ["3000-VALIDATE-CUSTOMER", "4000-PRINT-RECEIPT"]
     }
   }
 }
@@ -538,22 +549,23 @@ result = analyze_paragraph_variables(Path("program.cob"))
 # Select a node from the tree (e.g., user clicks on WS-EMP-ID)
 node = selected_data_item_node
 
-# Look up modifying paragraphs
+# Look up modifying and accessing paragraphs
 if node.defined_in_record and node.position:
     key = f"{node.position['start']}:{node.position['end']}"
     entry = result.variable_index.get(node.defined_in_record, {}).get(key)
     if entry:
-        print(f"Paragraphs that modify {entry['variable_name']}: {entry['paragraphs']}")
+        print(f"Paragraphs that modify {entry['variable_name']}: {entry['modifying_paragraphs']}")
+        print(f"Paragraphs that access {entry['variable_name']}: {entry['accessing_paragraphs']}")
 ```
 
 ### Why `defined_in_record` Matters
 
-When two Level 01 records REDEFINE each other, they share memory but have different variables. Using `defined_in_record` ensures you only get modifications to the specific variable you selected:
+When two Level 01 records REDEFINE each other, they share memory but have different variables. Using `defined_in_record` ensures you only get modifications/accesses to the specific variable you selected:
 
-| Record | Variable | Position | Paragraphs |
-|--------|----------|----------|------------|
-| `CLIENT` | `CLIENT-NAME` | 1:30 | `["UPDATE-CLIENT"]` |
-| `CLIENT-CHINA` (REDEFINES CLIENT) | `MIDDLE-NAME` | 1:30 | `["PROCESS-CHINA"]` |
+| Record | Variable | Position | Modifying Paragraphs | Accessing Paragraphs |
+|--------|----------|----------|----------------------|----------------------|
+| `CLIENT` | `CLIENT-NAME` | 1:30 | `["UPDATE-CLIENT"]` | `["PRINT-CLIENT"]` |
+| `CLIENT-CHINA` (REDEFINES CLIENT) | `MIDDLE-NAME` | 1:30 | `["PROCESS-CHINA"]` | `["DISPLAY-CHINA"]` |
 
 Without `defined_in_record`, position alone (1:30) would be ambiguous.
 

@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Set, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from cobol_ast.nodes import CobolProgram, VariableModification
+from cobol_ast.nodes import CobolProgram, VariableModification, VariableAccess
 from .data_analyzer import DataStructureAnalyzer, MemoryRegion
 from .redefines import RedefinesAnalyzer, AffectedVariable
 from .procedure_analyzer import ProcedureAnalyzer
@@ -27,12 +27,22 @@ class VariableImpact:
 
 
 @dataclass
+class VariableAccessInfo:
+    """Information about a single variable access (read)."""
+
+    variable_name: str
+    access_context: str
+    line_number: int
+
+
+@dataclass
 class SectionParagraphImpact:
     """Impact information for a section or paragraph."""
 
     name: str
     is_section: bool
     variable_impacts: List[VariableImpact]
+    variable_accesses: List[VariableAccessInfo] = field(default_factory=list)
     all_affected_records: Set[str] = field(default_factory=set)
 
     def __post_init__(self):
@@ -97,22 +107,26 @@ class ImpactAnalyzer:
         under the special name "PROCEDURE DIVISION" to ensure all modifications
         are tracked in the analysis output.
         """
-        if self.program.orphan_modifications:
+        if self.program.orphan_modifications or self.program.orphan_accesses:
             impacts = self._analyze_modifications(self.program.orphan_modifications)
+            accesses = self._analyze_accesses(self.program.orphan_accesses)
             self._orphan_impact = SectionParagraphImpact(
                 name="PROCEDURE DIVISION",
                 is_section=False,
                 variable_impacts=impacts,
+                variable_accesses=accesses,
             )
 
     def _analyze_sections(self) -> None:
         """Analyze impact for all sections."""
         for section in self.program.sections:
             impacts = self._analyze_modifications(section.all_modifications)
+            accesses = self._analyze_accesses(section.all_accesses)
             self._section_impacts[section.name] = SectionParagraphImpact(
                 name=section.name,
                 is_section=True,
                 variable_impacts=impacts,
+                variable_accesses=accesses,
             )
 
     def _analyze_paragraphs(self) -> None:
@@ -120,20 +134,24 @@ class ImpactAnalyzer:
         # Top-level paragraphs
         for paragraph in self.program.paragraphs:
             impacts = self._analyze_modifications(paragraph.modifications)
+            accesses = self._analyze_accesses(paragraph.accesses)
             self._paragraph_impacts[paragraph.name] = SectionParagraphImpact(
                 name=paragraph.name,
                 is_section=False,
                 variable_impacts=impacts,
+                variable_accesses=accesses,
             )
 
         # Paragraphs within sections
         for section in self.program.sections:
             for paragraph in section.paragraphs:
                 impacts = self._analyze_modifications(paragraph.modifications)
+                accesses = self._analyze_accesses(paragraph.accesses)
                 self._paragraph_impacts[paragraph.name] = SectionParagraphImpact(
                     name=paragraph.name,
                     is_section=False,
                     variable_impacts=impacts,
+                    variable_accesses=accesses,
                 )
 
     def _analyze_modifications(
@@ -180,6 +198,29 @@ class ImpactAnalyzer:
             impacts.append(impact)
 
         return impacts
+
+    def _analyze_accesses(
+        self, accesses: List[VariableAccess]
+    ) -> List[VariableAccessInfo]:
+        """Analyze a list of variable accesses.
+
+        Args:
+            accesses: List of variable accesses
+
+        Returns:
+            List of VariableAccessInfo objects
+        """
+        access_infos = []
+
+        for acc in accesses:
+            access_info = VariableAccessInfo(
+                variable_name=acc.variable_name,
+                access_context=acc.access_context,
+                line_number=acc.line_number,
+            )
+            access_infos.append(access_info)
+
+        return access_infos
 
     def _filter_by_byte_overlap(
         self, modified_var: str, potential_affected: List[AffectedVariable]
@@ -469,13 +510,20 @@ class ImpactAnalyzer:
             self.analyze()
 
         sections_and_paragraphs = {}
+        sections_and_paragraphs_accesses = {}
 
-        # Add orphan modifications (statements outside any paragraph/section)
-        if self._orphan_impact and self._orphan_impact.variable_impacts:
-            sections_and_paragraphs["PROCEDURE DIVISION"] = [
-                self._format_variable_impact(vi)
-                for vi in self._orphan_impact.variable_impacts
-            ]
+        # Add orphan modifications and accesses (statements outside any paragraph/section)
+        if self._orphan_impact:
+            if self._orphan_impact.variable_impacts:
+                sections_and_paragraphs["PROCEDURE DIVISION"] = [
+                    self._format_variable_impact(vi)
+                    for vi in self._orphan_impact.variable_impacts
+                ]
+            if self._orphan_impact.variable_accesses:
+                sections_and_paragraphs_accesses["PROCEDURE DIVISION"] = [
+                    self._format_variable_access(va)
+                    for va in self._orphan_impact.variable_accesses
+                ]
 
         # Add sections
         for section_name, impact in self._section_impacts.items():
@@ -483,12 +531,20 @@ class ImpactAnalyzer:
                 sections_and_paragraphs[section_name] = [
                     self._format_variable_impact(vi) for vi in impact.variable_impacts
                 ]
+            if impact.variable_accesses:
+                sections_and_paragraphs_accesses[section_name] = [
+                    self._format_variable_access(va) for va in impact.variable_accesses
+                ]
 
         # Add paragraphs
         for para_name, impact in self._paragraph_impacts.items():
             if impact.variable_impacts:
                 sections_and_paragraphs[para_name] = [
                     self._format_variable_impact(vi) for vi in impact.variable_impacts
+                ]
+            if impact.variable_accesses:
+                sections_and_paragraphs_accesses[para_name] = [
+                    self._format_variable_access(va) for va in impact.variable_accesses
                 ]
 
         # Get records with REDEFINES
@@ -501,8 +557,12 @@ class ImpactAnalyzer:
             "total_paragraphs": len(self.program.paragraphs)
             + sum(len(s.paragraphs) for s in self.program.sections),
             "total_modifications": len(self.program.get_all_modifications()),
+            "total_accesses": len(self.program.get_all_accesses()),
             "unique_modified_variables": len(
                 self.procedure_analyzer.get_modified_variables()
+            ),
+            "unique_accessed_variables": len(
+                set(acc.variable_name for acc in self.program.get_all_accesses())
             ),
             "records_with_redefines": records_with_redefines,
         }
@@ -511,6 +571,7 @@ class ImpactAnalyzer:
             "program_name": self.program.name,
             "analysis_date": datetime.now().isoformat(),
             "sections_and_paragraphs": sections_and_paragraphs,
+            "sections_and_paragraphs_accesses": sections_and_paragraphs_accesses,
             "data_hierarchy": self._build_data_hierarchy(),
             "memory_regions": self._build_memory_regions(),
             "summary": summary,
@@ -569,6 +630,21 @@ class ImpactAnalyzer:
             ]
 
         return result
+
+    def _format_variable_access(self, va: VariableAccessInfo) -> Dict[str, Any]:
+        """Format a VariableAccessInfo for output.
+
+        Args:
+            va: VariableAccessInfo object
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "variable": va.variable_name,
+            "access_context": va.access_context,
+            "line_number": va.line_number,
+        }
 
     def generate_compact_output(self) -> Dict[str, List[Dict]]:
         """Generate a compact output with unique variable/records per section.

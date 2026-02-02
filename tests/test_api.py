@@ -331,11 +331,13 @@ class TestAnalysisResult:
                 assert isinstance(pos_key, str)
                 assert ":" in pos_key  # Format is "start:end"
 
-                # Entry should have variable_name and paragraphs
+                # Entry should have variable_name, modifying_paragraphs, and accessing_paragraphs
                 assert "variable_name" in entry
-                assert "paragraphs" in entry
+                assert "modifying_paragraphs" in entry
+                assert "accessing_paragraphs" in entry
                 assert isinstance(entry["variable_name"], str)
-                assert isinstance(entry["paragraphs"], list)
+                assert isinstance(entry["modifying_paragraphs"], list)
+                assert isinstance(entry["accessing_paragraphs"], list)
 
     def test_variable_index_contains_modified_variables(self):
         """Test that variable_index contains variables from paragraph_variables."""
@@ -364,14 +366,14 @@ class TestAnalysisResult:
 
         result = analyze_paragraph_variables(source_path)
 
-        # For each entry in variable_index, verify the paragraphs match
+        # For each entry in variable_index, verify the modifying paragraphs match
         for record_name, positions in result.variable_index.items():
             for pos_key, entry in positions.items():
                 var_name = entry["variable_name"]
-                paragraphs_in_index = set(entry["paragraphs"])
+                modifying_in_index = set(entry["modifying_paragraphs"])
 
                 # Find all paragraphs that modify this variable
-                paragraphs_from_original = set()
+                modifying_from_original = set()
                 for para_name, para_vars in result.paragraph_variables.get("paragraphs", {}).items():
                     if var_name in para_vars:
                         var_info = para_vars[var_name]
@@ -379,12 +381,14 @@ class TestAnalysisResult:
                         if var_info.get("defined_in_record") == record_name:
                             pos = var_info.get("position", {})
                             if f"{pos.get('start')}:{pos.get('end')}" == pos_key:
-                                paragraphs_from_original.add(para_name)
+                                # Only count as modifying if it has modification_lines
+                                if var_info.get("modification_lines"):
+                                    modifying_from_original.add(para_name)
 
                 # The sets should match
-                assert paragraphs_in_index == paragraphs_from_original, (
+                assert modifying_in_index == modifying_from_original, (
                     f"Mismatch for {var_name} at {record_name}[{pos_key}]: "
-                    f"index={paragraphs_in_index}, original={paragraphs_from_original}"
+                    f"index={modifying_in_index}, original={modifying_from_original}"
                 )
 
 
@@ -428,8 +432,10 @@ class TestVariableIndexLinking:
             # If there's an entry, verify structure
             if entry:
                 assert "variable_name" in entry
-                assert "paragraphs" in entry
-                assert isinstance(entry["paragraphs"], list)
+                assert "modifying_paragraphs" in entry
+                assert "accessing_paragraphs" in entry
+                assert isinstance(entry["modifying_paragraphs"], list)
+                assert isinstance(entry["accessing_paragraphs"], list)
 
     def test_link_returns_all_modifying_paragraphs(self):
         """Test that linking returns all paragraphs that modify a variable."""
@@ -438,13 +444,13 @@ class TestVariableIndexLinking:
         tree = get_data_division_tree(source_path)
         result = analyze_paragraph_variables(source_path)
 
-        # Helper to find paragraphs for a node
+        # Helper to find modifying paragraphs for a node
         def find_paragraphs_for_node(node):
             if not node.defined_in_record or not node.position:
                 return None
             pos_key = f"{node.position['start']}:{node.position['end']}"
             entry = result.variable_index.get(node.defined_in_record, {}).get(pos_key)
-            return entry["paragraphs"] if entry else []
+            return entry["modifying_paragraphs"] if entry else []
 
         # Traverse tree and check each node
         modified_vars_found = []
@@ -492,12 +498,14 @@ class TestBuildVariableIndex:
                         "defined_in_record": "RECORD-1",
                         "base_record": "RECORD-1",
                         "position": {"start": 1, "end": 10},
+                        "modification_lines": [10],
                         "explanation": "direct modification"
                     },
                     "VAR-B": {
                         "defined_in_record": "RECORD-1",
                         "base_record": "RECORD-1",
                         "position": {"start": 11, "end": 20},
+                        "modification_lines": [15],
                         "explanation": "direct modification"
                     }
                 },
@@ -506,6 +514,7 @@ class TestBuildVariableIndex:
                         "defined_in_record": "RECORD-1",
                         "base_record": "RECORD-1",
                         "position": {"start": 1, "end": 10},
+                        "modification_lines": [20],
                         "explanation": "direct modification"
                     }
                 }
@@ -521,13 +530,15 @@ class TestBuildVariableIndex:
         assert "1:10" in index["RECORD-1"]
         assert "11:20" in index["RECORD-1"]
 
-        # VAR-A at 1:10 should have both paragraphs
+        # VAR-A at 1:10 should have both paragraphs as modifying
         assert index["RECORD-1"]["1:10"]["variable_name"] == "VAR-A"
-        assert set(index["RECORD-1"]["1:10"]["paragraphs"]) == {"PARA-1", "PARA-2"}
+        assert set(index["RECORD-1"]["1:10"]["modifying_paragraphs"]) == {"PARA-1", "PARA-2"}
+        assert index["RECORD-1"]["1:10"]["accessing_paragraphs"] == []
 
-        # VAR-B at 11:20 should have only PARA-1
+        # VAR-B at 11:20 should have only PARA-1 as modifying
         assert index["RECORD-1"]["11:20"]["variable_name"] == "VAR-B"
-        assert index["RECORD-1"]["11:20"]["paragraphs"] == ["PARA-1"]
+        assert index["RECORD-1"]["11:20"]["modifying_paragraphs"] == ["PARA-1"]
+        assert index["RECORD-1"]["11:20"]["accessing_paragraphs"] == []
 
     def test_handles_multiple_records(self):
         """Test that index correctly separates different records."""
@@ -538,12 +549,14 @@ class TestBuildVariableIndex:
                         "defined_in_record": "REC-A",
                         "base_record": "REC-A",
                         "position": {"start": 1, "end": 5},
+                        "modification_lines": [10],
                         "explanation": "direct"
                     },
                     "VAR-Y": {
                         "defined_in_record": "REC-B",
                         "base_record": "REC-B",
                         "position": {"start": 1, "end": 5},
+                        "modification_lines": [15],
                         "explanation": "direct"
                     }
                 }
@@ -572,11 +585,13 @@ class TestBuildVariableIndex:
                         "defined_in_record": "REC-1",
                         "base_record": "REC-1",
                         "position": {"start": 1, "end": 10},
+                        "modification_lines": [10],
                         "explanation": "direct"
                     },
                     "VAR-NO-POS": {
                         "defined_in_record": "REC-1",
                         "base_record": "REC-1",
+                        "modification_lines": [15],
                         "explanation": "direct"
                         # No position key
                     }
@@ -612,6 +627,7 @@ class TestBuildVariableIndex:
                         "defined_in_record": "REC-1",
                         "base_record": "REC-1",
                         "position": {"start": 1, "end": 10},
+                        "modification_lines": [10],
                         "explanation": "direct"
                     }
                 }
@@ -620,8 +636,9 @@ class TestBuildVariableIndex:
 
         index = _build_variable_index(paragraph_variables)
 
-        # Should have exactly one paragraph entry
-        assert index["REC-1"]["1:10"]["paragraphs"] == ["PARA-1"]
+        # Should have exactly one paragraph entry in modifying_paragraphs
+        assert index["REC-1"]["1:10"]["modifying_paragraphs"] == ["PARA-1"]
+        assert index["REC-1"]["1:10"]["accessing_paragraphs"] == []
 
     def test_uses_raw_filler_format(self):
         """Test that FILLER records use raw format (FILLER$n) in index."""
@@ -632,12 +649,14 @@ class TestBuildVariableIndex:
                         "defined_in_record": "FILLER$1",  # Raw format
                         "base_record": "MAIN-REC",
                         "position": {"start": 1, "end": 10},
+                        "modification_lines": [10],
                         "explanation": "direct"
                     },
                     "VAR-NORMAL": {
                         "defined_in_record": "NORMAL-REC",
                         "base_record": "NORMAL-REC",
                         "position": {"start": 1, "end": 5},
+                        "modification_lines": [15],
                         "explanation": "direct"
                     }
                 }
@@ -1757,3 +1776,143 @@ class TestCombinedResult:
 
         assert result.program_name == result.data_division_tree.program_name
         assert result.program_name == result.analysis_result.program_name
+
+
+class TestVariableAccessTracking:
+    """Tests for variable access (read) tracking."""
+
+    def test_access_lines_in_paragraph_variables(self):
+        """Test that access_lines are tracked in paragraph_variables output."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+        paragraphs = result.paragraph_variables.get("paragraphs", {})
+
+        # CLEANUP-PARA has DISPLAY WS-TOTAL-CTR which should be tracked as access
+        cleanup_vars = paragraphs.get("CLEANUP-PARA", {})
+        assert "WS-TOTAL-CTR" in cleanup_vars
+        ws_total = cleanup_vars["WS-TOTAL-CTR"]
+        assert "access_lines" in ws_total
+        assert len(ws_total["access_lines"]) > 0
+
+    def test_access_lines_from_if_condition(self):
+        """Test that variables in IF conditions are tracked as accesses."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+        paragraphs = result.paragraph_variables.get("paragraphs", {})
+
+        # PROCESS-PARA has IF WS-LOOP-CTR > 100
+        process_vars = paragraphs.get("PROCESS-PARA", {})
+        assert "WS-LOOP-CTR" in process_vars
+        ws_loop = process_vars["WS-LOOP-CTR"]
+        # Should have both modification_lines (ADD 1 TO) and access_lines (IF condition)
+        assert "modification_lines" in ws_loop
+        assert "access_lines" in ws_loop
+
+    def test_access_lines_from_compute_expression(self):
+        """Test that source variables in COMPUTE are tracked as accesses."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+        paragraphs = result.paragraph_variables.get("paragraphs", {})
+
+        # PROCESS-PARA has COMPUTE WS-EMP-SALARY = WS-EMP-SALARY * 1.05
+        # WS-EMP-SALARY is both modified (target) and accessed (source)
+        process_vars = paragraphs.get("PROCESS-PARA", {})
+        assert "WS-EMP-SALARY" in process_vars
+        ws_salary = process_vars["WS-EMP-SALARY"]
+        assert "modification_lines" in ws_salary
+        assert "access_lines" in ws_salary
+
+    def test_variable_index_has_accessing_paragraphs(self):
+        """Test that variable_index includes accessing_paragraphs."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+
+        # Check structure
+        for record_name, positions in result.variable_index.items():
+            for pos_key, entry in positions.items():
+                assert "modifying_paragraphs" in entry
+                assert "accessing_paragraphs" in entry
+                assert isinstance(entry["modifying_paragraphs"], list)
+                assert isinstance(entry["accessing_paragraphs"], list)
+
+    def test_accessing_paragraphs_contains_reader(self):
+        """Test that accessing_paragraphs contains paragraphs that read the variable."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+
+        # Find WS-TOTAL-CTR in the index - should have CLEANUP-PARA as an accessor
+        for record_name, positions in result.variable_index.items():
+            for pos_key, entry in positions.items():
+                if entry["variable_name"] == "WS-TOTAL-CTR":
+                    # CLEANUP-PARA displays this variable
+                    assert "CLEANUP-PARA" in entry["accessing_paragraphs"]
+                    return
+
+        pytest.fail("WS-TOTAL-CTR not found in variable_index")
+
+    def test_summary_includes_access_counts(self):
+        """Test that summary statistics include access counts."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+        summary = result.paragraph_variables.get("summary", {})
+
+        # Check new summary fields
+        assert "unique_modified_variables" in summary
+        assert "unique_accessed_variables" in summary
+        assert summary["unique_accessed_variables"] > 0
+
+    def test_analysis_output_includes_accesses(self):
+        """Test that analysis output includes sections_and_paragraphs_accesses."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = analyze_paragraph_variables(source_path)
+
+        # Analysis output should have accesses section
+        assert "sections_and_paragraphs_accesses" in result.analysis
+        accesses = result.analysis["sections_and_paragraphs_accesses"]
+        assert isinstance(accesses, dict)
+
+        # Should have at least some access data
+        assert len(accesses) > 0
+
+    def test_build_variable_index_with_accesses(self):
+        """Test _build_variable_index correctly handles access_lines."""
+        paragraph_variables = {
+            "paragraphs": {
+                "PARA-1": {
+                    "VAR-A": {
+                        "defined_in_record": "REC-1",
+                        "base_record": "REC-1",
+                        "position": {"start": 1, "end": 10},
+                        "modification_lines": [10],
+                        "access_lines": [15, 20],
+                        "explanation": "modified and accessed"
+                    }
+                },
+                "PARA-2": {
+                    "VAR-A": {
+                        "defined_in_record": "REC-1",
+                        "base_record": "REC-1",
+                        "position": {"start": 1, "end": 10},
+                        "access_lines": [25],  # Only accessed, not modified
+                        "explanation": "accessed only"
+                    }
+                }
+            }
+        }
+
+        index = _build_variable_index(paragraph_variables)
+
+        # Check the entry for VAR-A
+        entry = index["REC-1"]["1:10"]
+        assert entry["variable_name"] == "VAR-A"
+
+        # PARA-1 modifies and accesses, PARA-2 only accesses
+        assert entry["modifying_paragraphs"] == ["PARA-1"]
+        assert set(entry["accessing_paragraphs"]) == {"PARA-1", "PARA-2"}

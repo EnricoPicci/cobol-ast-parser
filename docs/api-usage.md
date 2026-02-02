@@ -133,18 +133,25 @@ Result dataclass containing both JSON outputs and a linking index.
 
 #### `variable_index` Structure
 
-The `variable_index` provides O(1) lookup from a `DataDivisionTree` node to the list of paragraphs that may modify that variable:
+The `variable_index` provides O(1) lookup from a `DataDivisionTree` node to the list of paragraphs that may modify or access that variable:
 
 ```python
 {
     "RECORD-NAME": {
         "start:end": {
             "variable_name": "VAR-NAME",
-            "paragraphs": ["PARA-1", "PARA-2", ...]
+            "modifying_paragraphs": ["PARA-1", "PARA-2", ...],
+            "accessing_paragraphs": ["PARA-3", "PARA-4", ...]
         }
     }
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `variable_name` | `str` | Name of the variable at this position |
+| `modifying_paragraphs` | `list[str]` | Paragraphs/sections that may modify (write to) this variable |
+| `accessing_paragraphs` | `list[str]` | Paragraphs/sections that may access (read from) this variable |
 
 **Lookup pattern:**
 ```python
@@ -154,10 +161,11 @@ node = selected_data_item_node
 # Build the lookup key
 key = f"{node.position['start']}:{node.position['end']}"
 
-# Find modifying paragraphs
+# Find modifying and accessing paragraphs
 entry = result.variable_index.get(node.defined_in_record, {}).get(key)
 if entry:
-    paragraphs = entry["paragraphs"]
+    modifiers = entry["modifying_paragraphs"]
+    accessors = entry["accessing_paragraphs"]
 ```
 
 ### JSON Output Structure
@@ -725,12 +733,17 @@ for record in result.data_division_tree.all_records:
     print_tree(record)
 
 # Use variable_index for linking
-def find_paragraphs(node: DataItemNode) -> list[str]:
+def find_paragraphs(node: DataItemNode) -> dict:
     if not node.defined_in_record or not node.position:
-        return []
+        return {"modifying": [], "accessing": []}
     key = f"{node.position['start']}:{node.position['end']}"
     entry = result.analysis_result.variable_index.get(node.defined_in_record, {}).get(key)
-    return entry["paragraphs"] if entry else []
+    if entry:
+        return {
+            "modifying": entry["modifying_paragraphs"],
+            "accessing": entry["accessing_paragraphs"]
+        }
+    return {"modifying": [], "accessing": []}
 
 # Write outputs
 output_dir = Path("./output")
@@ -779,15 +792,27 @@ def find_modifying_paragraphs(node: DataItemNode) -> list[str]:
 
     # Look up in variable_index
     entry = variable_index.get(node.defined_in_record, {}).get(pos_key)
-    return entry["paragraphs"] if entry else []
+    return entry["modifying_paragraphs"] if entry else []
 
-# Example: Find paragraphs that modify variables in WS-EMPLOYEE-RECORD
+def find_accessing_paragraphs(node: DataItemNode) -> list[str]:
+    """Find all paragraphs that may access (read) this variable."""
+    if not node.defined_in_record or not node.position:
+        return []
+
+    pos_key = f"{node.position['start']}:{node.position['end']}"
+    entry = variable_index.get(node.defined_in_record, {}).get(pos_key)
+    return entry["accessing_paragraphs"] if entry else []
+
+# Example: Find paragraphs that modify or access variables in WS-EMPLOYEE-RECORD
 for record in tree.all_records:
     if record.name == "WS-EMPLOYEE-RECORD":
         for child in record.children:
-            paragraphs = find_modifying_paragraphs(child)
-            if paragraphs:
-                print(f"{child.name}: modified in {', '.join(paragraphs)}")
+            modifiers = find_modifying_paragraphs(child)
+            accessors = find_accessing_paragraphs(child)
+            if modifiers:
+                print(f"{child.name}: modified in {', '.join(modifiers)}")
+            if accessors:
+                print(f"{child.name}: accessed in {', '.join(accessors)}")
 ```
 
 ### Why Use `defined_in_record`?
@@ -823,7 +848,7 @@ variable_index = combined.analysis_result.variable_index
 def on_variable_selected(node):
     """Called when user selects a variable in the DataDivisionTree UI."""
     if not node.position or not node.defined_in_record:
-        return {"variable": node.name, "paragraphs": [], "message": "No modification data"}
+        return {"variable": node.name, "modifying_paragraphs": [], "accessing_paragraphs": [], "message": "No data"}
 
     key = f"{node.position['start']}:{node.position['end']}"
     entry = variable_index.get(node.defined_in_record, {}).get(key)
@@ -833,10 +858,11 @@ def on_variable_selected(node):
             "variable": entry["variable_name"],
             "record": node.defined_in_record,
             "position": f"{node.position['start']}-{node.position['end']}",
-            "paragraphs": entry["paragraphs"]
+            "modifying_paragraphs": entry["modifying_paragraphs"],
+            "accessing_paragraphs": entry["accessing_paragraphs"]
         }
     else:
-        return {"variable": node.name, "paragraphs": [], "message": "Not modified"}
+        return {"variable": node.name, "modifying_paragraphs": [], "accessing_paragraphs": [], "message": "Not referenced"}
 ```
 
 ## Comparison: CLI vs API

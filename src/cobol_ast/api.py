@@ -135,8 +135,8 @@ class AnalysisResult:
         analysis: Full analysis dict (same as {program_name}-analysis.json)
         paragraph_variables: Mapped dict (same as {program_name}-paragraph-variables.json)
         variable_index: Inverted index for linking DataDivisionTree nodes to paragraphs.
-            Structure: {defined_in_record: {"start:end": {"variable_name": str, "paragraphs": [str]}}}
-            Enables lookup: index[node.defined_in_record][f"{node.position.start}:{node.position.end}"]["paragraphs"]
+            Structure: {defined_in_record: {"start:end": {"variable_name": str, "modifying_paragraphs": [str], "accessing_paragraphs": [str]}}}
+            Enables lookup: index[node.defined_in_record][f"{node.position.start}:{node.position.end}"]["modifying_paragraphs"]
         execution_time_seconds: Total execution time for both analysis and mapping
         source_info: Source file metadata (if include_source_info was True)
     """
@@ -154,7 +154,7 @@ def _build_variable_index(
     """Build an inverted index from paragraph_variables for DataDivisionTree linking.
 
     Creates an index structure that enables O(1) lookup from a DataDivisionTree node
-    to the list of paragraphs that may modify that variable.
+    to the list of paragraphs that may modify or access that variable.
 
     Args:
         paragraph_variables: The paragraph_variables output from ParagraphVariablesMapper
@@ -165,7 +165,8 @@ def _build_variable_index(
             defined_in_record: {
                 "start:end": {
                     "variable_name": str,
-                    "paragraphs": [paragraph_name, ...]
+                    "modifying_paragraphs": [paragraph_name, ...],
+                    "accessing_paragraphs": [paragraph_name, ...]
                 }
             }
         }
@@ -176,7 +177,8 @@ def _build_variable_index(
         >>> key = f"{node.position['start']}:{node.position['end']}"
         >>> entry = index.get(node.defined_in_record, {}).get(key)
         >>> if entry:
-        ...     paragraphs = entry["paragraphs"]
+        ...     modifying = entry["modifying_paragraphs"]
+        ...     accessing = entry["accessing_paragraphs"]
     """
     index: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
@@ -208,12 +210,23 @@ def _build_variable_index(
             if pos_key not in index[defined_in_record]:
                 index[defined_in_record][pos_key] = {
                     "variable_name": var_name,
-                    "paragraphs": []
+                    "modifying_paragraphs": [],
+                    "accessing_paragraphs": []
                 }
 
-            # Add this paragraph to the list (avoid duplicates)
-            if para_name not in index[defined_in_record][pos_key]["paragraphs"]:
-                index[defined_in_record][pos_key]["paragraphs"].append(para_name)
+            # Check if this variable is modified in this paragraph
+            modification_lines = var_info.get("modification_lines", [])
+            if modification_lines:
+                # Add this paragraph to modifying list (avoid duplicates)
+                if para_name not in index[defined_in_record][pos_key]["modifying_paragraphs"]:
+                    index[defined_in_record][pos_key]["modifying_paragraphs"].append(para_name)
+
+            # Check if this variable is accessed in this paragraph
+            access_lines = var_info.get("access_lines", [])
+            if access_lines:
+                # Add this paragraph to accessing list (avoid duplicates)
+                if para_name not in index[defined_in_record][pos_key]["accessing_paragraphs"]:
+                    index[defined_in_record][pos_key]["accessing_paragraphs"].append(para_name)
 
     return index
 

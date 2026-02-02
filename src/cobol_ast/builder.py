@@ -10,6 +10,7 @@ from .nodes import (
     DataItem,
     RecordDescription,
     VariableModification,
+    VariableAccess,
     ModificationType,
     Paragraph,
     Section,
@@ -189,6 +190,9 @@ class ASTBuilder:
             program.orphan_modifications = self._extract_modifications(
                 proc_div.orphan_statements, None, None
             )
+            program.orphan_accesses = self._extract_accesses(
+                proc_div.orphan_statements, None, None
+            )
 
         # Process sections
         for ssection in proc_div.sections:
@@ -211,6 +215,9 @@ class ASTBuilder:
         section.standalone_modifications = self._extract_modifications(
             ssection.statements, ssection.name, None
         )
+        section.standalone_accesses = self._extract_accesses(
+            ssection.statements, ssection.name, None
+        )
 
         # Process paragraphs
         for spara in ssection.paragraphs:
@@ -230,6 +237,9 @@ class ASTBuilder:
         )
 
         paragraph.modifications = self._extract_modifications(
+            spara.statements, section_name, spara.name
+        )
+        paragraph.accesses = self._extract_accesses(
             spara.statements, section_name, spara.name
         )
 
@@ -270,6 +280,43 @@ class ASTBuilder:
                 modifications.append(modification)
 
         return modifications
+
+    def _extract_accesses(
+        self,
+        statements: List[SimplifiedStatement],
+        section_name: Optional[str],
+        paragraph_name: Optional[str],
+    ) -> List[VariableAccess]:
+        """Extract variable accesses (reads) from statements."""
+        accesses = []
+
+        for stmt in statements:
+            # Determine access context based on statement type
+            access_context = f"{stmt.statement_type}_SOURCE"
+
+            for source in stmt.sources:
+                # Normalize variable name
+                var_name = source.upper()
+
+                # Skip literals and special values
+                if self._is_literal(var_name):
+                    continue
+
+                # Skip COBOL keywords (backup filter)
+                if var_name in self.COBOL_KEYWORDS:
+                    continue
+
+                access = VariableAccess(
+                    variable_name=var_name,
+                    access_context=access_context,
+                    line_number=stmt.line_number,
+                    statement_text=stmt.text,
+                    section_name=section_name,
+                    paragraph_name=paragraph_name,
+                )
+                accesses.append(access)
+
+        return accesses
 
     def _is_literal(self, text: str) -> bool:
         """Check if text is a literal value rather than a variable name."""
