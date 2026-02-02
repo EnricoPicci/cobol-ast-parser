@@ -163,6 +163,7 @@ class CopyResolver:
         orig_idx = 0
         resolved_idx = 0
         current_copybook: Optional[str] = None
+        last_known_copybook: Optional[str] = None  # Preserve copybook name across resets
         copybook_start_line: int = 0
 
         while resolved_idx < len(resolved_lines):
@@ -185,6 +186,7 @@ class CopyResolver:
                             break
 
                     current_copybook = new_copybook
+                    last_known_copybook = new_copybook  # Always track the most recent copybook
                     copybook_start_line = new_copybook_start_line
 
                 self._line_mapping[resolved_line_num] = LineMapping(
@@ -281,7 +283,7 @@ class CopyResolver:
                         self._line_mapping[resolved_line_num] = LineMapping(
                             expanded_line=resolved_line_num,
                             original_line=copybook_start_line if copybook_start_line else 1,
-                            source_file=current_copybook or "COPYBOOK",
+                            source_file=current_copybook or last_known_copybook or "<unknown_copybook>",
                             is_copybook=True,
                         )
             else:
@@ -289,7 +291,7 @@ class CopyResolver:
                 self._line_mapping[resolved_line_num] = LineMapping(
                     expanded_line=resolved_line_num,
                     original_line=copybook_start_line if copybook_start_line else 1,
-                    source_file=current_copybook or "COPYBOOK",
+                    source_file=current_copybook or last_known_copybook or "<unknown_copybook>",
                     is_copybook=True,
                 )
 
