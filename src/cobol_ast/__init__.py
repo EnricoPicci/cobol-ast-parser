@@ -1,5 +1,7 @@
 """AST module containing domain-specific AST node definitions and public API."""
 
+__version__ = "0.2.1"
+
 from .nodes import (
     DataItem,
     RecordDescription,
@@ -24,6 +26,7 @@ from .api import (
 )
 
 __all__ = [
+    "__version__",
     # AST nodes
     "DataItem",
     "RecordDescription",
