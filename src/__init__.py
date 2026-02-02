@@ -20,6 +20,7 @@ Example:
     >>> print(result.paragraph_variables)  # Paragraph-variables map JSON
 """
 
+from .cobol_ast import __version__
 from .cobol_ast.api import (
     analyze_paragraph_variables,
     AnalysisOptions,
@@ -34,8 +35,6 @@ from .cobol_ast.api import (
     CombinedOptions,
     CombinedResult,
 )
-
-__version__ = "0.2.0"
 
 __all__ = [
     "analyze_paragraph_variables",

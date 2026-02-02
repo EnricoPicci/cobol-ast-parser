@@ -14,9 +14,8 @@ import yaml
 
 from parser import ParseError
 from output import JSONWriter
+from cobol_ast import __version__
 from cobol_ast.api import analyze_paragraph_variables, AnalysisOptions, AnalysisError
-
-__version__ = "2.0.0"
 
 
 def setup_logging(level: str = "INFO", quiet: bool = False) -> None:

@@ -9,8 +9,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 with open("requirements.txt", "r", encoding="utf-8") as fh:
     requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
-# Read version from src/__init__.py (single source of truth)
-with open("src/__init__.py", "r", encoding="utf-8") as fh:
+# Read version from src/cobol_ast/__init__.py (single source of truth)
+with open("src/cobol_ast/__init__.py", "r", encoding="utf-8") as fh:
     version_match = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', fh.read(), re.MULTILINE)
     if not version_match:
         raise RuntimeError("Unable to find __version__ in src/__init__.py")

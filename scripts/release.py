@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent.parent
-VERSION_FILE = ROOT_DIR / "src" / "__init__.py"
+VERSION_FILE = ROOT_DIR / "src" / "cobol_ast" / "__init__.py"
 CHANGELOG_FILE = ROOT_DIR / "CHANGELOG.md"
 
 VERSION_PATTERN = re.compile(r'^__version__\s*=\s*["\'](\d+\.\d+\.\d+)["\']', re.MULTILINE)

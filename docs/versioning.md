@@ -35,13 +35,14 @@ MAJOR.MINOR.PATCH
 
 ## Version Location
 
-The canonical version is defined in `src/__init__.py`:
+The canonical version is defined in `src/cobol_ast/__init__.py`:
 
 ```python
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 ```
 
-This is read dynamically by `setup.py` ensuring a single source of truth.
+This is the installed package, so clients can access it via `cobol_ast.__version__`.
+It is read dynamically by `setup.py` ensuring a single source of truth.
 
 ## Creating a Release
 
