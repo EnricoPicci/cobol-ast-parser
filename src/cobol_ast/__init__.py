@@ -1,6 +1,6 @@
 """AST module containing domain-specific AST node definitions and public API."""
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 from .nodes import (
     DataItem,
