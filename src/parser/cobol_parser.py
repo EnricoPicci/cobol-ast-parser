@@ -492,11 +492,17 @@ class SimplifiedCobolParser:
     )
 
     # Section/Paragraph patterns in procedure division
+    # In COBOL fixed format, Area A is columns 8-11 (about 7 leading spaces after
+    # sequence number area). We allow 0-12 leading spaces to be conservative.
+    # This prevents matching multi-line statement continuations (38+ spaces) as headers.
     SECTION_HEADER = re.compile(
-        r"^\s*([A-Za-z0-9][-A-Za-z0-9]*)\s+SECTION\s*\.", re.IGNORECASE | re.MULTILINE
+        r"^[ ]{0,12}([A-Za-z0-9][-A-Za-z0-9]*)\s+SECTION\s*\.", re.IGNORECASE | re.MULTILINE
     )
+    # Paragraph header pattern - also excludes COBOL structure terminators
+    # (END-*, WHEN, OTHER) which appear on their own lines but are not paragraphs
     PARAGRAPH_HEADER = re.compile(
-        r"^\s*([A-Za-z0-9][-A-Za-z0-9]*)\s*\.\s*$", re.IGNORECASE | re.MULTILINE
+        r"^[ ]{0,12}(?!END-|WHEN\s|OTHER\s)([A-Za-z0-9][-A-Za-z0-9]*)\s*\.\s*$",
+        re.IGNORECASE | re.MULTILINE,
     )
 
     # Statement patterns (for modification tracking)
