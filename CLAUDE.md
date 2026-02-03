@@ -147,3 +147,7 @@ COBOL test files in `tests/fixtures/`:
 - Prefer `@dataclass` for data containers
 - Use Google-style docstrings
 - All AST nodes should be dataclasses with `Optional` for nullable fields
+
+### Prompts
+- The `prompts-for-claude/` folder contains prompts used to generate code in this project
+- These prompt files are part of the project deliverables and should be committed to version control
