@@ -2367,3 +2367,179 @@ class TestNewStatementPatterns:
         assert "IND-1" in sources
         assert "IND-2" in sources
         assert "IND-3" in sources
+
+
+class TestCopybookWarnings:
+    """Tests for copybook not found warnings in API results."""
+
+    def test_analyze_paragraph_variables_returns_warnings(self, tmp_path):
+        """Test that analyze_paragraph_variables returns warnings for missing copybooks."""
+        # Create a COBOL file with a COPY statement for a missing copybook
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-PROG.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-RECORD.
+           COPY MISSING-COPYBOOK.
+       PROCEDURE DIVISION.
+           STOP RUN.
+"""
+        source_file = tmp_path / "test_prog.cob"
+        source_file.write_text(source)
+
+        result = analyze_paragraph_variables(source_file)
+
+        # Should have a warning about the missing copybook
+        assert len(result.warnings) == 1
+        assert "MISSING-COPYBOOK" in result.warnings[0]
+        assert "not found" in result.warnings[0].lower()
+
+    def test_get_data_division_tree_returns_warnings(self, tmp_path):
+        """Test that get_data_division_tree returns warnings for missing copybooks."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-PROG.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-RECORD.
+           COPY MISSING-COPYBOOK.
+       PROCEDURE DIVISION.
+           STOP RUN.
+"""
+        source_file = tmp_path / "test_prog.cob"
+        source_file.write_text(source)
+
+        tree = get_data_division_tree(source_file)
+
+        # Should have a warning about the missing copybook
+        assert len(tree.warnings) == 1
+        assert "MISSING-COPYBOOK" in tree.warnings[0]
+        # Warnings should be included in to_dict output
+        tree_dict = tree.to_dict()
+        assert "warnings" in tree_dict
+        assert len(tree_dict["warnings"]) == 1
+
+    def test_analyze_with_tree_returns_warnings(self, tmp_path):
+        """Test that analyze_with_tree returns warnings for missing copybooks."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-PROG.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-RECORD.
+           COPY MISSING-COPYBOOK.
+       PROCEDURE DIVISION.
+           STOP RUN.
+"""
+        source_file = tmp_path / "test_prog.cob"
+        source_file.write_text(source)
+
+        result = analyze_with_tree(source_file)
+
+        # CombinedResult should have warnings
+        assert len(result.warnings) == 1
+        assert "MISSING-COPYBOOK" in result.warnings[0]
+        # Nested results should also have warnings
+        assert len(result.analysis_result.warnings) == 1
+        assert len(result.data_division_tree.warnings) == 1
+
+    def test_multiple_missing_copybooks(self, tmp_path):
+        """Test warnings for multiple missing copybooks."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-PROG.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-RECORD.
+           COPY MISSING-ONE.
+           COPY MISSING-TWO.
+       PROCEDURE DIVISION.
+           STOP RUN.
+"""
+        source_file = tmp_path / "test_prog.cob"
+        source_file.write_text(source)
+
+        result = analyze_paragraph_variables(source_file)
+
+        # Should have warnings for both missing copybooks
+        assert len(result.warnings) == 2
+        assert any("MISSING-ONE" in w for w in result.warnings)
+        assert any("MISSING-TWO" in w for w in result.warnings)
+
+    def test_no_warnings_when_copybooks_exist(self):
+        """Test that no warnings are generated when copybooks are found."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+
+        result = analyze_paragraph_variables(
+            source_path,
+            options=AnalysisOptions(
+                copybook_paths=[FIXTURES_DIR / "copybooks"]
+            )
+        )
+
+        # Should have no warnings
+        assert len(result.warnings) == 0
+
+    def test_no_warnings_when_copies_disabled(self, tmp_path):
+        """Test that no warnings are generated when resolve_copies is False."""
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-PROG.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-RECORD.
+           COPY MISSING-COPYBOOK.
+       PROCEDURE DIVISION.
+           STOP RUN.
+"""
+        source_file = tmp_path / "test_prog.cob"
+        source_file.write_text(source)
+
+        result = analyze_paragraph_variables(
+            source_file,
+            options=AnalysisOptions(resolve_copies=False)
+        )
+
+        # Should have no warnings when COPY resolution is disabled
+        assert len(result.warnings) == 0
+
+    def test_partial_copybook_resolution(self, tmp_path):
+        """Test that analysis continues with partial copybook resolution."""
+        # Create one copybook
+        copybook_dir = tmp_path / "copybooks"
+        copybook_dir.mkdir()
+        existing_copybook = copybook_dir / "existing.cpy"
+        existing_copybook.write_text("           05  WS-FIELD  PIC X(10).\n")
+
+        # Create COBOL file that references both existing and missing copybooks
+        source = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-PROG.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-RECORD.
+           COPY EXISTING.
+           COPY MISSING.
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           MOVE 'TEST' TO WS-FIELD.
+           STOP RUN.
+"""
+        source_file = tmp_path / "test_prog.cob"
+        source_file.write_text(source)
+
+        result = analyze_paragraph_variables(
+            source_file,
+            options=AnalysisOptions(copybook_paths=[copybook_dir])
+        )
+
+        # Should have warning only for the missing copybook
+        assert len(result.warnings) == 1
+        assert "MISSING" in result.warnings[0]
+
+        # Analysis should still work - WS-FIELD from existing copybook should be found
+        all_vars = set()
+        for para_vars in result.paragraph_variables.get("paragraphs", {}).values():
+            all_vars.update(para_vars.keys())
+        assert "WS-FIELD" in all_vars

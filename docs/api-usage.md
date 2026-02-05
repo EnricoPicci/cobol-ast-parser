@@ -130,6 +130,7 @@ Result dataclass containing both JSON outputs and a linking index.
 | `variable_index` | `dict` | Inverted index for linking `DataDivisionTree` nodes to paragraphs (see below) |
 | `execution_time_seconds` | `float` | Total processing time |
 | `source_info` | `dict \| None` | Source file metadata (included by default, `None` if `include_source_info=False`) |
+| `warnings` | `list[str]` | Warning messages from preprocessing (e.g., copybooks not found). Empty if no warnings. |
 
 #### `variable_index` Structure
 
@@ -266,9 +267,10 @@ Result dataclass containing the hierarchical tree structure.
 | `summary` | `dict` | Statistics (total_records, total_items, group_items, etc.) |
 | `execution_time_seconds` | `float` | Total processing time |
 | `source_info` | `dict \| None` | Source file metadata (if `include_source_info=True`) |
+| `warnings` | `list[str]` | Warning messages from preprocessing (e.g., copybooks not found). Empty if no warnings. |
 
 **Methods:**
-- `to_dict()` - Convert to dictionary for JSON serialization
+- `to_dict()` - Convert to dictionary for JSON serialization (includes `warnings` if non-empty)
 
 ### `DataDivisionSection`
 
@@ -354,6 +356,7 @@ Result dataclass containing both outputs from a single processing pass.
 | `data_division_tree` | `DataDivisionTree` | Hierarchical tree view of DATA DIVISION |
 | `analysis_result` | `AnalysisResult` | Paragraph variables analysis with `variable_index` |
 | `execution_time_seconds` | `float` | Total processing time for both outputs |
+| `warnings` | `list[str]` | Warning messages from preprocessing (e.g., copybooks not found). Empty if no warnings. |
 
 ## Usage Examples
 
@@ -477,6 +480,33 @@ def analyze_safely(source_path: Path) -> dict | None:
         print(f"Analysis failed: {e}")
         return None
 ```
+
+### Handling Warnings
+
+When copybooks cannot be found, analysis continues but warnings are generated. The `warnings` field on result objects contains these messages:
+
+```python
+from pathlib import Path
+from src import analyze_paragraph_variables, AnalysisOptions
+
+result = analyze_paragraph_variables(
+    Path("program.cob"),
+    AnalysisOptions(copybook_paths=[Path("./copybooks")])
+)
+
+# Check for warnings
+if result.warnings:
+    print("Warnings during analysis:")
+    for warning in result.warnings:
+        print(f"  - {warning}")
+else:
+    print("Analysis completed with no warnings")
+
+# Warnings contain details about missing copybooks
+# Example warning: "Copybook 'MYCOPY' not found. Searched: /path1, /path2"
+```
+
+**Note:** When a copybook is not found, the corresponding COPY statement is left as-is in the source (not expanded). Variables defined in missing copybooks will not be included in the analysis.
 
 ### Writing Results to Files
 

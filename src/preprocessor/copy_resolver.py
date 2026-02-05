@@ -107,6 +107,20 @@ class CopyResolver:
         self._line_mapping: Dict[int, LineMapping] = {}
         self._main_source_name: str = "<main>"
         self._original_line_count: int = 0
+        # Warnings collected during resolution (e.g., copybooks not found)
+        self._warnings: List[str] = []
+
+    @property
+    def warnings(self) -> List[str]:
+        """Return warnings collected during resolution.
+
+        Warnings are generated when copybooks cannot be found. The resolution
+        continues with the COPY statement left as-is in the source.
+
+        Returns:
+            List of warning messages
+        """
+        return self._warnings.copy()
 
     def resolve(self, source: str, source_name: str = "<main>") -> str:
         """Resolve all COPY statements in the source.
@@ -116,17 +130,19 @@ class CopyResolver:
             source_name: Name of the source file (for error messages)
 
         Returns:
-            Source code with all COPY statements resolved
+            Source code with all COPY statements resolved. COPY statements
+            for copybooks that cannot be found are left as-is in the source,
+            and warnings are added to the warnings property.
 
         Raises:
             CircularCopyError: If circular dependencies detected
-            CopyNotFoundError: If a copybook cannot be found
-            CopyResolutionError: For other resolution errors
+            CopyResolutionError: For other resolution errors (max depth exceeded)
         """
         self.resolution_stack = [source_name]
         self._main_source_name = source_name
         self._original_line_count = len(source.splitlines())
         self._line_mapping = {}
+        self._warnings = []
 
         resolved = self._resolve_recursive(source, 0)
 
@@ -353,9 +369,14 @@ class CopyResolver:
                 raise CircularCopyError(cycle)
 
             # Load copybook content
-            copybook_content = self._load_copybook(
-                copy_stmt.copybook_name, copy_stmt.library_name
-            )
+            try:
+                copybook_content = self._load_copybook(
+                    copy_stmt.copybook_name, copy_stmt.library_name
+                )
+            except CopyNotFoundError as e:
+                # Copybook not found - add warning and skip this COPY statement
+                self._warnings.append(str(e))
+                continue
 
             # Apply REPLACING clause
             if copy_stmt.replacings:

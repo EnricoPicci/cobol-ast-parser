@@ -135,10 +135,15 @@ class TestCopyResolver:
         assert "WS-EMP-ID" in resolved
 
     def test_copy_not_found(self, resolver):
-        """Test error when copybook not found."""
+        """Test warning when copybook not found."""
         source = "       COPY NONEXISTENT."
-        with pytest.raises(CopyNotFoundError):
-            resolver.resolve(source)
+        resolved = resolver.resolve(source)
+        # COPY statement should remain as-is when copybook not found
+        assert "COPY NONEXISTENT." in resolved
+        # Warning should be generated
+        assert len(resolver.warnings) == 1
+        assert "NONEXISTENT" in resolver.warnings[0]
+        assert "not found" in resolver.warnings[0].lower()
 
     def test_line_mapping_with_empty_lines_in_copybook(self, resolver):
         """Test that empty lines in copybook content don't break line mapping.

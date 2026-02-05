@@ -139,6 +139,7 @@ class AnalysisResult:
             Enables lookup: index[node.defined_in_record][f"{node.position.start}:{node.position.end}"]["modifying_paragraphs"]
         execution_time_seconds: Total execution time for both analysis and mapping
         source_info: Source file metadata (if include_source_info was True)
+        warnings: List of warning messages from preprocessing (e.g., copybooks not found)
     """
     program_name: str
     analysis: Dict[str, Any]
@@ -146,6 +147,7 @@ class AnalysisResult:
     variable_index: Dict[str, Dict[str, Dict[str, Any]]]
     execution_time_seconds: float
     source_info: Optional[Dict[str, Any]] = None
+    warnings: List[str] = field(default_factory=list)
 
 
 def _build_variable_index(
@@ -304,18 +306,16 @@ def analyze_paragraph_variables(
         # Resolve COPY statements
         line_mapping = None
         original_line_count = source_lines_count
+        warnings: List[str] = []
         if options.resolve_copies:
             copy_paths = options.copybook_paths or []
             copy_paths = [source_path.parent] + list(copy_paths)
 
             resolver = CopyResolver(copy_paths)
-            try:
-                source = resolver.resolve(source, source_path.name)
-                line_mapping = resolver.line_mapping
-                original_line_count = resolver.original_line_count
-            except Exception as e:
-                # Log warning but continue - COPY resolution failure is not fatal
-                pass
+            source = resolver.resolve(source, source_path.name)
+            line_mapping = resolver.line_mapping
+            original_line_count = resolver.original_line_count
+            warnings = resolver.warnings
 
         # Normalize source
         source = normalize_source(source, source_format)
@@ -393,6 +393,7 @@ def analyze_paragraph_variables(
             variable_index=variable_index,
             execution_time_seconds=round(total_execution_time, 4),
             source_info=analysis_output.get("source_info"),
+            warnings=warnings,
         )
 
     except ParseError:
@@ -535,6 +536,7 @@ class DataDivisionTree:
         summary: Summary statistics about the data structure
         execution_time_seconds: Time taken to generate the tree
         source_info: Source file metadata (if include_source_info was True)
+        warnings: List of warning messages from preprocessing (e.g., copybooks not found)
     """
     program_name: str
     sections: List[DataDivisionSection]
@@ -542,6 +544,7 @@ class DataDivisionTree:
     summary: Dict[str, Any]
     execution_time_seconds: float
     source_info: Optional[Dict[str, Any]] = None
+    warnings: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -554,6 +557,8 @@ class DataDivisionTree:
         }
         if self.source_info is not None:
             result["source_info"] = self.source_info
+        if self.warnings:
+            result["warnings"] = self.warnings
         return result
 
 
@@ -609,11 +614,13 @@ class CombinedResult:
         data_division_tree: Hierarchical tree view of DATA DIVISION
         analysis_result: Paragraph variables analysis result
         execution_time_seconds: Total execution time for the combined analysis
+        warnings: List of warning messages from preprocessing (e.g., copybooks not found)
     """
     program_name: str
     data_division_tree: DataDivisionTree
     analysis_result: AnalysisResult
     execution_time_seconds: float
+    warnings: List[str] = field(default_factory=list)
 
 
 def _build_copybook_line_map(original_source: str) -> Dict[str, int]:
@@ -883,24 +890,22 @@ def get_data_division_tree(
 
         # Resolve COPY statements
         line_mapping = None
+        warnings: List[str] = []
         if options.resolve_copies:
             copy_paths = options.copybook_paths or []
             copy_paths = [source_path.parent] + list(copy_paths)
 
             resolver = CopyResolver(copy_paths)
-            try:
-                source = resolver.resolve(source, source_path.name)
-                line_mapping = {
-                    str(k): {
-                        "original_line": v.original_line,
-                        "source_file": v.source_file,
-                        "is_copybook": v.is_copybook,
-                    }
-                    for k, v in resolver.line_mapping.items()
+            source = resolver.resolve(source, source_path.name)
+            line_mapping = {
+                str(k): {
+                    "original_line": v.original_line,
+                    "source_file": v.source_file,
+                    "is_copybook": v.is_copybook,
                 }
-            except Exception:
-                # COPY resolution failure is not fatal
-                pass
+                for k, v in resolver.line_mapping.items()
+            }
+            warnings = resolver.warnings
 
         # Normalize source
         source = normalize_source(source, source_format)
@@ -987,6 +992,7 @@ def get_data_division_tree(
             summary=summary,
             execution_time_seconds=round(total_execution_time, 4),
             source_info=source_info,
+            warnings=warnings,
         )
 
     except ParseError:
@@ -1083,27 +1089,25 @@ def analyze_with_tree(
         line_mapping = None
         line_mapping_dict = None
         original_line_count = source_lines_count
+        warnings: List[str] = []
         if options.resolve_copies:
             copy_paths = options.copybook_paths or []
             copy_paths = [source_path.parent] + list(copy_paths)
 
             resolver = CopyResolver(copy_paths)
-            try:
-                source = resolver.resolve(source, source_path.name)
-                line_mapping = resolver.line_mapping
-                original_line_count = resolver.original_line_count
-                # Also build dict version for tree generation
-                line_mapping_dict = {
-                    str(k): {
-                        "original_line": v.original_line,
-                        "source_file": v.source_file,
-                        "is_copybook": v.is_copybook,
-                    }
-                    for k, v in line_mapping.items()
+            source = resolver.resolve(source, source_path.name)
+            line_mapping = resolver.line_mapping
+            original_line_count = resolver.original_line_count
+            warnings = resolver.warnings
+            # Also build dict version for tree generation
+            line_mapping_dict = {
+                str(k): {
+                    "original_line": v.original_line,
+                    "source_file": v.source_file,
+                    "is_copybook": v.is_copybook,
                 }
-            except Exception:
-                # COPY resolution failure is not fatal
-                pass
+                for k, v in line_mapping.items()
+            }
 
         # Normalize source
         source = normalize_source(source, source_format)
@@ -1235,6 +1239,7 @@ def analyze_with_tree(
             summary=summary,
             execution_time_seconds=round(total_execution_time, 4),
             source_info=source_info,
+            warnings=warnings,
         )
 
         # Build AnalysisResult
@@ -1245,6 +1250,7 @@ def analyze_with_tree(
             variable_index=variable_index,
             execution_time_seconds=round(total_execution_time, 4),
             source_info=source_info,
+            warnings=warnings,
         )
 
         return CombinedResult(
@@ -1252,6 +1258,7 @@ def analyze_with_tree(
             data_division_tree=data_division_tree,
             analysis_result=analysis_result,
             execution_time_seconds=round(total_execution_time, 4),
+            warnings=warnings,
         )
 
     except ParseError:
