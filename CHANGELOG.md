@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-02-05
+
+### Fixed
+- Copybook resolution no longer fails completely when individual copybooks are not found. Instead, missing copybooks generate warnings and the COPY statement is left as-is in the source.
+
+### Added
+- `warnings` field on `AnalysisResult`, `DataDivisionTree`, and `CombinedResult` containing warning messages (e.g., copybooks not found)
+- `warnings` property on `CopyResolver` to access warnings collected during resolution
+- "Handling Warnings" section in API documentation
+
+
 ## [0.2.4] - 2026-02-03
 
 ### Changed
