@@ -6,14 +6,14 @@ in one record is modified, all records that REDEFINE or are
 REDEFINED by that record are potentially affected.
 """
 
-from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
     from .data_analyzer import DataStructureAnalyzer
 
 try:
-    import networkx as nx
+    import networkx as nx  # type: ignore[import-untyped]
     NETWORKX_AVAILABLE = True
 except ImportError:
     NETWORKX_AVAILABLE = False
@@ -59,7 +59,7 @@ class RedefinesAnalyzer:
         self.program = program
         self._data_analyzer = data_analyzer
         self._relations: List[RedefinesRelation] = []
-        self._record_graph: Optional[object] = None  # networkx.Graph if available
+        self._record_graph: Optional[Any] = None  # networkx.Graph if available
         self._variable_to_records: Dict[str, Set[str]] = {}
         self._connected_components: List[Set[str]] = []
         # New: map of item -> items that redefine the same memory region
@@ -456,8 +456,8 @@ class RedefinesAnalyzer:
         if not item:
             return []
 
-        ancestor_redefines = []
-        current = item
+        ancestor_redefines: List[RedefinesRelation] = []
+        current: Optional[DataItem] = item
 
         while current is not None:
             if current.redefines:
@@ -617,7 +617,7 @@ class RedefinesAnalyzer:
             current = current.parent
         return chain
 
-    def get_all_affected_variables(self, variable_name: str) -> Dict[str, List[AffectedVariable]]:
+    def get_all_affected_variables(self, variable_name: str) -> Dict[str, Any]:
         """Get complete affected variable information.
 
         Returns both record-level and variable-level affected items.

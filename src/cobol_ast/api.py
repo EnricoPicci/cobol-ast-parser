@@ -20,7 +20,11 @@ Example:
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .nodes import DataItem
+    from analyzers.data_analyzer import MemoryRegion
 
 
 def _convert_to_original_line(
@@ -860,7 +864,7 @@ def _transform_data_item(
                 original_line_number = mapping.get("original_line", item.line_number)
 
     # Recursively transform children
-    children = []
+    children: List[DataItemNode] = []
     for child in item.children:
         transformed = _transform_data_item(
             child, options, memory_regions, line_mapping, copybook_line_map,
@@ -874,9 +878,9 @@ def _transform_data_item(
     copybook = None
     if item.is_filler and copybook_source is None and children:
         # Find the first non-88-level child that has a copybook_source
-        for child in children:
-            if child.level != 88 and child.copybook_source:
-                copybook = child.copybook_source
+        for transformed_child in children:
+            if transformed_child.level != 88 and transformed_child.copybook_source:
+                copybook = transformed_child.copybook_source
                 break
 
     return DataItemNode(

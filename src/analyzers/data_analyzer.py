@@ -237,8 +237,8 @@ class DataStructureAnalyzer:
         if not item:
             return []
 
-        hierarchy = []
-        current = item
+        hierarchy: List[DataItem] = []
+        current: Optional[DataItem] = item
         while current is not None:
             hierarchy.insert(0, current)
             current = current.parent

@@ -8,9 +8,9 @@ import argparse
 import sys
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from parser import ParseError
 from output import JSONWriter
@@ -42,7 +42,7 @@ def load_config(config_path: Optional[Path] = None) -> dict:
     Returns:
         Configuration dictionary
     """
-    default_config = {
+    default_config: Dict[str, Any] = {
         "copybook_paths": ["."],
         "cobol_extensions": [".cob", ".cbl", ".cobol"],
         "parser": {
@@ -65,7 +65,7 @@ def load_config(config_path: Optional[Path] = None) -> dict:
             if user_config:
                 # Merge user config with defaults
                 for key, value in user_config.items():
-                    if isinstance(value, dict) and key in default_config:
+                    if isinstance(value, dict) and isinstance(default_config.get(key), dict):
                         default_config[key].update(value)
                     else:
                         default_config[key] = value
