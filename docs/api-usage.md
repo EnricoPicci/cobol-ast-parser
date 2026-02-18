@@ -368,7 +368,9 @@ Result dataclass containing both outputs from a single processing pass.
 
 ### `resolve_copybooks(source_path, options?)`
 
-Resolves all COPY statements in a COBOL source file and returns the expanded source text with a line mapping. No format detection, normalization, or parsing is performed — this is a lightweight alternative when you only need copybook expansion.
+Resolves all COPY statements and `EXEC SQL INCLUDE` directives in a COBOL source file and returns the expanded source text with a line mapping. No format detection, normalization, or parsing is performed — this is a lightweight alternative when you only need copybook expansion.
+
+**Note:** `EXEC SQL INCLUDE <member> END-EXEC` directives (commonly used in DB2 COBOL programs for SQLCA, DCLGEN copybooks, host variables, etc.) are treated as functionally equivalent to `COPY` statements and resolved using the same copybook search paths. Resolution comment markers use `* EXEC SQL INCLUDE <name> resolved` to distinguish them from `* COPY <name> resolved` markers.
 
 **Parameters:**
 

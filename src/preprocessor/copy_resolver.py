@@ -76,6 +76,16 @@ class CopyResolver:
         re.IGNORECASE | re.DOTALL,
     )
 
+    # Regex pattern to match EXEC SQL INCLUDE statements
+    # EXEC SQL INCLUDE member-name END-EXEC [.]
+    EXEC_SQL_INCLUDE_PATTERN = re.compile(
+        r"\bEXEC\s+SQL\s+INCLUDE\s+"
+        r"([A-Za-z0-9_-]+)"       # Member name
+        r"\s+END-EXEC"            # Required END-EXEC
+        r"\s*\.?",                # Optional trailing period
+        re.IGNORECASE | re.DOTALL,
+    )
+
     # Pattern for REPLACING clause items
     REPLACING_PATTERN = re.compile(
         r"(==.*?==|[A-Za-z0-9_-]+)\s+BY\s+(==.*?==|[A-Za-z0-9_-]+)",
@@ -164,16 +174,23 @@ class CopyResolver:
         original_lines = original_source.splitlines()
         resolved_lines = resolved_source.splitlines()
 
-        # Find all COPY statement locations in original source
+        # Find all COPY and EXEC SQL INCLUDE statement locations in original source
         # Use a simpler pattern here that doesn't require the trailing period,
         # since multi-line COPY statements (with REPLACING) have the period
         # on a later line.
         copy_location_pattern = re.compile(r'\bCOPY\s+([A-Za-z0-9_-]+)', re.IGNORECASE)
+        exec_sql_include_location_pattern = re.compile(
+            r'\bEXEC\s+SQL\s+INCLUDE\s+([A-Za-z0-9_-]+)', re.IGNORECASE
+        )
         copy_locations: Dict[int, str] = {}  # original_line -> copybook_name
         for i, line in enumerate(original_lines, 1):
             match = copy_location_pattern.search(line)
             if match:
                 copy_locations[i] = match.group(1).upper()
+            else:
+                match = exec_sql_include_location_pattern.search(line)
+                if match:
+                    copy_locations[i] = match.group(1).upper()
 
         # Track position in both sources
         orig_idx = 0
@@ -186,14 +203,28 @@ class CopyResolver:
             resolved_line_num = resolved_idx + 1
             resolved_line = resolved_lines[resolved_idx]
 
-            # Check if this is a COPY resolution comment
-            # The marker "* COPY X resolved" appears BEFORE the copybook content,
-            # so we use it to set the context for subsequent lines.
-            if resolved_line.strip().startswith("* COPY") and "resolved" in resolved_line:
+            # Check if this is a COPY or EXEC SQL INCLUDE resolution comment
+            # The marker "* COPY X resolved" or "* EXEC SQL INCLUDE X resolved"
+            # appears BEFORE the copybook content, so we use it to set the
+            # context for subsequent lines.
+            stripped_resolved = resolved_line.strip()
+            is_resolution_marker = (
+                (stripped_resolved.startswith("* COPY") or
+                 stripped_resolved.startswith("* EXEC SQL INCLUDE"))
+                and "resolved" in stripped_resolved
+            )
+            if is_resolution_marker:
                 # Extract copybook name from comment
-                parts = resolved_line.strip().split()
-                if len(parts) >= 3:
+                # "* COPY X resolved" -> parts[2]
+                # "* EXEC SQL INCLUDE X resolved" -> parts[4]
+                parts = stripped_resolved.split()
+                if stripped_resolved.startswith("* EXEC SQL INCLUDE") and len(parts) >= 5:
+                    new_copybook = parts[4]
+                elif len(parts) >= 3:
                     new_copybook = parts[2]
+                else:
+                    new_copybook = None
+                if new_copybook:
                     # Find which original COPY statement this corresponds to
                     new_copybook_start_line = copybook_start_line
                     for orig_line_num, copybook_name in copy_locations.items():
@@ -217,10 +248,10 @@ class CopyResolver:
             # Check if we're back to original source
             if orig_idx < len(original_lines):
                 orig_line = original_lines[orig_idx]
-                # Skip COPY statements in original - they're replaced
+                # Skip COPY / EXEC SQL INCLUDE statements in original - they're replaced
                 # Don't reset current_copybook here - we need to keep tracking
                 # which copybook we're in for the expanded lines
-                if self.COPY_PATTERN.search(orig_line):
+                if self.COPY_PATTERN.search(orig_line) or self.EXEC_SQL_INCLUDE_PATTERN.search(orig_line):
                     orig_idx += 1
                     continue
 
@@ -251,8 +282,8 @@ class CopyResolver:
                             if check_idx >= len(original_lines):
                                 break
                             check_line = original_lines[check_idx]
-                            # Skip COPY statements when looking ahead
-                            if self.COPY_PATTERN.search(check_line):
+                            # Skip COPY / EXEC SQL INCLUDE statements when looking ahead
+                            if self.COPY_PATTERN.search(check_line) or self.EXEC_SQL_INCLUDE_PATTERN.search(check_line):
                                 continue
                             if self._lines_match(resolved_line, check_line):
                                 # Found the line ahead - sync up and use this position
@@ -277,8 +308,8 @@ class CopyResolver:
                                 if check_idx < 0:
                                     break
                                 check_line = original_lines[check_idx]
-                                # Skip COPY statements
-                                if self.COPY_PATTERN.search(check_line):
+                                # Skip COPY / EXEC SQL INCLUDE statements
+                                if self.COPY_PATTERN.search(check_line) or self.EXEC_SQL_INCLUDE_PATTERN.search(check_line):
                                     continue
                                 if self._lines_match(resolved_line, check_line):
                                     # Found the line behind - use this position
@@ -343,7 +374,11 @@ class CopyResolver:
         return self._original_line_count
 
     def _resolve_recursive(self, source: str, depth: int) -> str:
-        """Recursively resolve COPY statements.
+        """Recursively resolve COPY and EXEC SQL INCLUDE statements.
+
+        Collects matches from both COPY_PATTERN and EXEC_SQL_INCLUDE_PATTERN,
+        sorts by position, and processes in document order with a single offset
+        tracker. This correctly handles interleaved COPY and EXEC SQL INCLUDE.
 
         Args:
             source: Source code to process
@@ -357,11 +392,29 @@ class CopyResolver:
                 f"Maximum COPY nesting depth ({self.MAX_COPY_DEPTH}) exceeded"
             )
 
+        # Collect tagged matches from both patterns
+        tagged_matches: List[Tuple[str, re.Match]] = []  # type: ignore[type-arg]
+        for match in self.COPY_PATTERN.finditer(source):
+            tagged_matches.append(("COPY", match))
+        for match in self.EXEC_SQL_INCLUDE_PATTERN.finditer(source):
+            tagged_matches.append(("EXEC_SQL_INCLUDE", match))
+
+        # Sort by position in source
+        tagged_matches.sort(key=lambda x: x[1].start())
+
         result = source
         offset = 0
 
-        for match in self.COPY_PATTERN.finditer(source):
-            copy_stmt = self._parse_copy_statement(match)
+        for tag, match in tagged_matches:
+            if tag == "COPY":
+                copy_stmt = self._parse_copy_statement(match)
+            else:
+                # EXEC SQL INCLUDE — no library or REPLACING
+                member_name = match.group(1).upper()
+                copy_stmt = CopyStatement(
+                    copybook_name=member_name,
+                    original_text=match.group(0),
+                )
 
             # Check for circular dependency
             if copy_stmt.copybook_name in self.resolution_stack:
@@ -374,27 +427,30 @@ class CopyResolver:
                     copy_stmt.copybook_name, copy_stmt.library_name
                 )
             except CopyNotFoundError as e:
-                # Copybook not found - add warning and skip this COPY statement
+                # Copybook not found - add warning and skip
                 self._warnings.append(str(e))
                 continue
 
-            # Apply REPLACING clause
+            # Apply REPLACING clause (COPY only; EXEC SQL INCLUDE has none)
             if copy_stmt.replacings:
                 copybook_content = self._apply_replacings(
                     copybook_content, copy_stmt.replacings
                 )
 
-            # Recursively resolve nested COPYs
+            # Recursively resolve nested COPYs / EXEC SQL INCLUDEs
             self.resolution_stack.append(copy_stmt.copybook_name)
             copybook_content = self._resolve_recursive(copybook_content, depth + 1)
             self.resolution_stack.pop()
 
-            # Replace the COPY statement with resolved content
+            # Replace the statement with resolved content
             start = match.start() + offset
             end = match.end() + offset
 
-            # Add comment showing the COPY resolution
-            comment = f"      * COPY {copy_stmt.copybook_name} resolved\n"
+            # Add comment showing the resolution (type-specific marker)
+            if tag == "COPY":
+                comment = f"      * COPY {copy_stmt.copybook_name} resolved\n"
+            else:
+                comment = f"      * EXEC SQL INCLUDE {copy_stmt.copybook_name} resolved\n"
             replacement = comment + copybook_content
 
             result = result[:start] + replacement + result[end:]

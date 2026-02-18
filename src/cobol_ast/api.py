@@ -770,10 +770,10 @@ class CombinedResult:
 
 
 def _build_copybook_line_map(original_source: str) -> Dict[str, int]:
-    """Build a map of copybook names to their COPY statement line numbers.
+    """Build a map of copybook names to their COPY/EXEC SQL INCLUDE statement line numbers.
 
     Scans the original source (before COPY resolution) to find all COPY
-    statements and map copybook names to their line numbers.
+    and EXEC SQL INCLUDE statements and map copybook names to their line numbers.
 
     Args:
         original_source: The original COBOL source before COPY resolution
@@ -786,10 +786,17 @@ def _build_copybook_line_map(original_source: str) -> Dict[str, int]:
         r"^\s*COPY\s+([A-Za-z0-9][-A-Za-z0-9]*)",
         re.IGNORECASE | re.MULTILINE
     )
+    exec_sql_include_pattern = re.compile(
+        r"^\s*EXEC\s+SQL\s+INCLUDE\s+([A-Za-z0-9][-A-Za-z0-9]*)",
+        re.IGNORECASE | re.MULTILINE
+    )
 
     copybook_lines: Dict[str, int] = {}
     for line_num, line in enumerate(original_source.splitlines(), start=1):
-        match = copy_pattern.match(line.lstrip())
+        lstripped = line.lstrip()
+        match = copy_pattern.match(lstripped)
+        if not match:
+            match = exec_sql_include_pattern.match(lstripped)
         if match:
             copybook_name = match.group(1).upper()
             # Store the first occurrence (in case of multiple COPY of same copybook)

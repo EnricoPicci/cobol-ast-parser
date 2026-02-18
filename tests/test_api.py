@@ -2717,3 +2717,174 @@ class TestCopybookResolutionOptions:
         )
 
         assert options.copybook_paths == [Path("/copybooks"), Path("/shared/copy")]
+
+
+class TestExecSqlInclude:
+    """Tests for EXEC SQL INCLUDE support in copybook resolution."""
+
+    def test_basic_resolution(self):
+        """Test that EXEC SQL INCLUDE directives are expanded."""
+        source_path = FIXTURES_DIR / "exec_sql_include_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[copybook_path]),
+        )
+
+        assert isinstance(result, CopybookResolutionResult)
+
+        # EXEC SQL INCLUDE directives should be replaced
+        for line in result.resolved_source.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("*"):
+                continue
+            assert "EXEC SQL INCLUDE EMPLOYEE-CPY" not in stripped.upper()
+            assert "EXEC SQL INCLUDE COUNTERS-CPY" not in stripped.upper()
+
+        # Content from copybooks should be present
+        assert "WS-EMPLOYEE" in result.resolved_source
+        assert "WS-EMP-ID" in result.resolved_source
+        assert "WS-COUNTERS" in result.resolved_source
+        assert "WS-CTR" in result.resolved_source
+
+    def test_comment_markers(self):
+        """Test that EXEC SQL INCLUDE resolution leaves correct comment markers."""
+        source_path = FIXTURES_DIR / "exec_sql_include_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[copybook_path]),
+        )
+
+        # Should have EXEC SQL INCLUDE markers, not COPY markers
+        assert "* EXEC SQL INCLUDE EMPLOYEE-CPY resolved" in result.resolved_source
+        assert "* EXEC SQL INCLUDE COUNTERS-CPY resolved" in result.resolved_source
+        # Should NOT have COPY markers (these are EXEC SQL INCLUDE, not COPY)
+        assert "* COPY EMPLOYEE-CPY resolved" not in result.resolved_source
+
+    def test_line_mapping_tracks_copybook_origin(self):
+        """Test that line mapping correctly identifies lines from EXEC SQL INCLUDE."""
+        source_path = FIXTURES_DIR / "exec_sql_include_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[copybook_path]),
+        )
+
+        # Find lines from copybooks
+        copybook_lines = [
+            mapping for mapping in result.line_mapping.values()
+            if mapping.is_copybook
+        ]
+        assert len(copybook_lines) > 0
+
+        # Find lines from main source
+        main_lines = [
+            mapping for mapping in result.line_mapping.values()
+            if not mapping.is_copybook
+        ]
+        assert len(main_lines) > 0
+
+        # Copybook lines should reference the copybook name
+        copybook_sources = {m.source_file for m in copybook_lines}
+        assert any("EMPLOYEE-CPY" in s for s in copybook_sources)
+
+    def test_missing_member_warning(self):
+        """Test that warnings are generated for missing EXEC SQL INCLUDE members."""
+        source_path = FIXTURES_DIR / "exec_sql_include_main.cob"
+
+        # Use a path that doesn't contain the needed copybooks
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[FIXTURES_DIR]),
+        )
+
+        # Should have warnings about missing members
+        assert len(result.warnings) > 0
+
+    def test_mixed_copy_and_exec_sql_include(self):
+        """Test that both COPY and EXEC SQL INCLUDE are resolved in the same file."""
+        source_path = FIXTURES_DIR / "mixed_copy_include.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[copybook_path]),
+        )
+
+        # Both should be resolved
+        assert "WS-EMPLOYEE" in result.resolved_source
+        assert "WS-EMP-ID" in result.resolved_source
+        assert "WS-COUNTERS" in result.resolved_source
+        assert "WS-CTR" in result.resolved_source
+
+        # Should have both marker types
+        assert "* COPY EMPLOYEE-CPY resolved" in result.resolved_source
+        assert "* EXEC SQL INCLUDE COUNTERS-CPY resolved" in result.resolved_source
+
+    def test_without_trailing_period(self):
+        """Test that EXEC SQL INCLUDE without trailing period still works."""
+        from preprocessor import CopyResolver
+
+        # Source with no trailing period after END-EXEC
+        source = (
+            "       IDENTIFICATION DIVISION.\n"
+            "       PROGRAM-ID. TEST-PROG.\n"
+            "       DATA DIVISION.\n"
+            "       WORKING-STORAGE SECTION.\n"
+            "       EXEC SQL INCLUDE EMPLOYEE-CPY END-EXEC\n"
+            "       PROCEDURE DIVISION.\n"
+            "       MAIN-PARA.\n"
+            "           STOP RUN.\n"
+        )
+
+        copybook_path = FIXTURES_DIR / "copybooks"
+        resolver = CopyResolver([copybook_path])
+        resolved = resolver.resolve(source, "test.cob")
+
+        # Should have resolved the EXEC SQL INCLUDE
+        assert "WS-EMPLOYEE" in resolved
+        assert "* EXEC SQL INCLUDE EMPLOYEE-CPY resolved" in resolved
+
+    def test_analyze_paragraph_variables_with_exec_sql_include(self):
+        """Test that full analysis works end-to-end with EXEC SQL INCLUDE fixtures."""
+        source_path = FIXTURES_DIR / "exec_sql_include_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = analyze_paragraph_variables(
+            source_path,
+            AnalysisOptions(copybook_paths=[copybook_path]),
+        )
+
+        assert isinstance(result, AnalysisResult)
+        assert result.program_name == "EXEC-SQL-INCLUDE-EXAMPLE"
+
+        # Check that variables from included copybooks appear in analysis
+        paragraphs = result.paragraph_variables.get("paragraphs", {})
+        assert "MAIN-PARA" in paragraphs
+
+        # WS-CTR should be modified via MOVE 1 TO WS-CTR
+        main_para_vars = paragraphs["MAIN-PARA"]
+        var_names = list(main_para_vars.keys())
+        assert "WS-CTR" in var_names
+
+    def test_analyze_paragraph_variables_with_mixed(self):
+        """Test full analysis with mixed COPY and EXEC SQL INCLUDE."""
+        source_path = FIXTURES_DIR / "mixed_copy_include.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = analyze_paragraph_variables(
+            source_path,
+            AnalysisOptions(copybook_paths=[copybook_path]),
+        )
+
+        assert isinstance(result, AnalysisResult)
+        assert result.program_name == "MIXED-COPY-INCLUDE"
+
+        paragraphs = result.paragraph_variables.get("paragraphs", {})
+        assert "MAIN-PARA" in paragraphs
+        main_para_vars = paragraphs["MAIN-PARA"]
+        assert "WS-CTR" in main_para_vars

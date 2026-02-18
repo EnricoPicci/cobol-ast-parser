@@ -55,7 +55,7 @@ python -m src paragraph-variables-map program.cob -c ./copybooks -o ./output
 COBOL Source → Preprocessor → Parser → AST Builder → Analyzers → Output Mapper
 ```
 
-1. **Preprocessor** (`src/preprocessor/`): Normalizes source, detects format (fixed/free), resolves COPY statements
+1. **Preprocessor** (`src/preprocessor/`): Normalizes source, detects format (fixed/free), resolves COPY statements and `EXEC SQL INCLUDE` directives
 2. **Parser** (`src/parser/`): ANTLR4-based COBOL parser producing parse trees
 3. **AST Builder** (`src/cobol_ast/builder.py`): Converts parse trees to domain-specific AST nodes
 4. **Analyzers** (`src/analyzers/`): Three-stage analysis pipeline
@@ -127,6 +127,8 @@ COBOL test files in `tests/fixtures/`:
 - `simple_program.cob`: Basic data/procedure structure
 - `redefines_program.cob`: REDEFINES relationships
 - `copybook_main.cob` + `copybooks/`: COPY statement resolution
+- `exec_sql_include_main.cob`: EXEC SQL INCLUDE resolution (uses same copybooks)
+- `mixed_copy_include.cob`: Mixed COPY and EXEC SQL INCLUDE in one file
 - `all_modifications.cob`: All modification types (MOVE, COMPUTE, ADD, etc.)
 
 ## Development Guidelines
