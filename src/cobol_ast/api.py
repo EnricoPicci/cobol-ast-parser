@@ -104,6 +104,151 @@ class AnalysisError(Exception):
 
 
 @dataclass
+class _CopyResolutionOutput:
+    """Internal result of copybook resolution orchestration."""
+    resolved_source: str
+    line_mapping: Dict[int, Any]
+    original_line_count: int
+    warnings: List[str]
+
+
+def _resolve_copies(
+    source: str,
+    source_path: Path,
+    copybook_paths: Optional[List[Path]] = None,
+) -> _CopyResolutionOutput:
+    """Single implementation of copybook resolution orchestration.
+
+    Resolves COPY statements in the source using CopyResolver and returns
+    the resolved source along with line mapping metadata.
+
+    Args:
+        source: The COBOL source text to resolve
+        source_path: Path to the source file (used to derive default search dir)
+        copybook_paths: Additional paths to search for copybooks
+
+    Returns:
+        _CopyResolutionOutput with resolved source, line mapping, and warnings
+    """
+    from preprocessor import CopyResolver
+
+    copy_paths = list(copybook_paths or [])
+    copy_paths.insert(0, source_path.parent)
+
+    resolver = CopyResolver(copy_paths)
+    resolved = resolver.resolve(source, source_path.name)
+
+    return _CopyResolutionOutput(
+        resolved_source=resolved,
+        line_mapping=resolver.line_mapping,
+        original_line_count=resolver.original_line_count,
+        warnings=resolver.warnings,
+    )
+
+
+@dataclass
+class CopybookResolutionOptions:
+    """Options for copybook resolution.
+
+    Attributes:
+        copybook_paths: Additional paths to search for copybooks. The source file's
+            directory is always searched by default.
+    """
+    copybook_paths: Optional[List[Path]] = None
+
+
+@dataclass
+class CopybookResolutionResult:
+    """Result of copybook resolution.
+
+    Attributes:
+        resolved_source: COBOL source text with all COPY statements expanded
+        line_mapping: Maps resolved line numbers to original source locations.
+            Each key is a line number in the resolved source; each value is a
+            LineMapping with original_line, source_file, and is_copybook fields.
+        execution_time_seconds: Time taken for resolution
+        warnings: Warning messages (e.g., copybooks not found)
+    """
+    resolved_source: str
+    line_mapping: Dict[int, Any]
+    execution_time_seconds: float
+    warnings: List[str] = field(default_factory=list)
+
+
+def resolve_copybooks(
+    source_path: Path,
+    options: Optional[CopybookResolutionOptions] = None,
+) -> CopybookResolutionResult:
+    """Resolve all COPY statements in a COBOL source file.
+
+    Reads the source file, expands all COPY statements by inlining the
+    referenced copybook content, and returns the resolved source text
+    along with a line mapping that traces each line back to its origin.
+
+    No format detection, normalization, or parsing is performed.
+
+    Args:
+        source_path: Path to the COBOL source file
+        options: Resolution options (uses defaults if not provided)
+
+    Returns:
+        CopybookResolutionResult with resolved source and line mapping
+
+    Raises:
+        FileNotFoundError: If source file doesn't exist
+        AnalysisError: If resolution fails for other reasons
+
+    Example:
+        >>> from cobol_ast import resolve_copybooks, CopybookResolutionOptions
+        >>> from pathlib import Path
+        >>>
+        >>> result = resolve_copybooks(Path("program.cob"))
+        >>> print(result.resolved_source)
+        >>>
+        >>> # With extra copybook search paths
+        >>> options = CopybookResolutionOptions(
+        ...     copybook_paths=[Path("./copybooks")],
+        ... )
+        >>> result = resolve_copybooks(Path("program.cob"), options)
+        >>> for line_num, mapping in result.line_mapping.items():
+        ...     print(f"Line {line_num}: from {mapping.source_file}")
+    """
+    import time
+
+    if options is None:
+        options = CopybookResolutionOptions()
+
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source file not found: {source_path}")
+
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Source path is not a file: {source_path}")
+
+    start_time = time.perf_counter()
+
+    try:
+        source = source_path.read_text(encoding="utf-8", errors="replace")
+
+        resolution = _resolve_copies(
+            source, source_path, options.copybook_paths
+        )
+
+        end_time = time.perf_counter()
+
+        return CopybookResolutionResult(
+            resolved_source=resolution.resolved_source,
+            line_mapping=resolution.line_mapping,
+            execution_time_seconds=round(end_time - start_time, 4),
+            warnings=resolution.warnings,
+        )
+
+    except FileNotFoundError:
+        raise
+    except Exception as e:
+        raise AnalysisError(f"Copybook resolution failed: {e}") from e
+
+
+@dataclass
 class AnalysisOptions:
     """Options for COBOL analysis.
 
@@ -275,7 +420,7 @@ def analyze_paragraph_variables(
     """
     # Import here to avoid circular imports and keep module lightweight
     import time
-    from preprocessor import CopyResolver, detect_format, normalize_source
+    from preprocessor import detect_format, normalize_source
     from parser import CobolParser, ParseError
     from . import ASTBuilder
     from analyzers import ImpactAnalyzer
@@ -308,14 +453,11 @@ def analyze_paragraph_variables(
         original_line_count = source_lines_count
         warnings: List[str] = []
         if options.resolve_copies:
-            copy_paths = options.copybook_paths or []
-            copy_paths = [source_path.parent] + list(copy_paths)
-
-            resolver = CopyResolver(copy_paths)
-            source = resolver.resolve(source, source_path.name)
-            line_mapping = resolver.line_mapping
-            original_line_count = resolver.original_line_count
-            warnings = resolver.warnings
+            resolution = _resolve_copies(source, source_path, options.copybook_paths)
+            source = resolution.resolved_source
+            line_mapping = resolution.line_mapping
+            original_line_count = resolution.original_line_count
+            warnings = resolution.warnings
 
         # Normalize source
         source = normalize_source(source, source_format)
@@ -857,7 +999,7 @@ def get_data_division_tree(
     """
     # Import here to avoid circular imports and keep module lightweight
     import time
-    from preprocessor import CopyResolver, detect_format, normalize_source
+    from preprocessor import detect_format, normalize_source
     from parser import CobolParser, ParseError
     from . import ASTBuilder
     from analyzers import DataStructureAnalyzer
@@ -892,20 +1034,17 @@ def get_data_division_tree(
         line_mapping = None
         warnings: List[str] = []
         if options.resolve_copies:
-            copy_paths = options.copybook_paths or []
-            copy_paths = [source_path.parent] + list(copy_paths)
-
-            resolver = CopyResolver(copy_paths)
-            source = resolver.resolve(source, source_path.name)
+            resolution = _resolve_copies(source, source_path, options.copybook_paths)
+            source = resolution.resolved_source
             line_mapping = {
                 str(k): {
                     "original_line": v.original_line,
                     "source_file": v.source_file,
                     "is_copybook": v.is_copybook,
                 }
-                for k, v in resolver.line_mapping.items()
+                for k, v in resolution.line_mapping.items()
             }
-            warnings = resolver.warnings
+            warnings = resolution.warnings
 
         # Normalize source
         source = normalize_source(source, source_format)
@@ -1047,7 +1186,7 @@ def analyze_with_tree(
     """
     # Import here to avoid circular imports and keep module lightweight
     import time
-    from preprocessor import CopyResolver, detect_format, normalize_source
+    from preprocessor import detect_format, normalize_source
     from parser import CobolParser, ParseError
     from . import ASTBuilder
     from analyzers import ImpactAnalyzer
@@ -1091,14 +1230,11 @@ def analyze_with_tree(
         original_line_count = source_lines_count
         warnings: List[str] = []
         if options.resolve_copies:
-            copy_paths = options.copybook_paths or []
-            copy_paths = [source_path.parent] + list(copy_paths)
-
-            resolver = CopyResolver(copy_paths)
-            source = resolver.resolve(source, source_path.name)
-            line_mapping = resolver.line_mapping
-            original_line_count = resolver.original_line_count
-            warnings = resolver.warnings
+            resolution = _resolve_copies(source, source_path, options.copybook_paths)
+            source = resolution.resolved_source
+            line_mapping = resolution.line_mapping
+            original_line_count = resolution.original_line_count
+            warnings = resolution.warnings
             # Also build dict version for tree generation
             line_mapping_dict = {
                 str(k): {
@@ -1106,7 +1242,7 @@ def analyze_with_tree(
                     "source_file": v.source_file,
                     "is_copybook": v.is_copybook,
                 }
-                for k, v in line_mapping.items()
+                for k, v in resolution.line_mapping.items()
             }
 
         # Normalize source

@@ -80,6 +80,12 @@ from src import (
     CombinedOptions,              # Configuration options for combined API
     CombinedResult,               # Return type for combined API
 
+    # Copybook resolution
+    resolve_copybooks,            # Resolve COPY statements without parsing
+    CopybookResolutionOptions,    # Configuration options for resolution
+    CopybookResolutionResult,     # Return type for resolution
+    LineMapping,                  # Line mapping entry (re-exported from preprocessor)
+
     # Exceptions
     AnalysisError,                # Exception type
 )
@@ -357,6 +363,57 @@ Result dataclass containing both outputs from a single processing pass.
 | `analysis_result` | `AnalysisResult` | Paragraph variables analysis with `variable_index` |
 | `execution_time_seconds` | `float` | Total processing time for both outputs |
 | `warnings` | `list[str]` | Warning messages from preprocessing (e.g., copybooks not found). Empty if no warnings. |
+
+---
+
+### `resolve_copybooks(source_path, options?)`
+
+Resolves all COPY statements in a COBOL source file and returns the expanded source text with a line mapping. No format detection, normalization, or parsing is performed — this is a lightweight alternative when you only need copybook expansion.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_path` | `Path` | Yes | Path to the COBOL source file |
+| `options` | `CopybookResolutionOptions` | No | Configuration options (uses defaults if not provided) |
+
+**Returns:** `CopybookResolutionResult`
+
+**Raises:**
+- `FileNotFoundError` - If source file doesn't exist or path is a directory
+- `AnalysisError` - If resolution fails for other reasons
+
+### `CopybookResolutionOptions`
+
+Configuration dataclass for copybook resolution.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `copybook_paths` | `List[Path]` | `None` | Additional paths to search for copybooks (source file's directory is always searched) |
+
+### `CopybookResolutionResult`
+
+Result dataclass containing the resolved source and line mapping.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `resolved_source` | `str` | COBOL source text with all COPY statements expanded |
+| `line_mapping` | `Dict[int, LineMapping]` | Maps each line in the resolved source to its original location |
+| `execution_time_seconds` | `float` | Time taken for resolution |
+| `warnings` | `list[str]` | Warning messages (e.g., copybooks not found). Empty if no warnings. |
+
+### `LineMapping`
+
+Dataclass representing the origin of a single line in the resolved source. Re-exported from `preprocessor` for convenience.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `expanded_line` | `int` | Line number in the expanded source |
+| `original_line` | `int` | Line number in the original file |
+| `source_file` | `str` | `"<main>"` for the main source, or copybook name |
+| `is_copybook` | `bool` | `True` if this line came from a copybook |
+
+---
 
 ## Usage Examples
 
@@ -789,6 +846,70 @@ Path(output_dir / "paragraph-variables.json").write_text(
     json.dumps(result.analysis_result.paragraph_variables, indent=2)
 )
 ```
+
+---
+
+## Copybook Resolution Examples
+
+### Basic Copybook Resolution
+
+```python
+from pathlib import Path
+from src import resolve_copybooks
+
+# Resolve COPY statements (source directory searched by default)
+result = resolve_copybooks(Path("program.cob"))
+
+print(result.resolved_source)  # Full source with COPYs expanded
+print(f"Resolved in {result.execution_time_seconds:.4f}s")
+```
+
+### With Extra Search Paths
+
+```python
+from pathlib import Path
+from src import resolve_copybooks, CopybookResolutionOptions
+
+options = CopybookResolutionOptions(
+    copybook_paths=[Path("./copybooks"), Path("./shared/copy")],
+)
+
+result = resolve_copybooks(Path("program.cob"), options)
+
+# Check for warnings about missing copybooks
+if result.warnings:
+    for warning in result.warnings:
+        print(f"Warning: {warning}")
+```
+
+### Inspecting Line Mapping
+
+```python
+from pathlib import Path
+from src import resolve_copybooks, CopybookResolutionOptions
+
+result = resolve_copybooks(
+    Path("program.cob"),
+    CopybookResolutionOptions(copybook_paths=[Path("./copybooks")]),
+)
+
+# Iterate over the line mapping
+for line_num, mapping in result.line_mapping.items():
+    origin = "copybook" if mapping.is_copybook else "main"
+    print(f"Line {line_num}: from {mapping.source_file} "
+          f"(original line {mapping.original_line}, {origin})")
+```
+
+### When to Use `resolve_copybooks` vs Other APIs
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Need only the expanded source text | Use `resolve_copybooks()` |
+| Need DATA DIVISION structure | Use `get_data_division_tree()` |
+| Need paragraph-variables analysis | Use `analyze_paragraph_variables()` |
+| Need both tree and analysis | Use `analyze_with_tree()` |
+
+`resolve_copybooks()` is the lightest-weight API — it only reads the source and resolves COPY statements without parsing or analysis.
 
 ---
 

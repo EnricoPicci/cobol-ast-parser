@@ -23,7 +23,11 @@ from .api import (
     DataItemNode,
     DataDivisionSection,
     _build_copybook_line_map,
+    resolve_copybooks,
+    CopybookResolutionOptions,
+    CopybookResolutionResult,
 )
+from preprocessor import LineMapping
 
 __all__ = [
     "__version__",
@@ -47,4 +51,9 @@ __all__ = [
     "DataItemNode",
     "DataDivisionSection",
     "_build_copybook_line_map",
+    # Copybook resolution API
+    "resolve_copybooks",
+    "CopybookResolutionOptions",
+    "CopybookResolutionResult",
+    "LineMapping",
 ]

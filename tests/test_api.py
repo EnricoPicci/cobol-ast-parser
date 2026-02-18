@@ -18,6 +18,9 @@ from cobol_ast.api import (
     analyze_with_tree,
     CombinedOptions,
     CombinedResult,
+    resolve_copybooks,
+    CopybookResolutionOptions,
+    CopybookResolutionResult,
 )
 from parser import ParseError
 
@@ -2543,3 +2546,174 @@ class TestCopybookWarnings:
         for para_vars in result.paragraph_variables.get("paragraphs", {}).values():
             all_vars.update(para_vars.keys())
         assert "WS-FIELD" in all_vars
+
+
+class TestResolveCopybooks:
+    """Tests for the resolve_copybooks function."""
+
+    def test_basic_resolution(self):
+        """Test that COPY statements are expanded in the resolved source."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[copybook_path]),
+        )
+
+        assert isinstance(result, CopybookResolutionResult)
+        assert result.execution_time_seconds > 0
+
+        # COPY directives should be replaced (resolver leaves comment markers).
+        # Verify no active COPY statements remain (skip comment lines).
+        for line in result.resolved_source.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("*"):
+                continue
+            assert not stripped.upper().startswith("COPY EMPLOYEE-CPY")
+            assert not stripped.upper().startswith("COPY COUNTERS-CPY")
+
+        # Content from copybooks should be present
+        assert "WS-EMPLOYEE" in result.resolved_source
+        assert "WS-EMP-ID" in result.resolved_source
+        assert "WS-COUNTERS" in result.resolved_source
+        assert "WS-CTR" in result.resolved_source
+
+    def test_line_mapping_present(self):
+        """Test that line mapping is populated after resolution."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[copybook_path]),
+        )
+
+        # Line mapping should have entries
+        assert len(result.line_mapping) > 0
+
+        # Each mapping entry should have expected attributes
+        for line_num, mapping in result.line_mapping.items():
+            assert isinstance(line_num, int)
+            assert hasattr(mapping, "original_line")
+            assert hasattr(mapping, "source_file")
+            assert hasattr(mapping, "is_copybook")
+
+    def test_line_mapping_tracks_copybook_origin(self):
+        """Test that line mapping correctly identifies lines from copybooks."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+        copybook_path = FIXTURES_DIR / "copybooks"
+
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[copybook_path]),
+        )
+
+        # Find lines from copybooks
+        copybook_lines = [
+            mapping for mapping in result.line_mapping.values()
+            if mapping.is_copybook
+        ]
+        assert len(copybook_lines) > 0
+
+        # Find lines from main source
+        main_lines = [
+            mapping for mapping in result.line_mapping.values()
+            if not mapping.is_copybook
+        ]
+        assert len(main_lines) > 0
+
+        # Copybook lines should reference the copybook name
+        copybook_sources = {m.source_file for m in copybook_lines}
+        assert any("EMPLOYEE-CPY" in s for s in copybook_sources)
+
+    def test_default_copybook_path(self):
+        """Test that source directory is searched by default (no options)."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+
+        # The copybooks dir is NOT the parent of copybook_main.cob, so this
+        # won't find copybooks. This tests that default path is source dir.
+        result = resolve_copybooks(source_path)
+
+        assert isinstance(result, CopybookResolutionResult)
+        # Without explicit copybook_paths pointing to the copybooks/ subdir,
+        # the COPY statements cannot be resolved - warnings should be generated
+        assert len(result.warnings) > 0
+
+    def test_missing_copybook_warning(self):
+        """Test that a warning is generated for missing copybooks."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+
+        # Use a path that doesn't contain the needed copybooks
+        result = resolve_copybooks(
+            source_path,
+            CopybookResolutionOptions(copybook_paths=[FIXTURES_DIR]),
+        )
+
+        # Should have warnings about missing copybooks
+        assert len(result.warnings) > 0
+
+    def test_no_crash_on_missing_copybook(self):
+        """Test that resolution continues even when copybooks are not found."""
+        source_path = FIXTURES_DIR / "copybook_main.cob"
+
+        # This should not raise an exception
+        result = resolve_copybooks(source_path)
+
+        assert isinstance(result, CopybookResolutionResult)
+        assert isinstance(result.resolved_source, str)
+        assert len(result.resolved_source) > 0
+
+    def test_no_copy_statements(self):
+        """Test resolution of a program with no COPY statements."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = resolve_copybooks(source_path)
+
+        assert isinstance(result, CopybookResolutionResult)
+        # Source should be unchanged (no COPY to resolve)
+        original = source_path.read_text(encoding="utf-8", errors="replace")
+        assert result.resolved_source == original
+        assert len(result.warnings) == 0
+
+    def test_file_not_found(self):
+        """Test that FileNotFoundError is raised for missing files."""
+        source_path = FIXTURES_DIR / "nonexistent.cob"
+
+        with pytest.raises(FileNotFoundError) as exc_info:
+            resolve_copybooks(source_path)
+
+        assert "nonexistent.cob" in str(exc_info.value)
+
+    def test_directory_instead_of_file(self):
+        """Test that FileNotFoundError is raised when path is a directory."""
+        with pytest.raises(FileNotFoundError) as exc_info:
+            resolve_copybooks(FIXTURES_DIR)
+
+        assert "not a file" in str(exc_info.value)
+
+    def test_default_options(self):
+        """Test that default options work when None is passed."""
+        source_path = FIXTURES_DIR / "simple_program.cob"
+
+        result = resolve_copybooks(source_path, None)
+
+        assert isinstance(result, CopybookResolutionResult)
+
+
+class TestCopybookResolutionOptions:
+    """Tests for the CopybookResolutionOptions dataclass."""
+
+    def test_default_values(self):
+        """Test that default values are set correctly."""
+        options = CopybookResolutionOptions()
+
+        assert options.copybook_paths is None
+
+    def test_custom_values(self):
+        """Test setting custom values."""
+        options = CopybookResolutionOptions(
+            copybook_paths=[Path("/copybooks"), Path("/shared/copy")],
+        )
+
+        assert options.copybook_paths == [Path("/copybooks"), Path("/shared/copy")]
