@@ -888,6 +888,7 @@ Configuration dataclass combining analysis, tree, and filter options.
 | `include_redefines` | `bool` | `True` | Include REDEFINES-affected variables in analysis output |
 | `include_ancestor_mods` | `bool` | `True` | Include ancestor-modified variables in analysis output |
 | `include_source_info` | `bool` | `True` | Include source file metadata in output |
+| `include_filtered_data` | `bool` | `True` | Compute filtered DATA DIVISION tree. When `False`, filtering is skipped and filter-related fields are returned empty/zeroed. |
 
 ### `ParagraphAnalysisResult`
 
@@ -943,12 +944,36 @@ print(f"Reduced from {result.filter_summary['total_records_before']} to "
       f"({result.filter_summary['reduction_percentage']}% reduction)")
 ```
 
+### Skipping Filtered Data
+
+When you only need the full tree and analysis (equivalent to `analyze_with_tree()`) without the filtering overhead, set `include_filtered_data=False`:
+
+```python
+from pathlib import Path
+from src import analyze_for_paragraphs, ParagraphAnalysisOptions
+
+result = analyze_for_paragraphs(
+    source_path=Path("program.cob"),
+    paragraph_names=["MAIN", "INIT-PARA"],
+    options=ParagraphAnalysisOptions(include_filtered_data=False),
+)
+
+# Full tree and analysis are still available
+all_records = result.data_division_tree.all_records
+variable_index = result.analysis_result.variable_index
+
+# Filter-related fields are empty/zeroed
+assert result.filtered_sections == []
+assert result.filtered_records == []
+assert result.to_text() == ""
+```
+
 ### When to Use Which API
 
 | Scenario | Recommendation |
 |----------|----------------|
 | Need filtered DATA DIVISION + full analysis (e.g., for LLM prompts) | Use `analyze_for_paragraphs()` |
-| Need full tree and analysis without filtering | Use `analyze_with_tree()` |
+| Need full tree and analysis without filtering | Use `analyze_for_paragraphs(include_filtered_data=False)` or `analyze_with_tree()` |
 | Need the full unfiltered DATA DIVISION only | Use `get_data_division_tree()` |
 | Need paragraph-variables analysis only | Use `analyze_paragraph_variables()` |
 

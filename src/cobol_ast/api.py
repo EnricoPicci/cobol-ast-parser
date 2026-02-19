@@ -1429,6 +1429,11 @@ class ParagraphAnalysisOptions:
         include_redefines: Include REDEFINES-affected variables in analysis output (default: True).
         include_ancestor_mods: Include ancestor-modified variables in analysis output (default: True).
         include_source_info: Include source file metadata in output (default: True).
+        include_filtered_data: Whether to compute the filtered DATA DIVISION tree
+            scoped to the requested paragraphs (default: True). When False, the
+            filtering step is skipped and filter-related fields
+            (``filtered_sections``, ``filtered_records``, ``filter_summary``,
+            ``paragraph_names_used``) are returned empty/zeroed.
     """
     copybook_paths: Optional[List[Path]] = None
     resolve_copies: bool = True
@@ -1437,6 +1442,7 @@ class ParagraphAnalysisOptions:
     include_redefines: bool = True
     include_ancestor_mods: bool = True
     include_source_info: bool = True
+    include_filtered_data: bool = True
 
 
 @dataclass
@@ -1448,14 +1454,22 @@ class ParagraphAnalysisResult:
     of the tree containing only the 01-level groups referenced by the
     requested paragraphs.
 
+    When ``ParagraphAnalysisOptions.include_filtered_data`` is ``False``, the
+    filter-related fields (``filtered_sections``, ``filtered_records``,
+    ``filter_summary``, ``paragraph_names_used``) are returned empty/zeroed.
+
     Attributes:
         program_name: Name of the analyzed COBOL program.
         data_division_tree: Full (unfiltered) DATA DIVISION tree.
         analysis_result: Full analysis result with variable_index, paragraph_variables, etc.
         filtered_sections: Filtered DATA DIVISION sections (only groups with referenced variables).
+            Empty when ``include_filtered_data=False``.
         filtered_records: Flat list of all included Level 01 records after filtering.
+            Empty when ``include_filtered_data=False``.
         filter_summary: Filtering statistics (total/filtered record counts, reduction percentage).
+            All zeros when ``include_filtered_data=False``.
         paragraph_names_used: The paragraph names that were matched.
+            Empty when ``include_filtered_data=False``.
         execution_time_seconds: Time taken for analysis + filtering.
         warnings: Warning messages from preprocessing.
     """
@@ -1686,6 +1700,26 @@ def analyze_for_paragraphs(
 
     variable_index = combined.analysis_result.variable_index
     tree = combined.data_division_tree
+
+    # Short-circuit: skip filtering when include_filtered_data is False
+    if not options.include_filtered_data:
+        end_time = time.perf_counter()
+        return ParagraphAnalysisResult(
+            program_name=combined.program_name,
+            data_division_tree=combined.data_division_tree,
+            analysis_result=combined.analysis_result,
+            filtered_sections=[],
+            filtered_records=[],
+            filter_summary={
+                "total_records_before": 0,
+                "total_records_after": 0,
+                "records_removed": 0,
+                "reduction_percentage": 0.0,
+            },
+            paragraph_names_used=[],
+            execution_time_seconds=round(end_time - start_time, 4),
+            warnings=combined.warnings,
+        )
 
     # Step 2: Build normalized set of requested paragraph names
     requested_paragraphs = {

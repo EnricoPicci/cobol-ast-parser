@@ -235,6 +235,82 @@ class TestAnalyzeForParagraphs:
         # doesn't have FILLER items in the referenced records
         assert len(result_with.filtered_records) == len(result_without.filtered_records)
 
+    def test_include_filtered_data_false_returns_empty_filter_fields(self):
+        """When include_filtered_data=False, filter-related fields are empty/zeroed."""
+        result = analyze_for_paragraphs(
+            SIMPLE_PROGRAM,
+            paragraph_names=["INIT-PARA"],
+            options=ParagraphAnalysisOptions(include_filtered_data=False),
+        )
+
+        assert result.filtered_sections == []
+        assert result.filtered_records == []
+        assert result.filter_summary == {
+            "total_records_before": 0,
+            "total_records_after": 0,
+            "records_removed": 0,
+            "reduction_percentage": 0.0,
+        }
+        assert result.paragraph_names_used == []
+
+    def test_include_filtered_data_false_still_has_full_tree(self):
+        """When include_filtered_data=False, full tree and analysis are still populated."""
+        result = analyze_for_paragraphs(
+            SIMPLE_PROGRAM,
+            paragraph_names=["INIT-PARA"],
+            options=ParagraphAnalysisOptions(include_filtered_data=False),
+        )
+
+        # Full tree should have all 3 records
+        assert len(result.data_division_tree.all_records) == 3
+        all_names = [r.name for r in result.data_division_tree.all_records]
+        assert "WS-EMPLOYEE-RECORD" in all_names
+        assert "WS-COUNTERS" in all_names
+
+        # Analysis result should be fully populated
+        assert result.analysis_result is not None
+        assert len(result.analysis_result.variable_index) > 0
+        assert "paragraphs" in result.analysis_result.paragraph_variables
+
+    def test_include_filtered_data_true_is_default(self):
+        """Without the flag, filtering is performed (default is True)."""
+        result = analyze_for_paragraphs(
+            SIMPLE_PROGRAM,
+            paragraph_names=["INIT-PARA"],
+        )
+
+        # Filtering should have been performed
+        assert len(result.filtered_records) > 0
+        assert result.filter_summary["total_records_after"] > 0
+        assert len(result.paragraph_names_used) > 0
+
+    def test_include_filtered_data_false_to_text_returns_empty(self):
+        """to_text() returns empty string when filtering was skipped."""
+        result = analyze_for_paragraphs(
+            SIMPLE_PROGRAM,
+            paragraph_names=["INIT-PARA"],
+            options=ParagraphAnalysisOptions(include_filtered_data=False),
+        )
+
+        assert result.to_text() == ""
+
+    def test_include_filtered_data_false_to_dict_structure(self):
+        """to_dict() returns correct structure with empty filter fields."""
+        result = analyze_for_paragraphs(
+            SIMPLE_PROGRAM,
+            paragraph_names=["INIT-PARA"],
+            options=ParagraphAnalysisOptions(include_filtered_data=False),
+        )
+
+        d = result.to_dict()
+        assert d["filtered_sections"] == []
+        assert d["filtered_records"] == []
+        assert d["filter_summary"]["total_records_before"] == 0
+        assert d["paragraph_names_used"] == []
+        # Full tree and analysis should still be present
+        assert "data_division_tree" in d
+        assert "analysis_result" in d
+
     def test_exclude_88_levels(self):
         """ParagraphAnalysisOptions.include_88_levels=False excludes 88-level items."""
         result = analyze_for_paragraphs(
