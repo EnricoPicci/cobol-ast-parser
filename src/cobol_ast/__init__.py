@@ -26,6 +26,9 @@ from .api import (
     resolve_copybooks,
     CopybookResolutionOptions,
     CopybookResolutionResult,
+    analyze_for_paragraphs,
+    ParagraphAnalysisOptions,
+    ParagraphAnalysisResult,
 )
 from preprocessor import LineMapping
 
@@ -56,4 +59,8 @@ __all__ = [
     "CopybookResolutionOptions",
     "CopybookResolutionResult",
     "LineMapping",
+    # Paragraph analysis API
+    "analyze_for_paragraphs",
+    "ParagraphAnalysisOptions",
+    "ParagraphAnalysisResult",
 ]

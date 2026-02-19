@@ -86,6 +86,11 @@ from src import (
     CopybookResolutionResult,     # Return type for resolution
     LineMapping,                  # Line mapping entry (re-exported from preprocessor)
 
+    # Paragraph analysis API
+    analyze_for_paragraphs,              # Full analysis scoped to specific paragraphs
+    ParagraphAnalysisOptions,            # Configuration options
+    ParagraphAnalysisResult,             # Return type
+
     # Exceptions
     AnalysisError,                # Exception type
 )
@@ -848,6 +853,104 @@ Path(output_dir / "paragraph-variables.json").write_text(
     json.dumps(result.analysis_result.paragraph_variables, indent=2)
 )
 ```
+
+---
+
+### `analyze_for_paragraphs(source_path, paragraph_names, options?)`
+
+Analyzes a COBOL program scoped to specific paragraphs. This is a **superset** of `analyze_with_tree()`: it returns the full analysis result, the full DATA DIVISION tree, **and** a filtered view containing only the 01-level groups referenced by the specified paragraphs. Clients that currently call `analyze_with_tree()` and need paragraph-scoped filtering can switch to this single call.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_path` | `Path` | Yes | Path to the COBOL source file |
+| `paragraph_names` | `List[str]` | Yes | Paragraph/section names to filter by (case-insensitive, handles SECTION suffix) |
+| `options` | `ParagraphAnalysisOptions` | No | Configuration options (uses defaults if not provided) |
+
+**Returns:** `ParagraphAnalysisResult`
+
+**Raises:**
+- `FileNotFoundError` - If source file doesn't exist or path is a directory
+- `ParseError` - If COBOL source cannot be parsed
+- `AnalysisError` - If analysis fails for other reasons
+
+### `ParagraphAnalysisOptions`
+
+Configuration dataclass combining analysis, tree, and filter options.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `copybook_paths` | `List[Path]` | `None` | Additional paths to search for copybooks (source file's directory is always searched) |
+| `resolve_copies` | `bool` | `True` | Whether to resolve COPY statements |
+| `include_filler` | `bool` | `True` | Include FILLER items in tree output |
+| `include_88_levels` | `bool` | `True` | Include 88-level condition names in tree output |
+| `include_redefines` | `bool` | `True` | Include REDEFINES-affected variables in analysis output |
+| `include_ancestor_mods` | `bool` | `True` | Include ancestor-modified variables in analysis output |
+| `include_source_info` | `bool` | `True` | Include source file metadata in output |
+
+### `ParagraphAnalysisResult`
+
+Result dataclass containing full analysis, full tree, and filtered view.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `program_name` | `str` | Name of the COBOL program |
+| `data_division_tree` | `DataDivisionTree` | Full (unfiltered) DATA DIVISION tree |
+| `analysis_result` | `AnalysisResult` | Full analysis result with `variable_index`, `paragraph_variables`, etc. |
+| `filtered_sections` | `List[DataDivisionSection]` | Filtered sections (only groups with referenced variables) |
+| `filtered_records` | `List[DataItemNode]` | Flat list of included Level 01 records after filtering |
+| `filter_summary` | `dict` | Statistics: `total_records_before`, `total_records_after`, `records_removed`, `reduction_percentage` |
+| `paragraph_names_used` | `List[str]` | Paragraph names that were actually matched |
+| `execution_time_seconds` | `float` | Total processing time |
+| `warnings` | `list[str]` | Warning messages from preprocessing |
+
+**Methods:**
+- `to_dict()` - Convert to dictionary for JSON serialization (includes full tree, analysis, and filtered data)
+- `to_text()` - Render **filtered** DATA DIVISION as COBOL-like text for prompt inclusion
+
+---
+
+## Paragraph Analysis Examples
+
+### Basic Usage
+
+```python
+from pathlib import Path
+from src import analyze_for_paragraphs, ParagraphAnalysisOptions
+
+result = analyze_for_paragraphs(
+    source_path=Path("program.cob"),
+    paragraph_names=["MAIN", "INIT-PARA", "PROCESS-PARA"],
+    options=ParagraphAnalysisOptions(
+        copybook_paths=[Path("./copybooks")],
+    ),
+)
+
+# Filtered DATA DIVISION text for LLM prompts
+filtered_text = result.to_text()
+
+# Full analysis data
+variable_index = result.analysis_result.variable_index
+paragraph_variables = result.analysis_result.paragraph_variables
+
+# Full (unfiltered) tree
+all_records = result.data_division_tree.all_records
+
+# Filtering statistics
+print(f"Reduced from {result.filter_summary['total_records_before']} to "
+      f"{result.filter_summary['total_records_after']} records "
+      f"({result.filter_summary['reduction_percentage']}% reduction)")
+```
+
+### When to Use Which API
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Need filtered DATA DIVISION + full analysis (e.g., for LLM prompts) | Use `analyze_for_paragraphs()` |
+| Need full tree and analysis without filtering | Use `analyze_with_tree()` |
+| Need the full unfiltered DATA DIVISION only | Use `get_data_division_tree()` |
+| Need paragraph-variables analysis only | Use `analyze_paragraph_variables()` |
 
 ---
 

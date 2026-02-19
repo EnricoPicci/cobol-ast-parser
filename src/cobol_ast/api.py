@@ -1414,3 +1414,361 @@ def analyze_with_tree(
         raise  # Re-raise FileNotFoundError as-is
     except Exception as e:
         raise AnalysisError(f"Combined analysis failed: {e}") from e
+
+
+@dataclass
+class ParagraphAnalysisOptions:
+    """Options for paragraph-scoped analysis.
+
+    Attributes:
+        copybook_paths: Additional paths to search for copybooks. The source file's
+            directory is always searched by default.
+        resolve_copies: Whether to resolve COPY statements (default: True).
+        include_filler: Include FILLER items in tree output (default: True).
+        include_88_levels: Include 88-level condition names in tree output (default: True).
+        include_redefines: Include REDEFINES-affected variables in analysis output (default: True).
+        include_ancestor_mods: Include ancestor-modified variables in analysis output (default: True).
+        include_source_info: Include source file metadata in output (default: True).
+    """
+    copybook_paths: Optional[List[Path]] = None
+    resolve_copies: bool = True
+    include_filler: bool = True
+    include_88_levels: bool = True
+    include_redefines: bool = True
+    include_ancestor_mods: bool = True
+    include_source_info: bool = True
+
+
+@dataclass
+class ParagraphAnalysisResult:
+    """Result of analyzing a COBOL program scoped to specific paragraphs.
+
+    This is a superset of ``CombinedResult``: it contains the full analysis
+    result, the full (unfiltered) DATA DIVISION tree, **and** a filtered view
+    of the tree containing only the 01-level groups referenced by the
+    requested paragraphs.
+
+    Attributes:
+        program_name: Name of the analyzed COBOL program.
+        data_division_tree: Full (unfiltered) DATA DIVISION tree.
+        analysis_result: Full analysis result with variable_index, paragraph_variables, etc.
+        filtered_sections: Filtered DATA DIVISION sections (only groups with referenced variables).
+        filtered_records: Flat list of all included Level 01 records after filtering.
+        filter_summary: Filtering statistics (total/filtered record counts, reduction percentage).
+        paragraph_names_used: The paragraph names that were matched.
+        execution_time_seconds: Time taken for analysis + filtering.
+        warnings: Warning messages from preprocessing.
+    """
+    program_name: str
+    data_division_tree: DataDivisionTree
+    analysis_result: AnalysisResult
+    filtered_sections: List[DataDivisionSection]
+    filtered_records: List[DataItemNode]
+    filter_summary: Dict[str, Any]
+    paragraph_names_used: List[str]
+    execution_time_seconds: float
+    warnings: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result: Dict[str, Any] = {
+            "program_name": self.program_name,
+            "data_division_tree": self.data_division_tree.to_dict(),
+            "analysis_result": {
+                "paragraph_variables": self.analysis_result.paragraph_variables,
+                "variable_index": self.analysis_result.variable_index,
+            },
+            "filtered_sections": [s.to_dict() for s in self.filtered_sections],
+            "filtered_records": [r.to_dict() for r in self.filtered_records],
+            "filter_summary": self.filter_summary,
+            "paragraph_names_used": self.paragraph_names_used,
+            "execution_time_seconds": self.execution_time_seconds,
+        }
+        if self.warnings:
+            result["warnings"] = self.warnings
+        return result
+
+    def to_text(self) -> str:
+        """Render filtered data division as COBOL-like text for prompt inclusion.
+
+        Produces a readable representation of the **filtered** DATA DIVISION with
+        proper indentation based on COBOL level numbers. Only records referenced
+        by the requested paragraphs are included.
+
+        Returns:
+            COBOL-like text representation of the filtered data division.
+
+        Example output::
+
+            WORKING-STORAGE SECTION.
+
+            01  WS-EMPLOYEE-RECORD.
+                05  WS-EMP-ID                     PIC 9(5).
+                05  WS-EMP-NAME                   PIC X(30).
+
+            LINKAGE SECTION.
+
+            01  LS-PARAMETER-AREA.
+                05  LS-FUNCTION-CODE              PIC X(02).
+        """
+        lines: List[str] = []
+
+        for section in self.filtered_sections:
+            if not section.records:
+                continue
+            lines.append(f"{section.name} SECTION.")
+            lines.append("")
+
+            for record in section.records:
+                self._render_node(record, lines)
+                lines.append("")
+
+        # Remove trailing blank line
+        while lines and lines[-1] == "":
+            lines.pop()
+
+        return "\n".join(lines)
+
+    def _render_node(self, node: DataItemNode, lines: List[str]) -> None:
+        """Render a single data item node and its children as COBOL text.
+
+        Args:
+            node: The DataItemNode to render.
+            lines: List of output lines to append to.
+        """
+        # Calculate indentation: level 01 gets no indent, deeper levels get
+        # 4 spaces per depth increase from level 01
+        if node.level == 1 or node.level == 77:
+            indent = ""
+        elif node.level == 88:
+            # 88-levels are indented one level deeper than their parent
+            indent = "    " * 3
+        else:
+            # Levels 02-49: use level-based indentation
+            # 05 -> 1 indent, 10 -> 2 indents, 15 -> 3 indents, etc.
+            depth = (node.level - 1) // 5
+            if depth < 1:
+                depth = 1
+            indent = "    " * depth
+
+        # Build the item line
+        level_str = f"{node.level:02d}"
+        name = "FILLER" if node.is_filler else node.name
+
+        # Build clauses
+        clauses: List[str] = []
+        if node.redefines:
+            clauses.append(f"REDEFINES {node.redefines}")
+        if node.picture:
+            clauses.append(f"PIC {node.picture}")
+        if node.usage:
+            clauses.append(f"USAGE {node.usage}")
+        if node.occurs:
+            occurs_str = f"OCCURS {node.occurs} TIMES"
+            if node.occurs_depending_on:
+                occurs_str += f" DEPENDING ON {node.occurs_depending_on}"
+            clauses.append(occurs_str)
+        if node.value is not None:
+            clauses.append(f"VALUE {node.value}")
+
+        clause_str = " " + " ".join(clauses) if clauses else ""
+
+        # Pad name for alignment (at least 30 chars for name portion)
+        name_part = f"{level_str}  {name}"
+        if clause_str:
+            # Pad to align clauses
+            padded = f"{name_part:<34s}"
+            line = f"{indent}{padded}{clause_str.lstrip()}."
+        else:
+            line = f"{indent}{name_part}."
+
+        lines.append(line)
+
+        # Render children
+        for child in node.children:
+            self._render_node(child, lines)
+
+
+def _normalize_paragraph_name(name: str) -> str:
+    """Normalize a paragraph name for case-insensitive matching.
+
+    Strips trailing \" SECTION\" suffix and converts to uppercase.
+
+    Args:
+        name: The paragraph/section name to normalize.
+
+    Returns:
+        Normalized uppercase name without SECTION suffix.
+    """
+    normalized = name.strip().upper()
+    if normalized.endswith(" SECTION"):
+        normalized = normalized[:-len(" SECTION")]
+    return normalized
+
+
+def analyze_for_paragraphs(
+    source_path: Path,
+    paragraph_names: List[str],
+    options: Optional[ParagraphAnalysisOptions] = None,
+) -> ParagraphAnalysisResult:
+    """Analyze a COBOL program scoped to specific paragraphs.
+
+    Performs full analysis and DATA DIVISION tree generation in a single pass
+    (via ``analyze_with_tree()``), then filters the tree to only include
+    01-level groups where at least one variable is accessed or modified by
+    any of the specified paragraphs.
+
+    This is a superset of ``analyze_with_tree()``: the result contains the
+    full analysis result, the full DATA DIVISION tree, **and** the filtered
+    view. Clients that currently call ``analyze_with_tree()`` and need
+    paragraph-scoped filtering can switch to this single call.
+
+    When a group is included in the filtered view, it is included in full
+    (all children/siblings), preserving the complete structure for context.
+
+    Args:
+        source_path: Path to the COBOL source file.
+        paragraph_names: List of paragraph/section names to filter by.
+            These should match the paragraph names in the analysis output.
+            Matching is case-insensitive and handles optional SECTION suffix.
+        options: Analysis and filter options (uses defaults if not provided).
+
+    Returns:
+        ParagraphAnalysisResult with full analysis, full tree, and filtered view.
+
+    Raises:
+        FileNotFoundError: If source file doesn't exist
+        ParseError: If COBOL source cannot be parsed
+        AnalysisError: If analysis fails for other reasons
+
+    Example:
+        >>> from cobol_ast import analyze_for_paragraphs, ParagraphAnalysisOptions
+        >>> from pathlib import Path
+        >>>
+        >>> result = analyze_for_paragraphs(
+        ...     source_path=Path("program.cob"),
+        ...     paragraph_names=["MAIN", "INIT-PARA"],
+        ...     options=ParagraphAnalysisOptions(
+        ...         copybook_paths=[Path("./copybooks")],
+        ...     ),
+        ... )
+        >>>
+        >>> # Get filtered text for LLM prompt inclusion
+        >>> filtered_text = result.to_text()
+        >>>
+        >>> # Access full analysis data
+        >>> variable_index = result.analysis_result.variable_index
+        >>> paragraph_variables = result.analysis_result.paragraph_variables
+        >>>
+        >>> # Access full (unfiltered) tree
+        >>> all_records = result.data_division_tree.all_records
+    """
+    import time
+
+    if options is None:
+        options = ParagraphAnalysisOptions()
+
+    start_time = time.perf_counter()
+
+    # Build combined options for analyze_with_tree
+    combined_options = CombinedOptions(
+        copybook_paths=options.copybook_paths,
+        resolve_copies=options.resolve_copies,
+        include_filler=options.include_filler,
+        include_88_levels=options.include_88_levels,
+        include_redefines=options.include_redefines,
+        include_ancestor_mods=options.include_ancestor_mods,
+        include_source_info=options.include_source_info,
+    )
+
+    # Step 1: Get both tree and analysis in a single pass
+    combined = analyze_with_tree(source_path, combined_options)
+
+    variable_index = combined.analysis_result.variable_index
+    tree = combined.data_division_tree
+
+    # Step 2: Build normalized set of requested paragraph names
+    requested_paragraphs = {
+        _normalize_paragraph_name(name) for name in paragraph_names
+    }
+
+    # Step 3: Find all defined_in_record names that are referenced
+    needed_records: set[str] = set()
+
+    for record_name, positions in variable_index.items():
+        for pos_key, entry in positions.items():
+            # Check modifying paragraphs
+            for para in entry.get("modifying_paragraphs", []):
+                if _normalize_paragraph_name(para) in requested_paragraphs:
+                    needed_records.add(record_name)
+                    break
+            else:
+                # Check accessing paragraphs
+                for para in entry.get("accessing_paragraphs", []):
+                    if _normalize_paragraph_name(para) in requested_paragraphs:
+                        needed_records.add(record_name)
+                        break
+
+    # Step 4: Filter the tree sections
+    filtered_sections: List[DataDivisionSection] = []
+    filtered_all_records: List[DataItemNode] = []
+    total_original_records = len(tree.all_records)
+
+    for section in tree.sections:
+        filtered_records: List[DataItemNode] = []
+        for record in section.records:
+            # Match by name or defined_in_record
+            record_key = record.defined_in_record or record.name
+            if record_key in needed_records:
+                filtered_records.append(record)
+                filtered_all_records.append(record)
+
+        if filtered_records:
+            filtered_sections.append(DataDivisionSection(
+                name=section.name,
+                records=filtered_records,
+            ))
+
+    # Step 5: Build matched paragraph names list
+    # Report which of the requested names actually matched
+    matched_paragraphs: List[str] = []
+    all_index_paragraphs: set[str] = set()
+    for positions in variable_index.values():
+        for entry in positions.values():
+            for para in entry.get("modifying_paragraphs", []):
+                all_index_paragraphs.add(_normalize_paragraph_name(para))
+            for para in entry.get("accessing_paragraphs", []):
+                all_index_paragraphs.add(_normalize_paragraph_name(para))
+
+    for name in paragraph_names:
+        if _normalize_paragraph_name(name) in all_index_paragraphs:
+            matched_paragraphs.append(name)
+
+    # Step 6: Build filter summary
+    filtered_count = len(filtered_all_records)
+    reduction_pct = (
+        round((1 - filtered_count / total_original_records) * 100, 1)
+        if total_original_records > 0
+        else 0.0
+    )
+
+    filter_summary: Dict[str, Any] = {
+        "total_records_before": total_original_records,
+        "total_records_after": filtered_count,
+        "records_removed": total_original_records - filtered_count,
+        "reduction_percentage": reduction_pct,
+    }
+
+    end_time = time.perf_counter()
+
+    return ParagraphAnalysisResult(
+        program_name=combined.program_name,
+        data_division_tree=combined.data_division_tree,
+        analysis_result=combined.analysis_result,
+        filtered_sections=filtered_sections,
+        filtered_records=filtered_all_records,
+        filter_summary=filter_summary,
+        paragraph_names_used=matched_paragraphs,
+        execution_time_seconds=round(end_time - start_time, 4),
+        warnings=combined.warnings,
+    )
