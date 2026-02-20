@@ -1,0 +1,2 @@
+launch deep dive agents to do a thorough analysis of this application and propose ways to improve performances.
+consider that the behavior of the APIs offered as APIs of this package must remain the same. clients of this package must not see any breaking change.

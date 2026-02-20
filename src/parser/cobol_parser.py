@@ -713,6 +713,12 @@ class SimplifiedCobolParser:
         tree = SimplifiedParseTree()
         tree.source_lines = source.splitlines()
 
+        # Pre-compute line offset map once for O(log n) line number lookups
+        # across both data and procedure divisions
+        self._line_offset_map: Optional[List[int]] = self._build_line_offset_map(
+            tree.source_lines
+        )
+
         # Extract program name
         match = self.PROGRAM_ID.search(source)
         if match:
@@ -876,9 +882,6 @@ class SimplifiedCobolParser:
     ) -> SimplifiedProcedureDivision:
         """Parse the PROCEDURE DIVISION."""
         proc_div = SimplifiedProcedureDivision()
-
-        # Pre-compute line offset map once for O(log n) line number lookups
-        self._line_offset_map: Optional[List[int]] = self._build_line_offset_map(all_lines)
 
         # Find sections and paragraphs
         section_matches = list(self.SECTION_HEADER.finditer(source))

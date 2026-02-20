@@ -1,5 +1,6 @@
 """Paragraph variables map for transforming analysis to paragraph-centric view."""
 
+import bisect
 from typing import Dict, Any, Set, Optional, Tuple, List
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -59,6 +60,8 @@ class ParagraphVariablesMapper:
             "sections_and_paragraphs_accesses", {}
         )
         self._redefines_graph = self._build_redefines_graph()
+        self._group_children_index = self._build_group_children_index()
+        self._non_copybook_lines = self._build_non_copybook_line_index()
 
     def _build_redefines_graph(self) -> Dict[str, str]:
         """Build {redefining -> redefined} from redefines_chain strings.
@@ -143,6 +146,24 @@ class ParagraphVariablesMapper:
         """
         return var_name.upper().startswith("FILLER$")
 
+    def _build_group_children_index(self) -> Dict[str, Set[str]]:
+        """Build reverse index mapping group names to their descendant variables.
+
+        Returns:
+            Dictionary mapping group name (upper) to set of descendant variable names
+        """
+        index: Dict[str, Set[str]] = {}
+        for var_name, hierarchy in self._data_hierarchy.items():
+            var_upper = var_name.upper()
+            # Each ancestor in the hierarchy (except the variable itself) is a group
+            hierarchy_upper = [h.upper() for h in hierarchy]
+            for ancestor in hierarchy_upper:
+                if ancestor != var_upper:
+                    if ancestor not in index:
+                        index[ancestor] = set()
+                    index[ancestor].add(var_upper)
+        return index
+
     def _get_children_of_group(self, group_name: str) -> Set[str]:
         """Find all variables where group appears in their hierarchy.
 
@@ -152,14 +173,7 @@ class ParagraphVariablesMapper:
         Returns:
             Set of variable names that are children of the group
         """
-        children = set()
-        group_upper = group_name.upper()
-        for var_name, hierarchy in self._data_hierarchy.items():
-            # Check if group is an ancestor (but not the variable itself)
-            hierarchy_upper = [h.upper() for h in hierarchy]
-            if group_upper in hierarchy_upper and hierarchy_upper[-1] != group_upper:
-                children.add(var_name.upper())
-        return children
+        return self._group_children_index.get(group_name.upper(), set())
 
     def _get_positions(self, var_name: str) -> Optional[Tuple[int, int]]:
         """Get 1-indexed positions for a variable.
@@ -176,6 +190,23 @@ class ParagraphVariablesMapper:
             end = start + region["size"] - 1    # Inclusive end
             return (start, end)
         return None
+
+    def _build_non_copybook_line_index(self) -> List[Tuple[int, int]]:
+        """Build sorted list of (expanded_line, original_line) for non-copybook entries.
+
+        Used for binary search fallback in _get_original_line.
+
+        Returns:
+            Sorted list of (expanded_line_num, original_line_num) tuples
+        """
+        if not self._line_mapping:
+            return []
+        entries = []
+        for line_str, mapping in self._line_mapping.items():
+            if not mapping.get("is_copybook", False):
+                entries.append((int(line_str), mapping.get("original_line", int(line_str))))
+        entries.sort()
+        return entries
 
     def _get_original_line(self, expanded_line: int) -> int:
         """Convert an expanded line number to the original source line number.
@@ -206,12 +237,14 @@ class ParagraphVariablesMapper:
             return mapping.get("original_line", expanded_line)
 
         # Fallback: if line is beyond original count, it's likely from copybook
+        # Use binary search on pre-built sorted index instead of linear backward scan
         if self._original_line_count > 0 and expanded_line > self._original_line_count:
-            # Try to find the nearest mapped line
-            for line_num in range(expanded_line, 0, -1):
-                mapping = self._line_mapping.get(str(line_num))
-                if mapping and not mapping.get("is_copybook", False):
-                    return mapping.get("original_line", expanded_line)
+            if self._non_copybook_lines:
+                idx = bisect.bisect_right(
+                    self._non_copybook_lines, (expanded_line, float('inf'))
+                ) - 1
+                if idx >= 0:
+                    return self._non_copybook_lines[idx][1]
             return expanded_line
 
         return expanded_line

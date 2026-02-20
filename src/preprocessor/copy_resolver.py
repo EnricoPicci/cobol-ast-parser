@@ -92,6 +92,15 @@ class CopyResolver:
         re.IGNORECASE,
     )
 
+    # Simpler patterns for locating COPY/INCLUDE statements (no trailing period required)
+    # Used for line mapping where multi-line COPY statements have the period on a later line
+    COPY_LOCATION_PATTERN = re.compile(
+        r'\bCOPY\s+([A-Za-z0-9_-]+)', re.IGNORECASE
+    )
+    EXEC_SQL_INCLUDE_LOCATION_PATTERN = re.compile(
+        r'\bEXEC\s+SQL\s+INCLUDE\s+([A-Za-z0-9_-]+)', re.IGNORECASE
+    )
+
     # Maximum nesting depth (COBOL standard)
     MAX_COPY_DEPTH = 16
 
@@ -150,47 +159,52 @@ class CopyResolver:
         """
         self.resolution_stack = [source_name]
         self._main_source_name = source_name
-        self._original_line_count = len(source.splitlines())
+        original_lines = source.splitlines()
+        self._original_line_count = len(original_lines)
         self._line_mapping = {}
         self._warnings = []
 
         resolved = self._resolve_recursive(source, 0)
 
         # Build line mapping after resolution
-        self._build_line_mapping(source, resolved)
+        resolved_lines = resolved.splitlines()
+        self._build_line_mapping(original_lines, resolved_lines)
 
         return resolved
 
-    def _build_line_mapping(self, original_source: str, resolved_source: str) -> None:
+    def _build_line_mapping(
+        self, original_lines: List[str], resolved_lines: List[str]
+    ) -> None:
         """Build mapping from resolved line numbers to original line numbers.
 
         For lines that come from copybooks, maps to the COPY statement line in original.
         For original source lines, maps directly.
 
         Args:
-            original_source: Original source before COPY resolution
-            resolved_source: Source after COPY resolution
+            original_lines: Original source lines before COPY resolution
+            resolved_lines: Source lines after COPY resolution
         """
-        original_lines = original_source.splitlines()
-        resolved_lines = resolved_source.splitlines()
 
         # Find all COPY and EXEC SQL INCLUDE statement locations in original source
         # Use a simpler pattern here that doesn't require the trailing period,
         # since multi-line COPY statements (with REPLACING) have the period
         # on a later line.
-        copy_location_pattern = re.compile(r'\bCOPY\s+([A-Za-z0-9_-]+)', re.IGNORECASE)
-        exec_sql_include_location_pattern = re.compile(
-            r'\bEXEC\s+SQL\s+INCLUDE\s+([A-Za-z0-9_-]+)', re.IGNORECASE
-        )
         copy_locations: Dict[int, str] = {}  # original_line -> copybook_name
-        for i, line in enumerate(original_lines, 1):
-            match = copy_location_pattern.search(line)
+        # Pre-compute: stripped versions of all lines (avoids repeated .strip() calls)
+        original_stripped = [line.strip() for line in original_lines]
+        resolved_stripped = [line.strip() for line in resolved_lines]
+        # Pre-compute: set of original line indices that are COPY/INCLUDE statements
+        copy_include_indices: Set[int] = set()
+        for i, line in enumerate(original_lines):
+            match = self.COPY_LOCATION_PATTERN.search(line)
             if match:
-                copy_locations[i] = match.group(1).upper()
+                copy_locations[i + 1] = match.group(1).upper()
+                copy_include_indices.add(i)
             else:
-                match = exec_sql_include_location_pattern.search(line)
+                match = self.EXEC_SQL_INCLUDE_LOCATION_PATTERN.search(line)
                 if match:
-                    copy_locations[i] = match.group(1).upper()
+                    copy_locations[i + 1] = match.group(1).upper()
+                    copy_include_indices.add(i)
 
         # Track position in both sources
         orig_idx = 0
@@ -202,12 +216,12 @@ class CopyResolver:
         while resolved_idx < len(resolved_lines):
             resolved_line_num = resolved_idx + 1
             resolved_line = resolved_lines[resolved_idx]
+            stripped_resolved = resolved_stripped[resolved_idx]
 
             # Check if this is a COPY or EXEC SQL INCLUDE resolution comment
             # The marker "* COPY X resolved" or "* EXEC SQL INCLUDE X resolved"
             # appears BEFORE the copybook content, so we use it to set the
             # context for subsequent lines.
-            stripped_resolved = resolved_line.strip()
             is_resolution_marker = (
                 (stripped_resolved.startswith("* COPY") or
                  stripped_resolved.startswith("* EXEC SQL INCLUDE"))
@@ -247,16 +261,15 @@ class CopyResolver:
 
             # Check if we're back to original source
             if orig_idx < len(original_lines):
-                orig_line = original_lines[orig_idx]
                 # Skip COPY / EXEC SQL INCLUDE statements in original - they're replaced
                 # Don't reset current_copybook here - we need to keep tracking
                 # which copybook we're in for the expanded lines
-                if self.COPY_PATTERN.search(orig_line) or self.EXEC_SQL_INCLUDE_PATTERN.search(orig_line):
+                if orig_idx in copy_include_indices:
                     orig_idx += 1
                     continue
 
                 # If lines match (approximately), we're in original source
-                if self._lines_match(resolved_line, orig_line):
+                if stripped_resolved == original_stripped[orig_idx]:
                     self._line_mapping[resolved_line_num] = LineMapping(
                         expanded_line=resolved_line_num,
                         original_line=orig_idx + 1,
@@ -267,25 +280,24 @@ class CopyResolver:
                     # Only reset current_copybook when matching non-empty lines.
                     # Empty lines can match between copybook content and original
                     # source, causing incorrect state transitions.
-                    if resolved_line.strip():
+                    if stripped_resolved:
                         current_copybook = None
                 else:
                     # Lines don't match - could be copybook content, or we're out of sync
                     # Look both forward and backward in the original source to see if
                     # the resolved line appears within a reasonable window
                     found_match = False
-                    if resolved_line.strip():  # Only search for non-empty lines
+                    if stripped_resolved:  # Only search for non-empty lines
                         # First look forward
                         lookahead_limit = min(50, len(original_lines) - orig_idx)
                         for lookahead in range(1, lookahead_limit):
                             check_idx = orig_idx + lookahead
                             if check_idx >= len(original_lines):
                                 break
-                            check_line = original_lines[check_idx]
                             # Skip COPY / EXEC SQL INCLUDE statements when looking ahead
-                            if self.COPY_PATTERN.search(check_line) or self.EXEC_SQL_INCLUDE_PATTERN.search(check_line):
+                            if check_idx in copy_include_indices:
                                 continue
-                            if self._lines_match(resolved_line, check_line):
+                            if stripped_resolved == original_stripped[check_idx]:
                                 # Found the line ahead - sync up and use this position
                                 orig_idx = check_idx
                                 self._line_mapping[resolved_line_num] = LineMapping(
@@ -307,11 +319,10 @@ class CopyResolver:
                                 check_idx = orig_idx - lookback
                                 if check_idx < 0:
                                     break
-                                check_line = original_lines[check_idx]
                                 # Skip COPY / EXEC SQL INCLUDE statements
-                                if self.COPY_PATTERN.search(check_line) or self.EXEC_SQL_INCLUDE_PATTERN.search(check_line):
+                                if check_idx in copy_include_indices:
                                     continue
-                                if self._lines_match(resolved_line, check_line):
+                                if stripped_resolved == original_stripped[check_idx]:
                                     # Found the line behind - use this position
                                     # but don't change orig_idx (we might need to
                                     # continue processing from current position)
@@ -343,10 +354,6 @@ class CopyResolver:
                 )
 
             resolved_idx += 1
-
-    def _lines_match(self, line1: str, line2: str) -> bool:
-        """Check if two lines are approximately equal (ignoring whitespace differences)."""
-        return line1.strip() == line2.strip()
 
     def get_original_line(self, expanded_line: int) -> Tuple[int, str, bool]:
         """Get the original line number for an expanded line number.
@@ -402,8 +409,10 @@ class CopyResolver:
         # Sort by position in source
         tagged_matches.sort(key=lambda x: x[1].start())
 
-        result = source
-        offset = 0
+        # Build result using chunks to avoid O(n²) string concatenation.
+        # Collect (original_start, original_end, replacement) for each resolved match,
+        # then assemble from non-overlapping segments of the source interleaved with replacements.
+        replacements: List[Tuple[int, int, str]] = []
 
         for tag, match in tagged_matches:
             if tag == "COPY":
@@ -442,21 +451,26 @@ class CopyResolver:
             copybook_content = self._resolve_recursive(copybook_content, depth + 1)
             self.resolution_stack.pop()
 
-            # Replace the statement with resolved content
-            start = match.start() + offset
-            end = match.end() + offset
-
             # Add comment showing the resolution (type-specific marker)
             if tag == "COPY":
                 comment = f"      * COPY {copy_stmt.copybook_name} resolved\n"
             else:
                 comment = f"      * EXEC SQL INCLUDE {copy_stmt.copybook_name} resolved\n"
-            replacement = comment + copybook_content
 
-            result = result[:start] + replacement + result[end:]
-            offset += len(replacement) - (end - start)
+            replacements.append((match.start(), match.end(), comment + copybook_content))
 
-        return result
+        if not replacements:
+            return source
+
+        # Assemble result from chunks: source segments + replacements
+        chunks: List[str] = []
+        prev_end = 0
+        for start, end, replacement in replacements:
+            chunks.append(source[prev_end:start])
+            chunks.append(replacement)
+            prev_end = end
+        chunks.append(source[prev_end:])
+        return "".join(chunks)
 
     def _parse_copy_statement(self, match: re.Match) -> CopyStatement:
         """Parse a COPY statement match into a CopyStatement object."""

@@ -74,8 +74,8 @@ def detect_format(source_lines: List[str]) -> SourceFormat:
                 continue
 
             # Check for sequence numbers (digits in columns 1-6)
-            cols_1_6 = line[:6]
-            if cols_1_6.strip() and cols_1_6.strip().isdigit():
+            cols_1_6 = line[:6].strip()
+            if cols_1_6 and cols_1_6.isdigit():
                 fixed_indicators += 1
                 continue
 

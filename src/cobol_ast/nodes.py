@@ -47,11 +47,20 @@ class ModificationType(Enum):
     @classmethod
     def from_string(cls, name: str) -> "ModificationType":
         """Convert string name to ModificationType."""
+        cached = _modification_type_cache.get(name)
+        if cached is not None:
+            return cached
         name_upper = name.upper().replace("-", "_").replace(" ", "_")
         try:
-            return cls[name_upper]
+            result = cls[name_upper]
         except KeyError:
-            return cls.UNKNOWN
+            result = cls.UNKNOWN
+        _modification_type_cache[name] = result
+        return result
+
+
+# Module-level cache for ModificationType.from_string() lookups
+_modification_type_cache: Dict[str, ModificationType] = {}
 
 
 @dataclass
@@ -179,13 +188,19 @@ class RecordDescription:
     root_item: DataItem
     redefines: Optional[str] = None
     section: str = "WORKING-STORAGE"  # WORKING-STORAGE, FILE, LINKAGE, etc.
+    _cached_items: Optional[Dict[str, "DataItem"]] = field(
+        default=None, repr=False, compare=False
+    )
 
     @property
     def items(self) -> Dict[str, DataItem]:
         """Get all items in this record as a dictionary."""
+        if self._cached_items is not None:
+            return self._cached_items
         result = {self.name: self.root_item}
         for item in self.root_item.get_all_subordinates():
             result[item.name] = item
+        object.__setattr__(self, "_cached_items", result)
         return result
 
     def get_item(self, name: str) -> Optional[DataItem]:

@@ -239,28 +239,3 @@ def get_line_content(line: str, format: SourceFormat) -> str:
         return _handle_free_format_line(line, remove_comments=True)
     else:
         return _extract_fixed_content(line)
-
-
-def normalize_whitespace(source: str) -> str:
-    """Normalize excessive whitespace in source code.
-
-    Args:
-        source: Source code
-
-    Returns:
-        Source with normalized whitespace
-    """
-    lines = source.splitlines()
-    normalized = []
-
-    for line in lines:
-        # Collapse multiple spaces to single space (except leading indentation)
-        stripped = line.lstrip()
-        indent = line[:len(line) - len(stripped)]
-
-        # Collapse internal multiple spaces
-        import re
-        collapsed = re.sub(r"  +", " ", stripped)
-        normalized.append(indent + collapsed)
-
-    return "\n".join(normalized)

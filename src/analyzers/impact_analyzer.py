@@ -305,42 +305,32 @@ class ImpactAnalyzer:
         if not affected_vars:
             return affected_vars
 
-        # Identify Level 01 REDEFINES records in the list
-        level01_records = set()
+        # Single pass: identify Level 01 REDEFINES records and track which have
+        # non-FILLER subordinates in the affected list
+        level01_records: Set[str] = set()
+        level01_with_affected_subordinates: Set[str] = set()
+
         for av in affected_vars:
-            item = self.program.all_data_items.get(av.name.upper())
-            if item and item.level == 1 and item.redefines:
-                level01_records.add(av.name.upper())
+            av_upper = av.name.upper()
+            item = self.program.all_data_items.get(av_upper)
+            if not item:
+                continue
+            if item.level == 1 and item.redefines:
+                level01_records.add(av_upper)
+            elif not item.is_filler:
+                root = item.root_record
+                if root:
+                    level01_with_affected_subordinates.add(root.name.upper())
 
         if not level01_records:
             return affected_vars
 
-        # For each Level 01 record, check if any non-FILLER subordinates are affected
-        level01_with_affected_subordinates = set()
-        for av in affected_vars:
-            if av.name.upper() in level01_records:
-                continue  # Skip the Level 01 record itself
-
-            # Check if this affected variable belongs to one of the Level 01 records
-            item = self.program.all_data_items.get(av.name.upper())
-            if item and not item.is_filler:
-                # Find which Level 01 record this item belongs to
-                root = item.root_record
-                if root and root.name.upper() in level01_records:
-                    level01_with_affected_subordinates.add(root.name.upper())
-
         # Filter out Level 01 records that have no non-FILLER subordinates affected
-        result = []
-        for av in affected_vars:
-            if av.name.upper() in level01_records:
-                # Only keep if it has affected non-FILLER subordinates
-                if av.name.upper() in level01_with_affected_subordinates:
-                    result.append(av)
-                # Otherwise, skip it (only FILLER areas overlap)
-            else:
-                result.append(av)
-
-        return result
+        return [
+            av for av in affected_vars
+            if av.name.upper() not in level01_records
+            or av.name.upper() in level01_with_affected_subordinates
+        ]
 
     def _regions_overlap(self, r1: MemoryRegion, r2: MemoryRegion) -> bool:
         """Check if two memory regions overlap (ignoring record name for REDEFINES).

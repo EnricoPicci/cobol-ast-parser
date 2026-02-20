@@ -6,6 +6,7 @@ in one record is modified, all records that REDEFINE or are
 REDEFINED by that record are potentially affected.
 """
 
+from collections import deque
 from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 
@@ -64,6 +65,7 @@ class RedefinesAnalyzer:
         self._connected_components: List[Set[str]] = []
         # New: map of item -> items that redefine the same memory region
         self._subordinate_redefines_map: Dict[str, Set[str]] = {}
+        self._overlapping_cache: Dict[str, List[AffectedVariable]] = {}
         self._analyzed = False
 
     def analyze(self) -> None:
@@ -180,10 +182,10 @@ class RedefinesAnalyzer:
 
             # BFS to find all connected records
             component: Set[str] = set()
-            queue = [record]
+            queue = deque([record])
 
             while queue:
-                current = queue.pop(0)
+                current = queue.popleft()
                 if current in visited:
                     continue
 
@@ -228,34 +230,38 @@ class RedefinesAnalyzer:
                 redefined_to_redefining[relation.redefined_item] = []
             redefined_to_redefining[relation.redefined_item].append(relation.redefining_item)
 
-        # For each group of items that REDEFINE each other
+        # For each group of items that REDEFINE each other:
+        # 1. Collect subordinate name sets per group member (one traversal each)
+        # 2. Cross-link: each subordinate maps to all subordinates of other members
         for redefined_item, redefining_items in redefined_to_redefining.items():
-            # Collect all items in this REDEFINES group (including the original)
             all_in_group = [redefined_item] + redefining_items
 
-            # Get all subordinates of each item in the group
+            # Phase 1: Collect subordinate names per group member
+            group_sub_names: List[Set[str]] = []
             for item_name in all_in_group:
                 item = self.program.all_data_items.get(item_name.upper())
                 if not item:
+                    group_sub_names.append(set())
                     continue
+                names = {sub.name.upper() for sub in item.get_all_subordinates()}
+                names.add(item.name.upper())
+                group_sub_names.append(names)
 
-                subordinates = [item] + item.get_all_subordinates()
-                for sub in subordinates:
-                    sub_name = sub.name.upper()
+            # Phase 2: For each member's subordinates, add all other members' subordinates
+            for i, sub_names in enumerate(group_sub_names):
+                # Collect all subordinate names from other group members
+                other_names: Set[str] = set()
+                for j, other_sub_names in enumerate(group_sub_names):
+                    if j != i:
+                        other_names.update(other_sub_names)
+
+                for sub_name in sub_names:
                     if sub_name not in self._subordinate_redefines_map:
                         self._subordinate_redefines_map[sub_name] = set()
-
-                    # Add all subordinates from other items in the group
-                    for other_item_name in all_in_group:
-                        if other_item_name == item_name:
-                            continue
-                        other_item = self.program.all_data_items.get(other_item_name.upper())
-                        if not other_item:
-                            continue
-                        other_subs = [other_item] + other_item.get_all_subordinates()
-                        for other_sub in other_subs:
-                            if other_sub.name.upper() != sub_name:
-                                self._subordinate_redefines_map[sub_name].add(other_sub.name.upper())
+                    # Add others, excluding self
+                    self._subordinate_redefines_map[sub_name].update(
+                        other_names - {sub_name}
+                    )
 
     def _find_affected_records_internal(self, record_name: str) -> Set[str]:
         """Internal method to find affected records without triggering analyze().
@@ -488,8 +494,13 @@ class RedefinesAnalyzer:
             self.analyze()
 
         var_upper = variable_name.upper()
+
+        if var_upper in self._overlapping_cache:
+            return self._overlapping_cache[var_upper]
+
         item = self.program.all_data_items.get(var_upper)
         if not item:
+            self._overlapping_cache[var_upper] = []
             return []
 
         result: List[AffectedVariable] = []
@@ -535,6 +546,7 @@ class RedefinesAnalyzer:
                             redefined_ancestor=relation.redefined_item,
                         ))
 
+        self._overlapping_cache[var_upper] = result
         return result
 
     def _create_affected_variable(
