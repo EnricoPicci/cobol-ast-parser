@@ -311,13 +311,13 @@ Where OUTER-COPY contains:
 
 
 
-### Examples from kyco-input-data/EQTHORI_log/cbl/EQTRHORI.cbl
+### Examples from a complex COBOL program
 
 In the variable tree UI:
-- `A00L-LUNGH-AREE-AGGIORNAMENTO` shows "(COPYBOOK)"
-- `A00L-LUNGHEZZA-AREA PIC S9(04)` shows "(COPYBOOK)"
+- `WS-UPDATE-AREA-LENGTHS` shows "(COPYBOOK)"
+- `WS-AREA-SIZE PIC S9(04)` shows "(COPYBOOK)"
 
-These variables come from `COPY EDMCA00L` statement, so they should show "(EDMCA00L)".
+These variables come from `COPY DATAGRP-A` statement, so they should show "(DATAGRP-A)".
 
 ## Testing
 
@@ -325,9 +325,9 @@ These variables come from `COPY EDMCA00L` statement, so they should show "(EDMCA
 
 ```cobol
        WORKING-STORAGE SECTION.
-       01  TABELLA-LUNGH-AA-PRINCIPALI.
+       01  MAIN-LENGTH-TABLE.
          02  FILLER OCCURS 06 TIMES.
-             COPY EDMCA00L.
+             COPY DATAGRP-A.
 ```
 
-**Expected:** All variables from EDMCA00L should have `copybook_source="EDMCA00L"`
+**Expected:** All variables from DATAGRP-A should have `copybook_source="DATAGRP-A"`

@@ -116,7 +116,7 @@ __all__ = [
 
 ### Step 4: Create Validation Script
 
-**File:** `/workspaces/cobol-ast-parser/kyco-input-data/run_combined_analysis.py`
+**File:** `/workspaces/cobol-ast-parser/sample-input-data/run_combined_analysis.py`
 
 Script that:
 1. Runs `analyze_paragraph_variables()` separately
@@ -133,7 +133,7 @@ Script that:
 |------|---------|
 | `src/cobol_ast/api.py` | Add `CombinedOptions`, `CombinedResult`, `analyze_with_tree()` |
 | `src/__init__.py` | Export new types |
-| `kyco-input-data/run_combined_analysis.py` | New validation script |
+| `sample-input-data/run_combined_analysis.py` | New validation script |
 
 ---
 
@@ -143,11 +143,11 @@ After implementation, run:
 
 ```bash
 # 1. Generate baseline outputs
-python3 kyco-input-data/run_data_division_tree.py
-python3 kyco-input-data/run_analyze_paragraph_variables.py
+python3 sample-input-data/run_data_division_tree.py
+python3 sample-input-data/run_analyze_paragraph_variables.py
 
 # 2. Run combined API validation
-python3 kyco-input-data/run_combined_analysis.py
+python3 sample-input-data/run_combined_analysis.py
 ```
 
 The validation script will:

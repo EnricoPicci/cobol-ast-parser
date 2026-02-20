@@ -1,16 +1,16 @@
-Run the command "python3 kyco-input-data/run_analyze_with_tree.py" and find whether the field "FLG-MINORE-10" is one of the keys of "variable_index" returned.
+Run the command "python3 sample-input-data/run_analyze_with_tree.py" and find whether the field "FLG-UNDER-10" is one of the keys of "variable_index" returned.
 
 # Response
-The field "FLG-MINORE-10" is NOT one of the keys of variable_index returned.                                             
+The field "FLG-UNDER-10" is NOT one of the keys of variable_index returned.                                             
                                                                                                                                    
   However, it does exist in the source COBOL file as a level 77 data item:                                                         
-  77  FLG-MINORE-10                       PIC X(1).                                                                                
+  77  FLG-UNDER-10                       PIC X(1).                                                                                
                                                                                                                                    
-  This suggests that level 77 items may not be getting included in the variable index. Related fields containing "MINORE" that ARE 
-  in the index include "VERIFICA-PRESENZA-MINORE-10" and "VERIFICA-PRESENZA-MINORE-10-BEN". 
+  This suggests that level 77 items may not be getting included in the variable index. Related fields containing "UNDER" that ARE
+  in the index include "CHECK-PRESENCE-UNDER-10" and "CHECK-PRESENCE-UNDER-10-BEN". 
 
   # Refinement
-"FLG-MINORE-10" should be in the index since it is changed in the SECTION "OPERAZIONI-INIZIALI".
+"FLG-UNDER-10" should be in the index since it is changed in the SECTION "INITIAL-OPERATIONS".
 Check why it is not in the index.
 
 # Answer
@@ -20,7 +20,7 @@ Root Cause Found:
   r"^\s*([A-Za-z0-9][-A-Za-z0-9]*)\s*\.\s*$"                                                                                       
                                                                                                                                    
   This pattern matches any line that ends with just a name and a period, including:                                                
-  - The last variable in multi-line MOVE statements (e.g., AREA-IO-SEGM., QU01-FL-RITARIF-ETA.)                                    
+  - The last variable in multi-line MOVE statements (e.g., IO-SEGMENT-AREA., QU01-FL-RERATE-AGE.)                                    
                                                                                                                                    
   Real paragraph headers have 7-11 leading spaces (Area A), while multi-line statement continuations have 38+ leading spaces (Area 
   B).                                                                                                                              
@@ -53,22 +53,22 @@ Root Cause Found:
                                                                                                                                    
   2. False Positives Identified                                                                                                    
                                                                                                                                    
-  In the OPERAZIONI-INIZIALI section:                                                                                              
+  In the INITIAL-OPERATIONS section:                                                                                              
   ┌──────┬──────────────────────┬────────┬────────────────┐                                                                        
   │ Line │       Content        │ Spaces │      Type      │                                                                        
   ├──────┼──────────────────────┼────────┼────────────────┤                                                                        
-  │ 806  │ AREA-IO-SEGM.        │ 38     │ FALSE POSITIVE │                                                                        
+  │ 806  │ IO-SEGMENT-AREA.        │ 38     │ FALSE POSITIVE │                                                                        
   ├──────┼──────────────────────┼────────┼────────────────┤                                                                        
-  │ 817  │ AREA-IO-SEGM.        │ 38     │ FALSE POSITIVE │                                                                        
+  │ 817  │ IO-SEGMENT-AREA.        │ 38     │ FALSE POSITIVE │                                                                        
   ├──────┼──────────────────────┼────────┼────────────────┤                                                                        
-  │ 835  │ QU01-FL-RITARIF-ETA. │ 38     │ FALSE POSITIVE │                                                                        
+  │ 835  │ QU01-FL-RERATE-AGE. │ 38     │ FALSE POSITIVE │                                                                        
   └──────┴──────────────────────┴────────┴────────────────┘                                                                        
   Total: 33 false positives found in the PROCEDURE DIVISION.                                                                       
                                                                                                                                    
   3. Effect on Parsing                                                                                                             
                                                                                                                                    
-  The MOVE ZERO statement (lines 836-850+) containing FLG-MINORE-10 ends up being attributed to a fake paragraph                   
-  "QU01-FL-RITARIF-ETA" instead of proper section-level statements, causing incorrect structure parsing.                           
+  The MOVE ZERO statement (lines 836-850+) containing FLG-UNDER-10 ends up being attributed to a fake paragraph                   
+  "QU01-FL-RERATE-AGE" instead of proper section-level statements, causing incorrect structure parsing.                           
                                                                                                                                    
   4. Proposed Fix Assessment                                                                                                       
                                                                                                                                    
@@ -86,7 +86,7 @@ Root Cause Found:
                                                                                                                                    
   6. Additional Note                                                                                                               
                                                                                                                                    
-  The agent also noted that FLG-MINORE-10 is a level 77 item, which may have separate handling requirements in the                 
+  The agent also noted that FLG-UNDER-10 is a level 77 item, which may have separate handling requirements in the                 
   DataStructureAnalyzer. 
 
   # Refinement

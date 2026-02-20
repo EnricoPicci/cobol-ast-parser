@@ -11,22 +11,22 @@ Both result.paragraph-variables and DataDivisionTree contain objects that descri
 
 For instance, result.analysis can contain the following object:
       "CLIENTS": {
-        "base_record": "AREA-KCLI",
-        "defined_in_record": "AREA-KCLI",
+        "base_record": "CLIENT-AREA",
+        "defined_in_record": "CLIENT-AREA",
         "position": {
           "start": 80,
           "end": 91
         },
         "explanation": "direct modification: MOVE at line 141"
       },
-which describes a field named "CLIENTS" which starts at position 80 and ends at position 91 of the record "AREA-KCLI".
-You can get a result.analysis with the value above by running the command "python3 kyco-input-data/run_analyze_paragraph_variables.py".
+which describes a field named "CLIENTS" which starts at position 80 and ends at position 91 of the record "CLIENT-AREA".
+You can get a result.analysis with the value above by running the command "python3 sample-input-data/run_analyze_paragraph_variables.py".
 In this case you will find 2 instances representing the same variable in result.analysis:
-- one is in the dictionary found at key "MANAGE-CLI" of the dictionary held by property "paragraphs"
-- one is in the dictionary found at key "CLI-VALUE-123" of the dictionary held by property "paragraphs"
+- one is in the dictionary found at key "MANAGE-CLIENTENT" of the dictionary held by property "paragraphs"
+- one is in the dictionary found at key "UPDATE-CLIENT-VAL" of the dictionary held by property "paragraphs"
 These 2 instances mean that the value of this field can be changed by operations contained in the paragraphs:
-- "MANAGE-CLI"
-- "CLI-VALUE-123"
+- "MANAGE-CLIENTENT"
+- "UPDATE-CLIENT-VAL"
 
 The same field in DataDivisionTree is represented by the object
                 {
@@ -34,7 +34,7 @@ The same field in DataDivisionTree is represented by the object
                   "level": 7,
                   "picture": "S9(09)V9(03)",
                   "line_number": 464,
-                  "copybook_source": "KCLI123",
+                  "copybook_source": "CLIENT-REC",
                   "position": {
                     "start": 80,
                     "end": 91,
@@ -42,7 +42,7 @@ The same field in DataDivisionTree is represented by the object
                   }
                 }
 
-You can get a DataDivisionTree with the value above by running the command "python3 kyco-input-data/run_data_division_tree.py".
+You can get a DataDivisionTree with the value above by running the command "python3 sample-input-data/run_data_division_tree.py".
 
 Imagine a client of these 2 APIs calls these APIs sequentially.
 Once it holds the instance of result.analysis and the intance of DataDivisionTree returned by the 2 APIs, he wants to be able to select somehow a variable in DataDivionTree and, from there, retrieve the names of the paragraphs in which the value of that variable may be changed.
@@ -177,11 +177,11 @@ Based on my exploration of the codebase, here's my recommended strategy:
                                                                                                                   
   Option A: Nested dict (recommended for JSON)                                                                    
   {                                                                                                               
-    "KCLI123": {                                                                                            
+    "CLIENT-REC": {                                                                                            
       "80:91": {                                                                                              
-        "variable_name": "CLI-VALUE-123",                                                               
-        "defined_in_record": "KCLI123",                                                                     
-        "paragraphs": ["MANAGE-CLI", "CLI-VALUE-123"]                                    
+        "variable_name": "CLIENT-VALUE",                                                               
+        "defined_in_record": "CLIENT-REC",                                                                     
+        "paragraphs": ["MANAGE-CLIENT", "CLIENT-VALUE"]                                    
       }                                                                                                           
     }                                                                                                             
   }                                                                                                               
@@ -189,20 +189,20 @@ Based on my exploration of the codebase, here's my recommended strategy:
   Option B: List of entries (flatter, easier to iterate)                                                          
   [                                                                                                               
     {                                                                                                             
-      "base_record": "KCLI123",                                                                             
+      "base_record": "CLIENT-REC",                                                                             
       "position": {"start": 80, "end": 91},                                                                   
-      "variable_name": "CLI-VALUE-123",                                                                 
-      "defined_in_record": "KCLI123",                                                                       
-      "paragraphs": ["MANAGE-CLI", "CLI-VALUE-123"]                                      
+      "variable_name": "CLIENT-VALUE",                                                                 
+      "defined_in_record": "CLIENT-REC",                                                                       
+      "paragraphs": ["MANAGE-CLIENT", "CLIENT-VALUE"]                                      
     }                                                                                                             
   ]                                                                                                               
                                                                                                                   
   Option C: String key with separator                                                                             
   {                                                                                                               
-    "KCLI123|80|91": {                                                                                  
-      "variable_name": "CLI-VALUE-123",                                                                 
-      "defined_in_record": "KCLI123",                                                                       
-      "paragraphs": ["MANAGE-CLI", "CLI-VALUE-123"]                                      
+    "CLIENT-REC|80|91": {                                                                                  
+      "variable_name": "CLIENT-VALUE",                                                                 
+      "defined_in_record": "CLIENT-REC",                                                                       
+      "paragraphs": ["MANAGE-CLIENT", "CLIENT-VALUE"]                                      
     }                                                                                                             
   }                                                                                                               
                                                                                                                   
@@ -378,18 +378,18 @@ You're right - DataItemNode has hierarchical structure but no direct defined_in_
                                                                                                                   
   # In DataDivisionTree output                                                                                    
   {                                                                                                               
-    "name": "CLI-VALUE-123",                                                                            
+    "name": "CLIENT-VALUE",                                                                            
     "level": 7,                                                                                                   
     "position": {"start": 80, "end": 91},                                                                     
-    "defined_in_record": "KCLI123",  # ← NEW                                                                
+    "defined_in_record": "CLIENT-REC",  # ← NEW                                                                
     ...                                                                                                           
   }                                                                                                               
                                                                                                                   
   # In variable-to-paragraphs index                                                                               
   {                                                                                                               
-    "KCLI123": {                                                                                            
+    "CLIENT-REC": {                                                                                            
       "80:91": {                                                                                              
-        "variable_name": "CLI-VALUE-123",                                                               
+        "variable_name": "CLIENT-VALUE",                                                               
         "paragraphs": [...]                                                                                       
       }                                                                                                           
     }                                                                                                             

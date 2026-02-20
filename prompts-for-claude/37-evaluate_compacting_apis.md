@@ -162,8 +162,8 @@ Based on this thorough analysis, I can now provide my evaluation.
   Plan the implementation of the combined API.
 
   Consider that to test if the implementation works you must do the following:
-  - execute command "python3 kyco-input-data/run_data_division_tree.py" which runs the "get_data_division_tree" api on a complex Cobol program and saves the result (an instance of DataDivisionTree) on a data_division_tree.json file
-  - execute command "python3 kyco-input-data/run_analyze_paragraph_variables.py" which runs the "analyze_paragraph_variables" api on the same complex Cobol program and saves "variable_index" on a *-variable_index.json file
+  - execute command "python3 sample-input-data/run_data_division_tree.py" which runs the "get_data_division_tree" api on a complex Cobol program and saves the result (an instance of DataDivisionTree) on a data_division_tree.json file
+  - execute command "python3 sample-input-data/run_analyze_paragraph_variables.py" which runs the "analyze_paragraph_variables" api on the same complex Cobol program and saves "variable_index" on a *-variable_index.json file
   - run the new api
   - compare the instance of DataDivisionTree obtained by the "get_data_division_tree" api with the one obtained by the new api. they must be equal.
   - compare the "variable_index" obtained by the "analyze_paragraph_variables" api with the one obtained by the new api. they must be equal.

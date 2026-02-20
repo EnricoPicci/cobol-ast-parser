@@ -92,14 +92,14 @@ This is an excellent question about COBOL data naming semantics. Let me analyze 
   Regarding FILLER                                                                                                
                                                                                                                   
   Your FILLER example is handled correctly:                                                                       
-  "defined_in_record": "FILLER (WS-DATA-DECORRENZA-9)"                                                            
+  "defined_in_record": "FILLER (WS-EFFECTIVE-DATE-9)"                                                            
                                                                                                                   
   The FILLER is disambiguated by including the parent record. However, you could have multiple FILLERs within the 
   same parent, so FILLER handling should also incorporate position:                                               
                                                                                                                   
-  {base_record, position.start}                                                                                   
-                                                                                                                  
-  This would uniquely identify WS-DATA-DECOR-AA even if multiple FILLERs redefine the same base record.           
+  {base_record, position.start}
+
+  This would uniquely identify WS-EFF-DATE-YY even if multiple FILLERs redefine the same base record.           
                                                                                                                   
   Recommendation                                                                                                  
                                                                                                                   

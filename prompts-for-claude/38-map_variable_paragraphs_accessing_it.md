@@ -13,8 +13,8 @@ A new array has to be added which contain all the PARAGRAPHs or SECTIONs that ac
 
 # Test the implementation
   Consider that to test if the implementation works you must do the following:
-  - execute command "python3 kyco-input-data/run_data_division_tree.py" which runs the "get_data_division_tree" api on a complex Cobol program and saves the result (an instance of DataDivisionTree) on a data_division_tree.json file
-  - execute command "python3 kyco-input-data/run_analyze_paragraph_variables.py" which runs the "analyze_paragraph_variables" api on the same complex Cobol program and saves "variable_index" on a *-variable_index.json file
+  - execute command "python3 sample-input-data/run_data_division_tree.py" which runs the "get_data_division_tree" api on a complex Cobol program and saves the result (an instance of DataDivisionTree) on a data_division_tree.json file
+  - execute command "python3 sample-input-data/run_analyze_paragraph_variables.py" which runs the "analyze_paragraph_variables" api on the same complex Cobol program and saves "variable_index" on a *-variable_index.json file
   - take all the variables that are the keys in *-variable_index.json and check whether ther is a corresponding ast node in data_division_tree.json through which the arrays with PARAGRAPHs and SECTIONs can be reached via this type of logic: 
   index[node.defined_in_record][f"{node.position.start}:{node.position.end}"]["paragraphs"]  
   
