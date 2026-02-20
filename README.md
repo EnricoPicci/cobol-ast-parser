@@ -82,6 +82,16 @@ Then you can run from anywhere:
 cobol-analyzer paragraph-variables-map source.cob -o ./output
 ```
 
+## Contributing
+
+After cloning, enable the project's git hooks:
+
+```bash
+git config core.hooksPath hooks
+```
+
+This activates a pre-commit hook that prevents accidental commits of corporate COBOL code or proprietary references. All examples in documentation, prompts, and comments must use generic, English-language names. See [CLAUDE.md](CLAUDE.md) for full guidelines.
+
 ## License
 
 See LICENSE file for details.

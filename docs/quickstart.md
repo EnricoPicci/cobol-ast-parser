@@ -21,7 +21,15 @@ cd /path/to/cobol-ast-parser
 pip install -r requirements.txt
 ```
 
-### 3. (Optional) Install as command
+### 3. Enable git hooks
+
+```bash
+git config core.hooksPath hooks
+```
+
+This activates a pre-commit hook that prevents accidental commits of corporate COBOL references. Required for all contributors.
+
+### 4. (Optional) Install as command
 
 To use `cobol-analyzer` as a system command from anywhere:
 
@@ -29,7 +37,7 @@ To use `cobol-analyzer` as a system command from anywhere:
 pip install -e .
 ```
 
-### 4. Verify installation
+### 5. Verify installation
 
 ```bash
 # Using wrapper script (from project root)

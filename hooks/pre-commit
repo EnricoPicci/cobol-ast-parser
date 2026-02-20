@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+#
+# Pre-commit check: block commits containing corporate COBOL references.
+# Scans staged files (excluding gitignored dirs and binary files) for
+# patterns that indicate real corporate code leaked into the repo.
+#
+# Activate (one-time, after cloning):
+#   git config core.hooksPath hooks
+#
+# To add false-positive exceptions, append patterns to ALLOWLIST below.
+
+set -euo pipefail
+
+# --- Corporate patterns to block ---
+# Each line is a grep -iE pattern. Keep sorted alphabetically.
+BLOCKED_PATTERNS=(
+    # Internal project names and paths
+    'kyco-input-data'
+    'kyco-demo'
+    '\bkyco\b'
+
+    # Corporate program name prefixes (3-4 letter coded prefixes + alphanumeric)
+    '\bEQT[A-Z]{2,}'
+    '\bEGE[A-Z]{2,}'
+
+    # Corporate copybook name prefixes
+    '\bESPCA[0-9]'
+    '\bEDMCA[0-9]'
+
+    # Italian COBOL variable fragments (common in corporate Italian codebases)
+    'OPERAZIONI-INIZIALI'
+    'ELABORA-HOST'
+    'LUNGH-AREE'
+    'AGGIORNAMENTO'
+    'DECORRENZA'
+    'RITARIF'
+    'PRESENZA-MINORE'
+    'FLG-MINORE'
+)
+
+# --- Allowlist: patterns that look corporate but are OK ---
+# Add entries here if the hook produces false positives.
+ALLOWLIST=(
+    # Example: 'ESPCA-TEST-FIXTURE'
+)
+
+# Build combined regex
+COMBINED=$(IFS='|'; echo "${BLOCKED_PATTERNS[*]}")
+
+# Build allowlist regex (if non-empty)
+if [ ${#ALLOWLIST[@]} -gt 0 ]; then
+    ALLOW_COMBINED=$(IFS='|'; echo "${ALLOWLIST[*]}")
+else
+    ALLOW_COMBINED=""
+fi
+
+# Get staged files (tracked, text only), excluding certain paths
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+FOUND=0
+
+while IFS= read -r file; do
+    # Skip binary files and the hook script itself
+    case "$file" in
+        *.pyc|*.pyo|*.so|*.o|*.jpg|*.png|*.gif|*.pdf|*.zip|*.tar*|*.gz)
+            continue
+            ;;
+        hooks/pre-commit)
+            continue
+            ;;
+    esac
+
+    # Skip files inside gitignored directories
+    case "$file" in
+        kyco-input-data/*|sample-input-data/*|output-*)
+            continue
+            ;;
+    esac
+
+    # Search staged content (not working tree) for blocked patterns
+    MATCHES=$(git show ":$file" 2>/dev/null | grep -inE "$COMBINED" || true)
+
+    # Filter out allowlisted matches
+    if [ -n "$ALLOW_COMBINED" ] && [ -n "$MATCHES" ]; then
+        MATCHES=$(echo "$MATCHES" | grep -ivE "$ALLOW_COMBINED" || true)
+    fi
+
+    if [ -n "$MATCHES" ]; then
+        if [ "$FOUND" -eq 0 ]; then
+            echo "=== BLOCKED: Corporate COBOL references detected ==="
+            echo ""
+        fi
+        echo "  $file:"
+        echo "$MATCHES" | while IFS= read -r line; do
+            echo "    $line"
+        done
+        echo ""
+        FOUND=1
+    fi
+done <<< "$STAGED_FILES"
+
+if [ "$FOUND" -eq 1 ]; then
+    echo "Commit blocked. Sanitize the above references before committing."
+    echo "If a match is a false positive, add it to the ALLOWLIST in hooks/pre-commit"
+    exit 1
+fi
+
+exit 0

@@ -15,6 +15,9 @@ pip install -r requirements.txt
 # Install as editable package (enables `cobol-analyzer` command)
 pip install -e .
 
+# Enable git hooks (one-time setup, required)
+git config core.hooksPath hooks
+
 # Run all tests
 pytest
 
@@ -149,6 +152,15 @@ COBOL test files in `tests/fixtures/`:
 - Prefer `@dataclass` for data containers
 - Use Google-style docstrings
 - All AST nodes should be dataclasses with `Optional` for nullable fields
+
+### Content Sanitization
+- **Never commit corporate COBOL code or references** — this is an open-source tool; all examples must use generic, English-language names
+- The pre-commit hook (`hooks/pre-commit`) automatically blocks commits containing known corporate patterns
+- When writing prompts, docs, or comments that reference real COBOL programs, always replace:
+  - Corporate program/copybook names (opaque coded identifiers) with descriptive generic names like `SAMPLE-PROG`, `MAINPROG`, `COPYBOOK-A`, `DATAGRP-A`
+  - Non-English variable names with English equivalents
+  - Internal project names and file paths with generic references like `sample-input-data/`
+- If the pre-commit hook flags a false positive, add the term to the allowlist in `hooks/pre-commit`
 
 ### Prompts
 - The `prompts-for-claude/` folder contains prompts used to generate code in this project
