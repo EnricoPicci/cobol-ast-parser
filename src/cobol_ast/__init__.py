@@ -29,6 +29,9 @@ from .api import (
     analyze_for_paragraphs,
     ParagraphAnalysisOptions,
     ParagraphAnalysisResult,
+    analyze_procedure_division,
+    ProcedureDivisionOptions,
+    ProcedureDivisionResult,
 )
 from preprocessor import LineMapping
 
@@ -63,4 +66,8 @@ __all__ = [
     "analyze_for_paragraphs",
     "ParagraphAnalysisOptions",
     "ParagraphAnalysisResult",
+    # Procedure division analysis API
+    "analyze_procedure_division",
+    "ProcedureDivisionOptions",
+    "ProcedureDivisionResult",
 ]

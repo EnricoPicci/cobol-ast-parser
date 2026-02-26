@@ -245,6 +245,9 @@ class ASTBuilder:
 
         return paragraph
 
+    # Control flow statement types that should not be treated as variable modifications
+    CONTROL_FLOW_TYPES = {"PERFORM_TARGET", "GOTO_TARGET", "CALL_PROGRAM"}
+
     def _extract_modifications(
         self,
         statements: List[SimplifiedStatement],
@@ -255,6 +258,9 @@ class ASTBuilder:
         modifications = []
 
         for stmt in statements:
+            # Skip control flow statements - their targets are paragraphs/programs, not variables
+            if stmt.statement_type in self.CONTROL_FLOW_TYPES:
+                continue
             mod_type = ModificationType.from_string(stmt.statement_type)
 
             for target in stmt.targets:
@@ -291,6 +297,9 @@ class ASTBuilder:
         accesses = []
 
         for stmt in statements:
+            # Skip control flow statements - their sources are conditions/fields, not variable accesses
+            if stmt.statement_type in self.CONTROL_FLOW_TYPES:
+                continue
             # Determine access context based on statement type
             access_context = f"{stmt.statement_type}_SOURCE"
 

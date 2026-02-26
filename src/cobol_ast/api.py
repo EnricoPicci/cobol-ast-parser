@@ -1806,3 +1806,470 @@ def analyze_for_paragraphs(
         execution_time_seconds=round(end_time - start_time, 4),
         warnings=combined.warnings,
     )
+
+
+@dataclass
+class ProcedureDivisionOptions:
+    """Options for PROCEDURE DIVISION analysis.
+
+    Attributes:
+        copybook_paths: Additional paths to search for copybooks. The source file's
+            directory is always searched by default.
+        resolve_copies: Whether to resolve COPY statements (default: True)
+        include_source_info: Include source file metadata in output (default: True)
+    """
+    copybook_paths: Optional[List[Path]] = None
+    resolve_copies: bool = True
+    include_source_info: bool = True
+
+
+@dataclass
+class ProcedureDivisionResult:
+    """Result of PROCEDURE DIVISION analysis.
+
+    Contains structural information about the PROCEDURE DIVISION including
+    paragraph inventory, control flow graphs, conditional branches, and
+    field references.
+
+    Attributes:
+        program_name: Name of the analyzed COBOL program
+        paragraphs: Ordered list of paragraph inventory entries
+        perform_graph: Maps paragraph name to list of PERFORM targets
+        goto_graph: Maps paragraph name to list of GO TO targets
+        call_graph: Maps paragraph name to list of CALL targets
+        conditions: Maps paragraph name to list of conditional branches
+        field_references: Maps paragraph name to field reference aggregation
+        execution_time_seconds: Total execution time
+        source_info: Source file metadata (if include_source_info was True)
+        warnings: Warning messages from preprocessing
+    """
+    program_name: str
+    paragraphs: List[Dict[str, Any]]
+    perform_graph: Dict[str, List[Dict[str, Any]]]
+    goto_graph: Dict[str, List[Dict[str, Any]]]
+    call_graph: Dict[str, List[Dict[str, Any]]]
+    conditions: Dict[str, List[Dict[str, Any]]]
+    field_references: Dict[str, Dict[str, Any]]
+    execution_time_seconds: float
+    source_info: Optional[Dict[str, Any]] = None
+    warnings: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result: Dict[str, Any] = {
+            "program_name": self.program_name,
+            "paragraphs": self.paragraphs,
+            "perform_graph": self.perform_graph,
+            "goto_graph": self.goto_graph,
+            "call_graph": self.call_graph,
+            "conditions": self.conditions,
+            "field_references": self.field_references,
+            "execution_time_seconds": self.execution_time_seconds,
+        }
+        if self.source_info is not None:
+            result["source_info"] = self.source_info
+        if self.warnings:
+            result["warnings"] = self.warnings
+        return result
+
+    def to_text(self) -> str:
+        """Render as compact LLM-friendly text format.
+
+        Returns:
+            Text representation of the procedure division structure.
+        """
+        lines: List[str] = []
+        lines.append(f"PROGRAM: {self.program_name}")
+        lines.append("")
+
+        # Paragraphs
+        lines.append("PARAGRAPHS:")
+        for para in self.paragraphs:
+            section_info = f" ({para['parent_section']})" if para.get("parent_section") else ""
+            lines.append(
+                f"  {para['name']}{section_info}"
+                f"  lines {para['line_start']}-{para['line_end']}"
+            )
+        lines.append("")
+
+        # PERFORM graph
+        if self.perform_graph:
+            lines.append("PERFORM GRAPH:")
+            for para_name, performs in self.perform_graph.items():
+                for p in performs:
+                    detail = p["target"]
+                    if p.get("thru_target"):
+                        detail += f" THRU {p['thru_target']}"
+                    if p.get("condition"):
+                        detail += f" UNTIL {p['condition']}"
+                    if p.get("times"):
+                        detail += f" {p['times']} TIMES"
+                    lines.append(f"  {para_name} -> {detail}")
+            lines.append("")
+
+        # GO TO graph
+        if self.goto_graph:
+            lines.append("GO TO GRAPH:")
+            for para_name, gotos in self.goto_graph.items():
+                for g in gotos:
+                    cond = " (conditional)" if g.get("conditional") else ""
+                    lines.append(f"  {para_name} -> {g['target']}{cond}")
+            lines.append("")
+
+        # CALL graph
+        if self.call_graph:
+            lines.append("CALL GRAPH:")
+            for para_name, calls in self.call_graph.items():
+                for c in calls:
+                    dynamic = " (dynamic)" if c.get("is_dynamic") else ""
+                    using = f" USING {', '.join(c['using_fields'])}" if c.get("using_fields") else ""
+                    lines.append(f"  {para_name} -> {c['target']}{dynamic}{using}")
+            lines.append("")
+
+        # Conditions
+        if self.conditions:
+            lines.append("CONDITIONS:")
+            for para_name, conds in self.conditions.items():
+                for c in conds:
+                    if c["type"] == "EVALUATE":
+                        lines.append(f"  {para_name}: EVALUATE {c.get('condition', '')}")
+                        for b in c.get("branches", []):
+                            if b.get("condition"):
+                                lines.append(f"    WHEN {b['condition']}")
+                            else:
+                                lines.append("    WHEN OTHER")
+                    else:
+                        else_str = " (has ELSE)" if c.get("has_else") else ""
+                        lines.append(f"  {para_name}: IF {c.get('condition', '')}{else_str}")
+            lines.append("")
+
+        # Field references
+        if self.field_references:
+            lines.append("FIELD REFERENCES:")
+            for para_name, refs in self.field_references.items():
+                parts = []
+                if refs.get("writes"):
+                    parts.append(f"writes: {', '.join(refs['writes'])}")
+                if refs.get("reads"):
+                    parts.append(f"reads: {', '.join(refs['reads'])}")
+                if refs.get("conditions_tested"):
+                    parts.append(f"conditions: {', '.join(refs['conditions_tested'])}")
+                if parts:
+                    lines.append(f"  {para_name}: {'; '.join(parts)}")
+
+        # Remove trailing blank lines
+        while lines and lines[-1] == "":
+            lines.pop()
+
+        return "\n".join(lines)
+
+    def for_paragraphs(self, names: List[str]) -> "ProcedureDivisionResult":
+        """Return a filtered result containing only the specified paragraphs.
+
+        PERFORM targets are preserved even if the target paragraph is not in
+        the filter list, to maintain control flow visibility.
+
+        Args:
+            names: List of paragraph names to include
+
+        Returns:
+            New ProcedureDivisionResult with only the specified paragraphs
+        """
+        name_set = {n.upper() for n in names}
+
+        # Filter paragraphs
+        filtered_paragraphs = [
+            p for p in self.paragraphs if p["name"] in name_set
+        ]
+
+        # Filter graphs - keep entries where the source paragraph is in the set
+        filtered_perform = {
+            k: v for k, v in self.perform_graph.items() if k in name_set
+        }
+        filtered_goto = {
+            k: v for k, v in self.goto_graph.items() if k in name_set
+        }
+        filtered_call = {
+            k: v for k, v in self.call_graph.items() if k in name_set
+        }
+        filtered_conditions = {
+            k: v for k, v in self.conditions.items() if k in name_set
+        }
+        filtered_field_refs = {
+            k: v for k, v in self.field_references.items() if k in name_set
+        }
+
+        return ProcedureDivisionResult(
+            program_name=self.program_name,
+            paragraphs=filtered_paragraphs,
+            perform_graph=filtered_perform,
+            goto_graph=filtered_goto,
+            call_graph=filtered_call,
+            conditions=filtered_conditions,
+            field_references=filtered_field_refs,
+            execution_time_seconds=self.execution_time_seconds,
+            source_info=self.source_info,
+            warnings=self.warnings,
+        )
+
+
+def _build_procedure_result(
+    analyzer: Any,
+    program_name: str,
+    execution_time: float,
+    source_info: Optional[Dict[str, Any]],
+    warnings: List[str],
+    line_mapping: Optional[Dict[int, Any]],
+    original_line_count: int,
+) -> ProcedureDivisionResult:
+    """Build ProcedureDivisionResult from analyzer output.
+
+    Args:
+        analyzer: ProcedureDivisionAnalyzer instance (already analyzed)
+        program_name: COBOL program name
+        execution_time: Total execution time in seconds
+        source_info: Source file metadata dict
+        warnings: Warning messages
+        line_mapping: Line mapping for COPY-expanded sources
+        original_line_count: Original source line count
+
+    Returns:
+        ProcedureDivisionResult with all data serialized to dicts
+    """
+    def _map_line(line: int) -> int:
+        if line_mapping:
+            return _convert_to_original_line(line, line_mapping, original_line_count)
+        return line
+
+    # Convert paragraphs
+    paragraphs = [
+        {
+            "name": p.name,
+            "type": p.type,
+            "parent_section": p.parent_section,
+            "line_start": _map_line(p.line_start),
+            "line_end": _map_line(p.line_end),
+            "line_count": p.line_count,
+        }
+        for p in analyzer.paragraphs
+    ]
+
+    # Convert perform graph
+    perform_graph: Dict[str, List[Dict[str, Any]]] = {}
+    for para_name, entries in analyzer.perform_graph.items():
+        perform_graph[para_name] = [
+            {
+                "target": e.target,
+                "type": e.type,
+                "thru_target": e.thru_target,
+                "thru_includes": e.thru_includes,
+                "condition": e.condition,
+                "times": e.times,
+                "line": _map_line(e.line),
+            }
+            for e in entries
+        ]
+
+    # Convert goto graph
+    goto_graph: Dict[str, List[Dict[str, Any]]] = {}
+    for para_name, entries in analyzer.goto_graph.items():
+        goto_graph[para_name] = [
+            {
+                "target": e.target,
+                "line": _map_line(e.line),
+                "conditional": e.conditional,
+                "condition_text": e.condition_text,
+            }
+            for e in entries
+        ]
+
+    # Convert call graph
+    call_graph: Dict[str, List[Dict[str, Any]]] = {}
+    for para_name, entries in analyzer.call_graph.items():
+        call_graph[para_name] = [
+            {
+                "target": e.target,
+                "line": _map_line(e.line),
+                "using_fields": e.using_fields,
+                "is_dynamic": e.is_dynamic,
+            }
+            for e in entries
+        ]
+
+    # Convert conditions
+    conditions: Dict[str, List[Dict[str, Any]]] = {}
+    for para_name, entries in analyzer.conditions.items():
+        conditions[para_name] = [
+            _condition_to_dict(e, _map_line) for e in entries
+        ]
+
+    # Convert field references
+    field_references: Dict[str, Dict[str, Any]] = {}
+    for para_name, entry in analyzer.field_references.items():
+        field_references[para_name] = {
+            "reads": entry.reads,
+            "writes": entry.writes,
+            "conditions_tested": entry.conditions_tested,
+        }
+
+    return ProcedureDivisionResult(
+        program_name=program_name,
+        paragraphs=paragraphs,
+        perform_graph=perform_graph,
+        goto_graph=goto_graph,
+        call_graph=call_graph,
+        conditions=conditions,
+        field_references=field_references,
+        execution_time_seconds=round(execution_time, 4),
+        source_info=source_info,
+        warnings=warnings,
+    )
+
+
+def _condition_to_dict(entry: Any, map_line: Any) -> Dict[str, Any]:
+    """Convert a ConditionEntry to dict."""
+    result: Dict[str, Any] = {
+        "type": entry.type,
+        "condition": entry.condition,
+        "subject": entry.subject,
+        "line": map_line(entry.line),
+        "has_else": entry.has_else,
+    }
+    if entry.branches:
+        result["branches"] = [
+            {
+                "condition": b.condition,
+                "line": map_line(b.line),
+            }
+            for b in entry.branches
+        ]
+    if entry.nested_conditions:
+        result["nested_conditions"] = [
+            _condition_to_dict(n, map_line) for n in entry.nested_conditions
+        ]
+    return result
+
+
+def analyze_procedure_division(
+    source_path: Path,
+    options: Optional[ProcedureDivisionOptions] = None,
+) -> ProcedureDivisionResult:
+    """Analyze the PROCEDURE DIVISION of a COBOL source file.
+
+    Returns structural information about the PROCEDURE DIVISION including
+    paragraph inventory, PERFORM/GO TO/CALL graphs, conditional branches,
+    and field references.
+
+    Args:
+        source_path: Path to the COBOL source file
+        options: Analysis options (uses defaults if not provided)
+
+    Returns:
+        ProcedureDivisionResult containing all procedure division views
+
+    Raises:
+        FileNotFoundError: If source file doesn't exist
+        ParseError: If COBOL source cannot be parsed
+        AnalysisError: If analysis fails for other reasons
+
+    Example:
+        >>> from cobol_ast import analyze_procedure_division, ProcedureDivisionOptions
+        >>> from pathlib import Path
+        >>>
+        >>> result = analyze_procedure_division(Path("myprogram.cob"))
+        >>> print(result.to_text())
+        >>>
+        >>> # With copybook paths
+        >>> options = ProcedureDivisionOptions(
+        ...     copybook_paths=[Path("./copybooks")],
+        ... )
+        >>> result = analyze_procedure_division(Path("myprogram.cob"), options)
+        >>> print(result.perform_graph)
+    """
+    import time
+    from preprocessor import detect_format, normalize_source
+    from parser import CobolParser, ParseError
+    from . import ASTBuilder
+    from analyzers import ProcedureDivisionAnalyzer
+
+    if options is None:
+        options = ProcedureDivisionOptions()
+
+    # Validate input
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source file not found: {source_path}")
+
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Source path is not a file: {source_path}")
+
+    start_time = time.perf_counter()
+
+    try:
+        # Read source file
+        source = source_path.read_text(encoding="utf-8", errors="replace")
+        source_lines_count = len(source.splitlines())
+
+        # Detect format
+        source_lines = source.splitlines()
+        source_format = detect_format(source_lines)
+
+        # Resolve COPY statements
+        line_mapping = None
+        original_line_count = source_lines_count
+        warnings: List[str] = []
+        if options.resolve_copies:
+            resolution = _resolve_copies(source, source_path, options.copybook_paths)
+            source = resolution.resolved_source
+            line_mapping = resolution.line_mapping
+            original_line_count = resolution.original_line_count
+            warnings = resolution.warnings
+
+        # Normalize source
+        source = normalize_source(source, source_format)
+
+        # Parse
+        parser = CobolParser(use_generated=False)
+        try:
+            parse_tree = parser.parse(source)
+        except ParseError:
+            raise
+
+        # Build AST
+        builder = ASTBuilder()
+        program = builder.build(parse_tree)
+
+        # Run procedure division analyzer
+        pd_analyzer = ProcedureDivisionAnalyzer(
+            parse_tree, program, parse_tree.source_lines
+        )
+        pd_analyzer.analyze()
+
+        # Build source info
+        source_info = None
+        if options.include_source_info:
+            source_info = {
+                "file_path": str(source_path.absolute()),
+                "file_name": source_path.name,
+                "source_format": source_format.value,
+                "lines_count": source_lines_count,
+            }
+
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+
+        return _build_procedure_result(
+            analyzer=pd_analyzer,
+            program_name=program.name,
+            execution_time=execution_time,
+            source_info=source_info,
+            warnings=warnings,
+            line_mapping=line_mapping,
+            original_line_count=original_line_count,
+        )
+
+    except ParseError:
+        raise
+    except FileNotFoundError:
+        raise
+    except Exception as e:
+        raise AnalysisError(f"Procedure division analysis failed: {e}") from e

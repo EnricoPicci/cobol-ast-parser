@@ -91,6 +91,11 @@ from src import (
     ParagraphAnalysisOptions,            # Configuration options
     ParagraphAnalysisResult,             # Return type
 
+    # Procedure division analysis API
+    analyze_procedure_division,          # PROCEDURE DIVISION structural analysis
+    ProcedureDivisionOptions,            # Configuration options
+    ProcedureDivisionResult,             # Return type
+
     # Exceptions
     AnalysisError,                # Exception type
 )
@@ -976,6 +981,112 @@ assert result.to_text() == ""
 | Need full tree and analysis without filtering | Use `analyze_for_paragraphs(include_filtered_data=False)` or `analyze_with_tree()` |
 | Need the full unfiltered DATA DIVISION only | Use `get_data_division_tree()` |
 | Need paragraph-variables analysis only | Use `analyze_paragraph_variables()` |
+| Need PROCEDURE DIVISION structure (control flow, calls, conditions) | Use `analyze_procedure_division()` |
+
+---
+
+## Procedure Division Analysis
+
+### `analyze_procedure_division(source_path, options?)`
+
+Analyzes the PROCEDURE DIVISION of a COBOL source file and returns structural information including paragraph inventory, PERFORM/GO TO/CALL graphs, conditional branches, and field references. Designed for LLM agents that need a deterministic procedure skeleton.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_path` | `Path` | Yes | Path to the COBOL source file |
+| `options` | `ProcedureDivisionOptions` | No | Configuration options (uses defaults if not provided) |
+
+**Returns:** `ProcedureDivisionResult`
+
+**Raises:**
+- `FileNotFoundError` - If source file doesn't exist or path is a directory
+- `ParseError` - If COBOL source cannot be parsed
+- `AnalysisError` - If analysis fails for other reasons
+
+### `ProcedureDivisionOptions`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `copybook_paths` | `List[Path]` | `None` | Additional paths to search for copybooks |
+| `resolve_copies` | `bool` | `True` | Whether to resolve COPY statements |
+| `include_source_info` | `bool` | `True` | Include source file metadata in output |
+
+### `ProcedureDivisionResult`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `program_name` | `str` | Name of the COBOL program |
+| `paragraphs` | `list[dict]` | Ordered paragraph inventory (name, type, parent_section, line_start, line_end, line_count) |
+| `perform_graph` | `dict` | Maps paragraph name to list of PERFORM targets (target, type, thru_target, thru_includes, condition, times, line) |
+| `goto_graph` | `dict` | Maps paragraph name to list of GO TO targets (target, line, conditional, condition_text) |
+| `call_graph` | `dict` | Maps paragraph name to list of CALL entries (target, line, using_fields, is_dynamic) |
+| `conditions` | `dict` | Maps paragraph name to list of conditional branches (IF/EVALUATE with nesting) |
+| `field_references` | `dict` | Maps paragraph name to field reference aggregation (reads, writes, conditions_tested) |
+| `execution_time_seconds` | `float` | Total processing time |
+| `source_info` | `dict \| None` | Source file metadata |
+| `warnings` | `list[str]` | Warning messages from preprocessing |
+
+**Methods:**
+- `to_dict()` - Convert to JSON-serializable dictionary
+- `to_text()` - Render as compact LLM-friendly text format
+- `for_paragraphs(names)` - Return filtered result for specified paragraphs only (PERFORM targets preserved)
+
+### Basic Usage
+
+```python
+from pathlib import Path
+from src import analyze_procedure_division
+
+result = analyze_procedure_division(Path("program.cob"))
+
+# Compact text for LLM prompt inclusion
+print(result.to_text())
+
+# Access individual views
+for para in result.paragraphs:
+    print(f"{para['name']} lines {para['line_start']}-{para['line_end']}")
+
+# Check PERFORM graph
+for para_name, performs in result.perform_graph.items():
+    for p in performs:
+        print(f"{para_name} -> {p['target']} ({p['type']})")
+```
+
+### With Copybooks
+
+```python
+from pathlib import Path
+from src import analyze_procedure_division, ProcedureDivisionOptions
+
+options = ProcedureDivisionOptions(
+    copybook_paths=[Path("./copybooks")],
+)
+result = analyze_procedure_division(Path("program.cob"), options)
+```
+
+### Filtering to Specific Paragraphs
+
+```python
+result = analyze_procedure_division(Path("program.cob"))
+
+# Get only MAIN-PARA and INIT-PARA views
+filtered = result.for_paragraphs(["MAIN-PARA", "INIT-PARA"])
+print(filtered.to_text())
+```
+
+### JSON Serialization
+
+```python
+import json
+from pathlib import Path
+from src import analyze_procedure_division
+
+result = analyze_procedure_division(Path("program.cob"))
+json_output = json.dumps(result.to_dict(), indent=2)
+Path("procedure-division.json").write_text(json_output)
+```
 
 ---
 

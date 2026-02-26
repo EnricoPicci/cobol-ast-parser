@@ -701,6 +701,31 @@ class SimplifiedCobolParser:
         re.IGNORECASE | re.MULTILINE,
     )
 
+    # Control flow patterns for procedure division analysis
+    # PERFORM target extraction - captures target paragraph, optional THRU, TIMES/UNTIL/VARYING
+    PERFORM_TARGET_STMT = re.compile(
+        r"\bPERFORM\s+([A-Za-z0-9][-A-Za-z0-9]*)"
+        r"(?:\s+(?:THRU|THROUGH)\s+([A-Za-z0-9][-A-Za-z0-9]*))?"
+        r"(?:\s+([0-9]+)\s+TIMES)?"
+        r"(?:\s+UNTIL\s+([^\n.]+?))?"
+        r"(?:\s+VARYING\s+[^\n.]+?)?"
+        r"(?:\s*\.|\s*$|\s*\n)",
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+    # GO TO target extraction
+    GOTO_TARGET_STMT = re.compile(
+        r"\bGO\s+TO\s+([A-Za-z0-9][-A-Za-z0-9]*)",
+        re.IGNORECASE,
+    )
+
+    # CALL program name extraction - static (literal) or dynamic (identifier)
+    CALL_PROGRAM_STMT = re.compile(
+        r"\bCALL\s+(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z0-9][-A-Za-z0-9]*))"
+        r"(?:\s+USING\s+([^.]+))?(?:\s*\.|\s+END-CALL)",
+        re.IGNORECASE,
+    )
+
     def parse(self, source: str) -> SimplifiedParseTree:
         """Parse COBOL source into a simplified parse tree.
 
@@ -916,6 +941,9 @@ class SimplifiedCobolParser:
                 section = self._parse_section(
                     section_name, section_source, offset + section_start, all_lines
                 )
+                section.line_number = self._get_line_number_at_offset(
+                    all_lines, offset + match.start()
+                )
                 proc_div.sections.append(section)
         else:
             # No sections, just paragraphs
@@ -940,6 +968,9 @@ class SimplifiedCobolParser:
                 para_source = source[para_start:para_end]
                 paragraph = self._parse_paragraph(
                     para_name, para_source, offset + para_start, all_lines
+                )
+                paragraph.line_number = self._get_line_number_at_offset(
+                    all_lines, offset + match.start()
                 )
                 proc_div.paragraphs.append(paragraph)
 
@@ -977,6 +1008,9 @@ class SimplifiedCobolParser:
                 para_source = source[para_start:para_end]
                 paragraph = self._parse_paragraph(
                     para_name, para_source, offset + para_start, all_lines
+                )
+                paragraph.line_number = self._get_line_number_at_offset(
+                    all_lines, offset + match.start()
                 )
                 section.paragraphs.append(paragraph)
         else:
@@ -1196,6 +1230,9 @@ class SimplifiedCobolParser:
 
         # Extract read-only statements (DISPLAY, IF conditions, EVALUATE, etc.)
         self._extract_read_only_statements(source, offset, all_lines, statements)
+
+        # Extract control flow statements (PERFORM targets, GO TO, CALL programs)
+        self._extract_control_flow_statements(source, offset, all_lines, statements)
 
         return statements
 
@@ -1685,6 +1722,99 @@ class SimplifiedCobolParser:
 
         # CALL USING (parameters passed to called programs)
         self._extract_call_using(source, offset, all_lines, statements)
+
+    def _extract_control_flow_statements(
+        self,
+        source: str,
+        offset: int,
+        all_lines: List[str],
+        statements: List[SimplifiedStatement],
+    ) -> None:
+        """Extract control flow statements: PERFORM targets, GO TO, CALL programs.
+
+        These statement types are additive - they don't affect existing statement
+        extraction. They provide information for procedure division analysis.
+        """
+        # PERFORM target statements
+        for match in self.PERFORM_TARGET_STMT.finditer(source):
+            target = match.group(1).upper()
+            # Skip if the target is a COBOL keyword (e.g., PERFORM VARYING)
+            if target in self.COBOL_KEYWORDS:
+                continue
+            thru_target = match.group(2).upper() if match.group(2) else None
+            times = match.group(3) if match.group(3) else None
+            condition = match.group(4).strip() if match.group(4) else None
+
+            char_pos = offset + match.start()
+            line_num = self._get_line_number_at_offset(all_lines, char_pos)
+
+            # Build text representation
+            text_parts = [f"PERFORM {target}"]
+            if thru_target:
+                text_parts.append(f"THRU {thru_target}")
+            if times:
+                text_parts.append(f"{times} TIMES")
+            if condition:
+                text_parts.append(f"UNTIL {condition}")
+
+            statements.append(
+                SimplifiedStatement(
+                    statement_type="PERFORM_TARGET",
+                    text=" ".join(text_parts),
+                    targets=[target] + ([thru_target] if thru_target else []),
+                    sources=[condition] if condition else [],
+                    line_number=line_num,
+                )
+            )
+
+        # GO TO target statements
+        for match in self.GOTO_TARGET_STMT.finditer(source):
+            target = match.group(1).upper()
+            char_pos = offset + match.start()
+            line_num = self._get_line_number_at_offset(all_lines, char_pos)
+
+            statements.append(
+                SimplifiedStatement(
+                    statement_type="GOTO_TARGET",
+                    text=match.group(0).strip(),
+                    targets=[target],
+                    sources=[],
+                    line_number=line_num,
+                )
+            )
+
+        # CALL program statements
+        for match in self.CALL_PROGRAM_STMT.finditer(source):
+            # Static call uses single or double quotes (groups 1, 2)
+            # Dynamic call uses an identifier (group 3)
+            program_name = match.group(1) or match.group(2) or match.group(3)
+            is_dynamic = match.group(3) is not None
+            using_clause = match.group(4)
+
+            using_fields: List[str] = []
+            if using_clause:
+                # Extract field names from USING clause, filtering keywords
+                for part in re.split(r"[,\s]+", using_clause.strip()):
+                    part = part.strip()
+                    if part and part[0].isalpha():
+                        upper_part = part.upper()
+                        if upper_part not in self.COBOL_KEYWORDS and upper_part not in (
+                            "BY", "REFERENCE", "CONTENT", "VALUE"
+                        ):
+                            using_fields.append(upper_part)
+
+            char_pos = offset + match.start()
+            line_num = self._get_line_number_at_offset(all_lines, char_pos)
+
+            statements.append(
+                SimplifiedStatement(
+                    statement_type="CALL_PROGRAM",
+                    text=match.group(0).strip()[:100],
+                    targets=[program_name.upper() if is_dynamic else program_name],
+                    sources=using_fields,
+                    line_number=line_num,
+                )
+            )
 
     def _split_variable_list(self, text: str) -> List[str]:
         """Split a list of variable names, filtering out COBOL keywords."""
