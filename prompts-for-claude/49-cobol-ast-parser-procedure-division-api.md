@@ -492,3 +492,16 @@ pytest
 # Type checking
 mypy src/cobol_ast/api.py src/analyzers/procedure_division_analyzer.py
 ```
+
+# Refinement
+The new api `analyze_procedure_division()` should work on Cobol source where the copybooks have been already resolved. Can you check if this is the case?
+
+# Response
+● Yes, the API already handles copybook resolution correctly. Here's the summary:                                                  
+                                                                  
+  - ProcedureDivisionOptions.resolve_copies defaults to True (line 1822)                                                           
+  - When resolve_copies is True, the function calls _resolve_copies() (line 2221), which is the same shared helper used by the other APIs (analyze_paragraph_variables, get_data_division_tree, analyze_with_tree)                                              
+  - The user can also provide copybook_paths to specify where to search for copybooks                                              
+  - By the time the source reaches the parser (line 2232), COPY statements have already been expanded
+
+  So analyze_procedure_division() works on COBOL source with copybooks already resolved — it handles the resolution internally before parsing, just like the other APIs do.
