@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-27
+
+### Added
+- COBOL SECTIONs now appear as first-class entries in `analyze_procedure_division()` inventory
+- Section entries include child paragraph list and line ranges
+- Standalone section statements extracted into perform/goto/call graphs and field references
+
+### Changed
+- **BREAKING:** `ParagraphInfo` dataclass renamed to `ProcedureEntry`
+- **BREAKING:** `ProcedureDivisionResult.paragraphs` renamed to `.inventory`
+- **BREAKING:** `ProcedureDivisionResult.for_paragraphs()` renamed to `.for_entries()`
+- **BREAKING:** `to_dict()` output key changed from `"paragraphs"` to `"inventory"`
+- `to_text()` header changed from `PARAGRAPHS:` to `INVENTORY:`
+
+
 ## [0.7.0] - 2026-02-26
 
 ### Changed
