@@ -55,13 +55,14 @@ class TestAnalyzeProcedureDivision:
     def setup(self):
         self.result = analyze_procedure_division(PROC_DIV_FIXTURE)
 
-    # -- Paragraph inventory -------------------------------------------------
+    # -- Inventory (sections + paragraphs) ------------------------------------
 
-    def test_paragraph_count(self):
-        assert len(self.result.paragraphs) == 12
+    def test_inventory_count(self):
+        """6 sections + 12 paragraphs = 18 entries."""
+        assert len(self.result.inventory) == 18
 
     def test_paragraph_names(self):
-        names = [p["name"] for p in self.result.paragraphs]
+        names = [p["name"] for p in self.result.inventory]
         assert "MAIN-PARA" in names
         assert "INIT-PARA" in names
         assert "VALIDATE-PARA" in names
@@ -75,26 +76,41 @@ class TestAnalyzeProcedureDivision:
         assert "CALL-DYNAMIC-PARA" in names
         assert "CLEANUP-PARA" in names
 
+    def test_section_names(self):
+        section_names = [
+            p["name"] for p in self.result.inventory if p["type"] == "section"
+        ]
+        assert "MAIN-SECTION" in section_names
+        assert "VALIDATION-SECTION" in section_names
+        assert "PROCESS-SECTION" in section_names
+        assert "REPORT-SECTION" in section_names
+        assert "EXTERNAL-SECTION" in section_names
+        assert "CLEANUP-SECTION" in section_names
+
     def test_exit_statement_not_in_inventory(self):
         """EXIT. standalone statement should not appear as a paragraph."""
-        names = [p["name"] for p in self.result.paragraphs]
+        names = [p["name"] for p in self.result.inventory]
         assert "EXIT" not in names
 
-    def test_paragraph_ordering(self):
-        """Paragraphs should be ordered by line_start."""
-        line_starts = [p["line_start"] for p in self.result.paragraphs]
+    def test_inventory_ordering(self):
+        """Entries should be ordered by line_start."""
+        line_starts = [p["line_start"] for p in self.result.inventory]
         assert line_starts == sorted(line_starts)
 
-    def test_paragraph_line_numbers(self):
-        """Each paragraph should have positive line numbers."""
-        for para in self.result.paragraphs:
-            assert para["line_start"] > 0
-            assert para["line_end"] >= para["line_start"]
-            assert para["line_count"] > 0
+    def test_inventory_line_numbers(self):
+        """Each entry should have positive line numbers."""
+        for entry in self.result.inventory:
+            assert entry["line_start"] > 0
+            assert entry["line_end"] >= entry["line_start"]
+            assert entry["line_count"] > 0
 
-    def test_paragraph_sections(self):
+    def test_paragraph_parent_sections(self):
         """Paragraphs should have correct parent_section values."""
-        section_map = {p["name"]: p["parent_section"] for p in self.result.paragraphs}
+        section_map = {
+            p["name"]: p["parent_section"]
+            for p in self.result.inventory
+            if p["type"] == "paragraph"
+        }
         assert section_map["MAIN-PARA"] == "MAIN-SECTION"
         assert section_map["INIT-PARA"] == "MAIN-SECTION"
         assert section_map["VALIDATE-PARA"] == "VALIDATION-SECTION"
@@ -102,10 +118,53 @@ class TestAnalyzeProcedureDivision:
         assert section_map["CALL-STATIC-PARA"] == "EXTERNAL-SECTION"
         assert section_map["CLEANUP-PARA"] == "CLEANUP-SECTION"
 
-    def test_paragraph_types(self):
-        """All entries should have type 'paragraph'."""
-        for para in self.result.paragraphs:
-            assert para["type"] == "paragraph"
+    def test_entry_types(self):
+        """Entries should have type 'paragraph' or 'section'."""
+        for entry in self.result.inventory:
+            assert entry["type"] in ("paragraph", "section")
+
+    def test_section_entry_fields(self):
+        """Section entries should have parent_section=None and a paragraphs list."""
+        for entry in self.result.inventory:
+            if entry["type"] == "section":
+                assert entry["parent_section"] is None
+                assert isinstance(entry["paragraphs"], list)
+
+    def test_section_child_paragraphs(self):
+        """Each section should list its child paragraphs."""
+        sections = {
+            e["name"]: e["paragraphs"]
+            for e in self.result.inventory
+            if e["type"] == "section"
+        }
+        assert sections["MAIN-SECTION"] == ["MAIN-PARA", "INIT-PARA"]
+        assert sections["VALIDATION-SECTION"] == ["VALIDATE-PARA"]
+        assert sections["PROCESS-SECTION"] == [
+            "PROCESS-PARA", "PROCESS-ACTIVE", "PROCESS-EXIT",
+        ]
+        assert sections["REPORT-SECTION"] == [
+            "REPORT-PARA", "SUMMARY-PARA", "ERROR-REPORT-PARA",
+        ]
+        assert sections["EXTERNAL-SECTION"] == [
+            "CALL-STATIC-PARA", "CALL-DYNAMIC-PARA",
+        ]
+        assert sections["CLEANUP-SECTION"] == ["CLEANUP-PARA"]
+
+    def test_section_before_its_paragraphs(self):
+        """Each section entry should appear before its child paragraphs."""
+        names = [p["name"] for p in self.result.inventory]
+        for entry in self.result.inventory:
+            if entry["type"] == "section":
+                section_idx = names.index(entry["name"])
+                for child in entry["paragraphs"]:
+                    child_idx = names.index(child)
+                    assert section_idx < child_idx
+
+    def test_paragraph_entries_have_no_paragraphs_key(self):
+        """Paragraph entries should not have a 'paragraphs' key."""
+        for entry in self.result.inventory:
+            if entry["type"] == "paragraph":
+                assert "paragraphs" not in entry
 
     # -- PERFORM graph -------------------------------------------------------
 
@@ -117,7 +176,7 @@ class TestAnalyzeProcedureDivision:
         assert "CLEANUP-PARA" in targets
 
     def test_perform_thru(self):
-        """PERFORM THRU should resolve included paragraphs."""
+        """PERFORM THRU should resolve included entries."""
         performs = self.result.perform_graph.get("MAIN-PARA", [])
         thru_performs = [p for p in performs if p.get("thru_target")]
         assert len(thru_performs) >= 1
@@ -272,39 +331,56 @@ class TestAnalyzeProcedureDivision:
         assert len(json_str) > 0
         assert d["program_name"] == "PROC-DIV-EXAMPLE"
 
+    def test_to_dict_has_inventory(self):
+        """to_dict() should contain 'inventory' key, not 'paragraphs'."""
+        d = self.result.to_dict()
+        assert "inventory" in d
+        assert "paragraphs" not in d
+
     def test_to_text_format(self):
         """to_text() should return a non-empty string with expected sections."""
         text = self.result.to_text()
         assert isinstance(text, str)
         assert len(text) > 0
         assert "PROGRAM: PROC-DIV-EXAMPLE" in text
-        assert "PARAGRAPHS:" in text
+        assert "INVENTORY:" in text
         assert "PERFORM GRAPH:" in text
         assert "GO TO GRAPH:" in text
         assert "CALL GRAPH:" in text
 
-    def test_for_paragraphs_filter(self):
-        """for_paragraphs() should filter to only specified paragraphs."""
-        filtered = self.result.for_paragraphs(["MAIN-PARA", "INIT-PARA"])
-        names = [p["name"] for p in filtered.paragraphs]
+    def test_to_text_shows_sections(self):
+        """to_text() should show section entries with SECTION prefix."""
+        text = self.result.to_text()
+        assert "SECTION MAIN-SECTION" in text
+        assert "SECTION REPORT-SECTION" in text
+
+    def test_for_entries_filter(self):
+        """for_entries() should filter to only specified entries."""
+        filtered = self.result.for_entries(["MAIN-PARA", "INIT-PARA"])
+        names = [p["name"] for p in filtered.inventory]
         assert "MAIN-PARA" in names
         assert "INIT-PARA" in names
         assert "PROCESS-PARA" not in names
 
-    def test_for_paragraphs_preserves_perform_targets(self):
-        """for_paragraphs() should keep PERFORM graph entries for filtered paragraphs."""
-        filtered = self.result.for_paragraphs(["MAIN-PARA"])
-        # MAIN-PARA has PERFORMs to other paragraphs - those target names should be preserved
+    def test_for_entries_preserves_perform_targets(self):
+        """for_entries() should keep PERFORM graph entries for filtered entries."""
+        filtered = self.result.for_entries(["MAIN-PARA"])
         performs = filtered.perform_graph.get("MAIN-PARA", [])
         assert len(performs) >= 1
         targets = [p["target"] for p in performs]
         assert "INIT-PARA" in targets
 
-    def test_for_paragraphs_removes_unrelated(self):
-        """for_paragraphs() should remove graphs for non-specified paragraphs."""
-        filtered = self.result.for_paragraphs(["MAIN-PARA"])
+    def test_for_entries_removes_unrelated(self):
+        """for_entries() should remove graphs for non-specified entries."""
+        filtered = self.result.for_entries(["MAIN-PARA"])
         assert "PROCESS-PARA" not in filtered.perform_graph
         assert "REPORT-PARA" not in filtered.goto_graph
+
+    def test_for_entries_with_section(self):
+        """for_entries() should work with section names."""
+        filtered = self.result.for_entries(["MAIN-SECTION"])
+        names = [p["name"] for p in filtered.inventory]
+        assert "MAIN-SECTION" in names
 
     # -- Result metadata -----------------------------------------------------
 
@@ -351,19 +427,20 @@ class TestErrorHandling:
 
 
 class TestExistingFixtures:
-    """Verify the new API works on existing test fixtures."""
+    """Verify the API works on existing test fixtures."""
 
     def test_simple_program(self):
         result = analyze_procedure_division(SIMPLE_FIXTURE)
         assert result.program_name == "SIMPLE-PROGRAM"
-        assert len(result.paragraphs) > 0
+        assert len(result.inventory) > 0
 
-        # simple_program.cob has paragraphs in MAIN-SECTION
-        names = [p["name"] for p in result.paragraphs]
+        names = [p["name"] for p in result.inventory]
         assert "MAIN-PARA" in names
         assert "INIT-PARA" in names
         assert "PROCESS-PARA" in names
         assert "CLEANUP-PARA" in names
+        # Section should also be present
+        assert "MAIN-SECTION" in names
 
     def test_simple_program_performs(self):
         result = analyze_procedure_division(SIMPLE_FIXTURE)
@@ -383,11 +460,13 @@ class TestExistingFixtures:
     def test_all_modifications(self):
         result = analyze_procedure_division(ALL_MODS_FIXTURE)
         assert result.program_name == "ALL-MODS-EXAMPLE"
-        assert len(result.paragraphs) > 0
+        assert len(result.inventory) > 0
 
-        names = [p["name"] for p in result.paragraphs]
+        names = [p["name"] for p in result.inventory]
         assert "TEST-MOVE-PARA" in names
         assert "TEST-COMPUTE-PARA" in names
+        # Section should be present
+        assert "TEST-SECTION" in names
 
     def test_all_modifications_field_refs(self):
         result = analyze_procedure_division(ALL_MODS_FIXTURE)
@@ -400,10 +479,10 @@ class TestExistingFixtures:
         result = analyze_procedure_division(ALL_MODS_FIXTURE)
         d = result.to_dict()
         assert d["program_name"] == "ALL-MODS-EXAMPLE"
-        assert isinstance(d["paragraphs"], list)
+        assert isinstance(d["inventory"], list)
 
     def test_all_modifications_to_text(self):
         result = analyze_procedure_division(ALL_MODS_FIXTURE)
         text = result.to_text()
         assert "ALL-MODS-EXAMPLE" in text
-        assert "PARAGRAPHS:" in text
+        assert "INVENTORY:" in text

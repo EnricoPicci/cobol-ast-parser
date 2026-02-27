@@ -1,7 +1,7 @@
 """Procedure Division analyzer for COBOL programs.
 
 Extracts structural information from the PROCEDURE DIVISION including:
-- Paragraph inventory with line ranges
+- Section and paragraph inventory with line ranges
 - PERFORM graph (call targets, THRU ranges)
 - GO TO graph (targets, conditional detection)
 - CALL graph (static/dynamic, USING fields)
@@ -15,14 +15,15 @@ import re
 
 
 @dataclass
-class ParagraphInfo:
-    """Information about a paragraph in the PROCEDURE DIVISION."""
+class ProcedureEntry:
+    """An entry (section or paragraph) in the PROCEDURE DIVISION inventory."""
     name: str
     type: str  # "paragraph" or "section"
     parent_section: Optional[str]
     line_start: int
     line_end: int
     line_count: int
+    paragraphs: Optional[List[str]] = None  # child paragraph names (sections only)
 
 
 @dataclass
@@ -86,7 +87,7 @@ class ProcedureDivisionAnalyzer:
     """Analyzes the PROCEDURE DIVISION structure of a COBOL program.
 
     Operates on the SimplifiedParseTree and CobolProgram to build six views:
-    1. Paragraph inventory with line ranges
+    1. Section and paragraph inventory with line ranges
     2. PERFORM graph
     3. GO TO graph
     4. CALL graph
@@ -104,7 +105,7 @@ class ProcedureDivisionAnalyzer:
         self.program = program
         self.source_lines = source_lines
 
-        self.paragraphs: List[ParagraphInfo] = []
+        self.inventory: List[ProcedureEntry] = []
         self.perform_graph: Dict[str, List[PerformEntry]] = {}
         self.goto_graph: Dict[str, List[GotoEntry]] = {}
         self.call_graph: Dict[str, List[CallEntry]] = {}
@@ -113,24 +114,37 @@ class ProcedureDivisionAnalyzer:
 
     def analyze(self) -> None:
         """Run all six extraction passes."""
-        self._build_paragraph_inventory()
+        self._build_inventory()
         self._build_perform_graph()
         self._build_goto_graph()
         self._build_call_graph()
         self._build_condition_map()
         self._build_field_references()
 
-    def _build_paragraph_inventory(self) -> None:
-        """Build ordered list of paragraphs with line ranges."""
+    def _build_inventory(self) -> None:
+        """Build ordered list of sections and paragraphs with line ranges."""
         proc_div = self.parse_tree.procedure_division
         total_lines = len(self.source_lines)
 
-        # Collect all paragraphs with their raw info
         raw_entries: List[Dict[str, Any]] = []
 
         for section in proc_div.sections:
+            # Collect child paragraph names (excluding misidentified keywords)
+            child_names = [
+                p.name for p in section.paragraphs
+                if p.name not in self._STATEMENT_KEYWORDS
+            ]
+
+            # Add the section entry itself
+            raw_entries.append({
+                "name": section.name,
+                "type": "section",
+                "parent_section": None,
+                "line_start": section.line_number,
+                "paragraphs": child_names,
+            })
+
             for para in section.paragraphs:
-                # Skip COBOL statement keywords misidentified as paragraphs
                 if para.name in self._STATEMENT_KEYWORDS:
                     continue
                 raw_entries.append({
@@ -138,10 +152,10 @@ class ProcedureDivisionAnalyzer:
                     "type": "paragraph",
                     "parent_section": section.name,
                     "line_start": para.line_number,
+                    "paragraphs": None,
                 })
 
         for para in proc_div.paragraphs:
-            # Skip COBOL statement keywords misidentified as paragraphs
             if para.name in self._STATEMENT_KEYWORDS:
                 continue
             raw_entries.append({
@@ -149,40 +163,41 @@ class ProcedureDivisionAnalyzer:
                 "type": "paragraph",
                 "parent_section": None,
                 "line_start": para.line_number,
+                "paragraphs": None,
             })
 
         # Sort by line_start
         raw_entries.sort(key=lambda e: e["line_start"])
 
-        # Compute line_end from next paragraph's line_start
+        # Compute line_end from next entry's line_start
         for i, entry in enumerate(raw_entries):
             if i + 1 < len(raw_entries):
-                # End at line before next paragraph starts
                 entry["line_end"] = raw_entries[i + 1]["line_start"] - 1
             else:
                 entry["line_end"] = total_lines
 
             entry["line_count"] = max(0, entry["line_end"] - entry["line_start"] + 1)
 
-        self.paragraphs = [
-            ParagraphInfo(
+        self.inventory = [
+            ProcedureEntry(
                 name=e["name"],
                 type=e["type"],
                 parent_section=e["parent_section"],
                 line_start=e["line_start"],
                 line_end=e["line_end"],
                 line_count=e["line_count"],
+                paragraphs=e["paragraphs"],
             )
             for e in raw_entries
         ]
 
-    def _get_paragraph_names_ordered(self) -> List[str]:
-        """Get paragraph names in order of appearance."""
-        return [p.name for p in self.paragraphs]
+    def _get_entry_names_ordered(self) -> List[str]:
+        """Get section and paragraph names in order of appearance."""
+        return [p.name for p in self.inventory]
 
     def _resolve_thru_range(self, start: str, end: str) -> List[str]:
-        """Resolve PERFORM THRU range to list of included paragraph names."""
-        names = self._get_paragraph_names_ordered()
+        """Resolve PERFORM THRU range to list of included entry names."""
+        names = self._get_entry_names_ordered()
         try:
             start_idx = names.index(start)
             end_idx = names.index(end)
@@ -198,6 +213,11 @@ class ProcedureDivisionAnalyzer:
         proc_div = self.parse_tree.procedure_division
 
         for section in proc_div.sections:
+            # Standalone section statements
+            entries = self._extract_performs_from_statements(section.statements)
+            if entries:
+                self.perform_graph[section.name] = entries
+
             for para in section.paragraphs:
                 entries = self._extract_performs_from_statements(para.statements)
                 if entries:
@@ -268,6 +288,13 @@ class ProcedureDivisionAnalyzer:
         proc_div = self.parse_tree.procedure_division
 
         for section in proc_div.sections:
+            # Standalone section statements
+            entries = self._extract_gotos_from_statements(
+                section.statements, section.name
+            )
+            if entries:
+                self.goto_graph[section.name] = entries
+
             for para in section.paragraphs:
                 entries = self._extract_gotos_from_statements(
                     para.statements, para.name
@@ -320,6 +347,11 @@ class ProcedureDivisionAnalyzer:
         proc_div = self.parse_tree.procedure_division
 
         for section in proc_div.sections:
+            # Standalone section statements
+            entries = self._extract_calls_from_statements(section.statements)
+            if entries:
+                self.call_graph[section.name] = entries
+
             for para in section.paragraphs:
                 entries = self._extract_calls_from_statements(para.statements)
                 if entries:
@@ -372,7 +404,7 @@ class ProcedureDivisionAnalyzer:
             re.IGNORECASE,
         )
 
-        for para_info in self.paragraphs:
+        for para_info in self.inventory:
             conditions: List[ConditionEntry] = []
 
             start = max(0, para_info.line_start - 1)
@@ -508,39 +540,50 @@ class ProcedureDivisionAnalyzer:
                 self.conditions[para_info.name] = conditions
 
     def _build_field_references(self) -> None:
-        """Build field references by aggregating from AST paragraph data."""
-        all_data_items = self.program.all_data_items
-
+        """Build field references by aggregating from AST section/paragraph data."""
         # Collect from sections
         for section in self.program.sections:
+            # Standalone section modifications/accesses
+            if section.standalone_modifications or section.standalone_accesses:
+                self._aggregate_field_refs_from_lists(
+                    section.name,
+                    section.standalone_modifications,
+                    section.standalone_accesses,
+                )
             for para in section.paragraphs:
-                self._aggregate_field_refs(para)
+                self._aggregate_field_refs_from_lists(
+                    para.name, para.modifications, para.accesses
+                )
 
         # Collect from top-level paragraphs
         for para in self.program.paragraphs:
-            self._aggregate_field_refs(para)
+            self._aggregate_field_refs_from_lists(
+                para.name, para.modifications, para.accesses
+            )
 
-    def _aggregate_field_refs(self, para: Any) -> None:
-        """Aggregate field references for a single paragraph."""
+    def _aggregate_field_refs_from_lists(
+        self,
+        name: str,
+        modifications: List[Any],
+        accesses: List[Any],
+    ) -> None:
+        """Aggregate field references from modification and access lists."""
         all_data_items = self.program.all_data_items
         writes: List[str] = []
         reads: List[str] = []
         conditions_tested: List[str] = []
 
-        # Writes from modifications
-        for mod in para.modifications:
+        for mod in modifications:
             var_name = mod.variable_name
             if var_name not in writes:
                 writes.append(var_name)
 
-        # Reads from accesses
-        for acc in para.accesses:
+        for acc in accesses:
             var_name = acc.variable_name
             if var_name not in reads:
                 reads.append(var_name)
 
         # Find 88-level items referenced in conditions
-        # Check if any accessed variable is an 88-level item
         for var_name in reads:
             item = all_data_items.get(var_name)
             if item and item.level == 88:
@@ -555,7 +598,7 @@ class ProcedureDivisionAnalyzer:
                     conditions_tested.append(var_name)
 
         if writes or reads or conditions_tested:
-            self.field_references[para.name] = FieldReferenceEntry(
+            self.field_references[name] = FieldReferenceEntry(
                 reads=reads,
                 writes=writes,
                 conditions_tested=conditions_tested,

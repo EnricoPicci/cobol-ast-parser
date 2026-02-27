@@ -989,7 +989,7 @@ assert result.to_text() == ""
 
 ### `analyze_procedure_division(source_path, options?)`
 
-Analyzes the PROCEDURE DIVISION of a COBOL source file and returns structural information including paragraph inventory, PERFORM/GO TO/CALL graphs, conditional branches, and field references. Designed for LLM agents that need a deterministic procedure skeleton.
+Analyzes the PROCEDURE DIVISION of a COBOL source file and returns structural information including section and paragraph inventory, PERFORM/GO TO/CALL graphs, conditional branches, and field references. Designed for LLM agents that need a deterministic procedure skeleton.
 
 **Parameters:**
 
@@ -1018,12 +1018,12 @@ Analyzes the PROCEDURE DIVISION of a COBOL source file and returns structural in
 | Field | Type | Description |
 |-------|------|-------------|
 | `program_name` | `str` | Name of the COBOL program |
-| `paragraphs` | `list[dict]` | Ordered paragraph inventory (name, type, parent_section, line_start, line_end, line_count) |
-| `perform_graph` | `dict` | Maps paragraph name to list of PERFORM targets (target, type, thru_target, thru_includes, condition, times, line) |
-| `goto_graph` | `dict` | Maps paragraph name to list of GO TO targets (target, line, conditional, condition_text) |
-| `call_graph` | `dict` | Maps paragraph name to list of CALL entries (target, line, using_fields, is_dynamic) |
-| `conditions` | `dict` | Maps paragraph name to list of conditional branches (IF/EVALUATE with nesting) |
-| `field_references` | `dict` | Maps paragraph name to field reference aggregation (reads, writes, conditions_tested) |
+| `inventory` | `list[dict]` | Ordered section and paragraph inventory. Section entries have: name, type="section", parent_section=None, line_start, line_end, line_count, paragraphs (list of child paragraph names). Paragraph entries have: name, type="paragraph", parent_section, line_start, line_end, line_count. |
+| `perform_graph` | `dict` | Maps section/paragraph name to list of PERFORM targets (target, type, thru_target, thru_includes, condition, times, line) |
+| `goto_graph` | `dict` | Maps section/paragraph name to list of GO TO targets (target, line, conditional, condition_text) |
+| `call_graph` | `dict` | Maps section/paragraph name to list of CALL entries (target, line, using_fields, is_dynamic) |
+| `conditions` | `dict` | Maps section/paragraph name to list of conditional branches (IF/EVALUATE with nesting) |
+| `field_references` | `dict` | Maps section/paragraph name to field reference aggregation (reads, writes, conditions_tested) |
 | `execution_time_seconds` | `float` | Total processing time |
 | `source_info` | `dict \| None` | Source file metadata |
 | `warnings` | `list[str]` | Warning messages from preprocessing |
@@ -1031,7 +1031,7 @@ Analyzes the PROCEDURE DIVISION of a COBOL source file and returns structural in
 **Methods:**
 - `to_dict()` - Convert to JSON-serializable dictionary
 - `to_text()` - Render as compact LLM-friendly text format
-- `for_paragraphs(names)` - Return filtered result for specified paragraphs only (PERFORM targets preserved)
+- `for_entries(names)` - Return filtered result for specified sections/paragraphs only (PERFORM targets preserved)
 
 ### Basic Usage
 
@@ -1044,14 +1044,14 @@ result = analyze_procedure_division(Path("program.cob"))
 # Compact text for LLM prompt inclusion
 print(result.to_text())
 
-# Access individual views
-for para in result.paragraphs:
-    print(f"{para['name']} lines {para['line_start']}-{para['line_end']}")
+# Access inventory (sections and paragraphs)
+for entry in result.inventory:
+    print(f"{entry['type']} {entry['name']} lines {entry['line_start']}-{entry['line_end']}")
 
 # Check PERFORM graph
-for para_name, performs in result.perform_graph.items():
+for name, performs in result.perform_graph.items():
     for p in performs:
-        print(f"{para_name} -> {p['target']} ({p['type']})")
+        print(f"{name} -> {p['target']} ({p['type']})")
 ```
 
 ### With Copybooks
@@ -1066,13 +1066,17 @@ options = ProcedureDivisionOptions(
 result = analyze_procedure_division(Path("program.cob"), options)
 ```
 
-### Filtering to Specific Paragraphs
+### Filtering to Specific Entries
 
 ```python
 result = analyze_procedure_division(Path("program.cob"))
 
 # Get only MAIN-PARA and INIT-PARA views
-filtered = result.for_paragraphs(["MAIN-PARA", "INIT-PARA"])
+filtered = result.for_entries(["MAIN-PARA", "INIT-PARA"])
+print(filtered.to_text())
+
+# Can also filter by section name
+filtered = result.for_entries(["MAIN-SECTION"])
 print(filtered.to_text())
 ```
 

@@ -1828,23 +1828,23 @@ class ProcedureDivisionResult:
     """Result of PROCEDURE DIVISION analysis.
 
     Contains structural information about the PROCEDURE DIVISION including
-    paragraph inventory, control flow graphs, conditional branches, and
-    field references.
+    section and paragraph inventory, control flow graphs, conditional
+    branches, and field references.
 
     Attributes:
         program_name: Name of the analyzed COBOL program
-        paragraphs: Ordered list of paragraph inventory entries
-        perform_graph: Maps paragraph name to list of PERFORM targets
-        goto_graph: Maps paragraph name to list of GO TO targets
-        call_graph: Maps paragraph name to list of CALL targets
-        conditions: Maps paragraph name to list of conditional branches
-        field_references: Maps paragraph name to field reference aggregation
+        inventory: Ordered list of section and paragraph entries
+        perform_graph: Maps section/paragraph name to list of PERFORM targets
+        goto_graph: Maps section/paragraph name to list of GO TO targets
+        call_graph: Maps section/paragraph name to list of CALL targets
+        conditions: Maps section/paragraph name to list of conditional branches
+        field_references: Maps section/paragraph name to field reference aggregation
         execution_time_seconds: Total execution time
         source_info: Source file metadata (if include_source_info was True)
         warnings: Warning messages from preprocessing
     """
     program_name: str
-    paragraphs: List[Dict[str, Any]]
+    inventory: List[Dict[str, Any]]
     perform_graph: Dict[str, List[Dict[str, Any]]]
     goto_graph: Dict[str, List[Dict[str, Any]]]
     call_graph: Dict[str, List[Dict[str, Any]]]
@@ -1858,7 +1858,7 @@ class ProcedureDivisionResult:
         """Convert to dictionary for JSON serialization."""
         result: Dict[str, Any] = {
             "program_name": self.program_name,
-            "paragraphs": self.paragraphs,
+            "inventory": self.inventory,
             "perform_graph": self.perform_graph,
             "goto_graph": self.goto_graph,
             "call_graph": self.call_graph,
@@ -1882,20 +1882,28 @@ class ProcedureDivisionResult:
         lines.append(f"PROGRAM: {self.program_name}")
         lines.append("")
 
-        # Paragraphs
-        lines.append("PARAGRAPHS:")
-        for para in self.paragraphs:
-            section_info = f" ({para['parent_section']})" if para.get("parent_section") else ""
-            lines.append(
-                f"  {para['name']}{section_info}"
-                f"  lines {para['line_start']}-{para['line_end']}"
-            )
+        # Inventory (sections and paragraphs)
+        lines.append("INVENTORY:")
+        for entry in self.inventory:
+            if entry["type"] == "section":
+                children = entry.get("paragraphs", [])
+                children_str = f" [{', '.join(children)}]" if children else ""
+                lines.append(
+                    f"  SECTION {entry['name']}{children_str}"
+                    f"  lines {entry['line_start']}-{entry['line_end']}"
+                )
+            else:
+                section_info = f" ({entry['parent_section']})" if entry.get("parent_section") else ""
+                lines.append(
+                    f"  {entry['name']}{section_info}"
+                    f"  lines {entry['line_start']}-{entry['line_end']}"
+                )
         lines.append("")
 
         # PERFORM graph
         if self.perform_graph:
             lines.append("PERFORM GRAPH:")
-            for para_name, performs in self.perform_graph.items():
+            for name, performs in self.perform_graph.items():
                 for p in performs:
                     detail = p["target"]
                     if p.get("thru_target"):
@@ -1904,35 +1912,35 @@ class ProcedureDivisionResult:
                         detail += f" UNTIL {p['condition']}"
                     if p.get("times"):
                         detail += f" {p['times']} TIMES"
-                    lines.append(f"  {para_name} -> {detail}")
+                    lines.append(f"  {name} -> {detail}")
             lines.append("")
 
         # GO TO graph
         if self.goto_graph:
             lines.append("GO TO GRAPH:")
-            for para_name, gotos in self.goto_graph.items():
+            for name, gotos in self.goto_graph.items():
                 for g in gotos:
                     cond = " (conditional)" if g.get("conditional") else ""
-                    lines.append(f"  {para_name} -> {g['target']}{cond}")
+                    lines.append(f"  {name} -> {g['target']}{cond}")
             lines.append("")
 
         # CALL graph
         if self.call_graph:
             lines.append("CALL GRAPH:")
-            for para_name, calls in self.call_graph.items():
+            for name, calls in self.call_graph.items():
                 for c in calls:
                     dynamic = " (dynamic)" if c.get("is_dynamic") else ""
                     using = f" USING {', '.join(c['using_fields'])}" if c.get("using_fields") else ""
-                    lines.append(f"  {para_name} -> {c['target']}{dynamic}{using}")
+                    lines.append(f"  {name} -> {c['target']}{dynamic}{using}")
             lines.append("")
 
         # Conditions
         if self.conditions:
             lines.append("CONDITIONS:")
-            for para_name, conds in self.conditions.items():
+            for name, conds in self.conditions.items():
                 for c in conds:
                     if c["type"] == "EVALUATE":
-                        lines.append(f"  {para_name}: EVALUATE {c.get('condition', '')}")
+                        lines.append(f"  {name}: EVALUATE {c.get('condition', '')}")
                         for b in c.get("branches", []):
                             if b.get("condition"):
                                 lines.append(f"    WHEN {b['condition']}")
@@ -1940,13 +1948,13 @@ class ProcedureDivisionResult:
                                 lines.append("    WHEN OTHER")
                     else:
                         else_str = " (has ELSE)" if c.get("has_else") else ""
-                        lines.append(f"  {para_name}: IF {c.get('condition', '')}{else_str}")
+                        lines.append(f"  {name}: IF {c.get('condition', '')}{else_str}")
             lines.append("")
 
         # Field references
         if self.field_references:
             lines.append("FIELD REFERENCES:")
-            for para_name, refs in self.field_references.items():
+            for name, refs in self.field_references.items():
                 parts = []
                 if refs.get("writes"):
                     parts.append(f"writes: {', '.join(refs['writes'])}")
@@ -1955,7 +1963,7 @@ class ProcedureDivisionResult:
                 if refs.get("conditions_tested"):
                     parts.append(f"conditions: {', '.join(refs['conditions_tested'])}")
                 if parts:
-                    lines.append(f"  {para_name}: {'; '.join(parts)}")
+                    lines.append(f"  {name}: {'; '.join(parts)}")
 
         # Remove trailing blank lines
         while lines and lines[-1] == "":
@@ -1963,26 +1971,25 @@ class ProcedureDivisionResult:
 
         return "\n".join(lines)
 
-    def for_paragraphs(self, names: List[str]) -> "ProcedureDivisionResult":
-        """Return a filtered result containing only the specified paragraphs.
+    def for_entries(self, names: List[str]) -> "ProcedureDivisionResult":
+        """Return a filtered result containing only the specified entries.
 
-        PERFORM targets are preserved even if the target paragraph is not in
-        the filter list, to maintain control flow visibility.
+        Filters both sections and paragraphs by name. PERFORM targets are
+        preserved even if the target is not in the filter list, to maintain
+        control flow visibility.
 
         Args:
-            names: List of paragraph names to include
+            names: List of section or paragraph names to include
 
         Returns:
-            New ProcedureDivisionResult with only the specified paragraphs
+            New ProcedureDivisionResult with only the specified entries
         """
         name_set = {n.upper() for n in names}
 
-        # Filter paragraphs
-        filtered_paragraphs = [
-            p for p in self.paragraphs if p["name"] in name_set
+        filtered_inventory = [
+            p for p in self.inventory if p["name"] in name_set
         ]
 
-        # Filter graphs - keep entries where the source paragraph is in the set
         filtered_perform = {
             k: v for k, v in self.perform_graph.items() if k in name_set
         }
@@ -2001,7 +2008,7 @@ class ProcedureDivisionResult:
 
         return ProcedureDivisionResult(
             program_name=self.program_name,
-            paragraphs=filtered_paragraphs,
+            inventory=filtered_inventory,
             perform_graph=filtered_perform,
             goto_graph=filtered_goto,
             call_graph=filtered_call,
@@ -2041,9 +2048,10 @@ def _build_procedure_result(
             return _convert_to_original_line(line, line_mapping, original_line_count)
         return line
 
-    # Convert paragraphs
-    paragraphs = [
-        {
+    # Convert inventory (sections and paragraphs)
+    inventory = []
+    for p in analyzer.inventory:
+        entry: Dict[str, Any] = {
             "name": p.name,
             "type": p.type,
             "parent_section": p.parent_section,
@@ -2051,8 +2059,9 @@ def _build_procedure_result(
             "line_end": _map_line(p.line_end),
             "line_count": p.line_count,
         }
-        for p in analyzer.paragraphs
-    ]
+        if p.paragraphs is not None:
+            entry["paragraphs"] = p.paragraphs
+        inventory.append(entry)
 
     # Convert perform graph
     perform_graph: Dict[str, List[Dict[str, Any]]] = {}
@@ -2114,7 +2123,7 @@ def _build_procedure_result(
 
     return ProcedureDivisionResult(
         program_name=program_name,
-        paragraphs=paragraphs,
+        inventory=inventory,
         perform_graph=perform_graph,
         goto_graph=goto_graph,
         call_graph=call_graph,
@@ -2157,8 +2166,8 @@ def analyze_procedure_division(
     """Analyze the PROCEDURE DIVISION of a COBOL source file.
 
     Returns structural information about the PROCEDURE DIVISION including
-    paragraph inventory, PERFORM/GO TO/CALL graphs, conditional branches,
-    and field references.
+    section and paragraph inventory, PERFORM/GO TO/CALL graphs, conditional
+    branches, and field references.
 
     Args:
         source_path: Path to the COBOL source file
